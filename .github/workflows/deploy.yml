@@ -22,7 +22,7 @@ jobs:
         script: |
           cd /Nucleus
           git pull origin main
-
+          cd /Nucleus
           cat > .env << EOF
           ApexLegendsApiKey=${{ secrets.APEXLEGENDSAPIKEY }}
           

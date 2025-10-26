@@ -45,8 +45,8 @@ builder.Services.AddAuthentication(options =>
 })
 .AddOAuth("Discord", options =>
 {
-    options.ClientId = builder.Configuration["Discord:ClientId"]!;
-    options.ClientSecret = builder.Configuration["Discord:ClientSecret"]!;
+    options.ClientId = builder.Configuration["DiscordClientId"]!;
+    options.ClientSecret = builder.Configuration["DiscordClientSecret"]!;
 
     options.AuthorizationEndpoint = "https://discord.com/api/oauth2/authorize";
     options.TokenEndpoint = "https://discord.com/api/oauth2/token";

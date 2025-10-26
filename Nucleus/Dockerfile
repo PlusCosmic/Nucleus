@@ -7,10 +7,13 @@ EXPOSE 8081
 FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
 ARG BUILD_CONFIGURATION=Release
 WORKDIR /src
-COPY ["Nucleus.csproj", "Nucleus/"]
-RUN dotnet restore "Nucleus.csproj"
+# Copy only the project file first to leverage Docker layer caching
+COPY ["Nucleus.csproj", "./"]
+RUN dotnet restore "./Nucleus.csproj"
+# Copy the rest of the source
 COPY . .
-WORKDIR "/src/Nucleus"
+# Build from the project root (the build context is the Nucleus project directory)
+WORKDIR "/src"
 RUN dotnet build "./Nucleus.csproj" -c $BUILD_CONFIGURATION -o /app/build
 
 FROM build AS publish

@@ -122,7 +122,7 @@ app.MapGet("/auth/discord/login", (HttpContext http) =>
 app.MapGet("/auth/post-login-redirect", (HttpContext ctx, IConfiguration cfg) =>
 {
     // Typically redirect to SPA root
-    var redirect = cfg["Auth:PostLoginRedirect"] ?? "/";
+    var redirect = frontendOrigin;
     ctx.Response.Redirect(redirect);
     return Results.Empty;
 });

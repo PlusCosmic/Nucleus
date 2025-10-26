@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Authentication.OAuth;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http.Json;
 using Nucleus.ApexLegends;
+using Nucleus.Discord;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -23,7 +24,25 @@ builder.Services.AddCors(options =>
 {
     options.AddDefaultPolicy(policy =>
         policy
-            .WithOrigins(frontendOrigin, "http://localhost:5173")
+            .SetIsOriginAllowed(origin =>
+            {
+                if (!Uri.TryCreate(origin, UriKind.Absolute, out var uri))
+                    return false;
+                
+                // Allow localhost on any port
+                if (uri.Host == "localhost" || uri.Host == "127.0.0.1")
+                    return true;
+                
+                // Allow *.pluscosmic.dev
+                if (uri.Host == "pluscosmic.dev" || uri.Host.EndsWith(".pluscosmic.dev"))
+                    return true;
+                
+                // Allow previews from cloudflare
+                if (uri.Host.EndsWith("pluscosmicdashboard.pages.dev"))
+                    return true;
+                
+                return false;
+            })
             .AllowAnyMethod()
             .AllowCredentials()
             .AllowAnyHeader());
@@ -109,20 +128,35 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 // Initiate login: redirects to Discord
-app.MapGet("/auth/discord/login", (HttpContext http) =>
+app.MapGet("/auth/discord/login", (HttpContext http, string? returnUrl) =>
 {
+    // Validate the return URL to prevent open redirect vulnerabilities
+    if (!string.IsNullOrEmpty(returnUrl) && !IsValidReturnUrl(returnUrl))
+    {
+        returnUrl = null;
+    }
+    
     var props = new AuthenticationProperties
     {
-        RedirectUri = "/auth/post-login-redirect" // where to go after cookie is set
+        RedirectUri = "/auth/post-login-redirect" + (returnUrl != null ? $"?returnUrl={Uri.EscapeDataString(returnUrl)}" : "")
     };
     return Results.Challenge(props, new[] { "Discord" });
 });
 
 // Optional landing after successful auth cookie issued
-app.MapGet("/auth/post-login-redirect", (HttpContext ctx, IConfiguration cfg) =>
+app.MapGet("/auth/post-login-redirect", (HttpContext ctx, string? returnUrl) =>
 {
-    // Typically redirect to SPA root
-    var redirect = frontendOrigin;
+    // Validate return URL again for safety
+    string redirect;
+    if (!string.IsNullOrEmpty(returnUrl) && IsValidReturnUrl(returnUrl))
+    {
+        redirect = returnUrl;
+    }
+    else
+    {
+        redirect = frontendOrigin;
+    }
+    
     ctx.Response.Redirect(redirect);
     return Results.Empty;
 });
@@ -135,17 +169,28 @@ app.MapPost("/auth/logout", async (HttpContext http) =>
 });
 
 // Current user endpoint
-app.MapGet("/me", [Authorize] (ClaimsPrincipal user) =>
-{
-    return Results.Ok(new
-    {
-        id = user.FindFirstValue(ClaimTypes.NameIdentifier),
-        username = user.Identity?.Name,
-        avatar = user.FindFirst("urn:discord:avatar")?.Value,
-    });
-});
+app.MapGet("/me", [Authorize] (ClaimsPrincipal user) => new User(user.FindFirstValue(ClaimTypes.NameIdentifier), user.Identity?.Name,
+    user.FindFirst("urn:discord:avatar")?.Value));
 
 app.MapGet("/apex-legends/map-rotation", (MapService mapService) => mapService.GetMapRotation())
     .WithName("GetApexMapRotation");
 
 app.Run();
+
+bool IsValidReturnUrl(string url)
+{
+    if (!Uri.TryCreate(url, UriKind.Absolute, out var uri))
+        return false;
+    
+    // Only allow redirect to trusted domains
+    if (uri.Host == "localhost" || uri.Host == "127.0.0.1")
+        return true;
+    
+    if (uri.Host == "pluscosmic.dev" || uri.Host.EndsWith(".pluscosmic.dev"))
+        return true;
+    
+    if (uri.Host.EndsWith("pluscosmicdashboard.pages.dev"))
+        return true;
+    
+    return false;
+}

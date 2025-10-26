@@ -15,6 +15,23 @@
       # Optional: make sure it's Production
       - ASPNETCORE_ENVIRONMENT=Production
       - ApexLegendsApiKey=${ApexLegendsApiKey}
+      - DatabaseConnectionString=Host=postgres;Port=5432;Database=nucleus_db;Username=nucleus_user;Password=${POSTGRES_PASSWORD}
+    depends_on:
+      - postgres
+      
+  postgres:
+    image: postgres:16
+    container_name: postgres
+    restart: unless-stopped
+    networks:
+      - app-network
+    environment:
+      - POSTGRES_DB=nucleus_db
+      - POSTGRES_USER=nucleus_user
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      
   caddy:
     image: caddy:latest
     container_name: caddy
@@ -39,3 +56,4 @@ networks:
 volumes:
   caddy_data:
   caddy_config:
+  postgres_data:

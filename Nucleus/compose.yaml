@@ -4,6 +4,8 @@
     build:
       context: .
       dockerfile: Dockerfile
+    container_name: nucleus
+    restart: unless-stopped
     networks:
       - app-network
     environment:
@@ -12,6 +14,7 @@
       - ASPNETCORE_FORWARDEDHEADERS_ENABLED=true
       # Optional: make sure it's Production
       - ASPNETCORE_ENVIRONMENT=Production
+      - ApexLegendsApiKey=${ApexLegendsApiKey}
   caddy:
     image: caddy:latest
     container_name: caddy

@@ -17,9 +17,10 @@ jobs:
       uses: appleboy/ssh-action@v1.0.0
       with:
         host: ${{ secrets.VPS_HOST }}
-        username: ${{ secrets.VPS_USERNAME }}
+        username: debian
         key: ${{ secrets.VPS_SSH_KEY }}
         script: |
+          whoami
           echo "Current directory: $(pwd)"
           cd /Nucleus
           git pull origin master

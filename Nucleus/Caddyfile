@@ -1,0 +1,15 @@
+:80 {
+    reverse_proxy api:8080
+}
+
+nucleus.pluscosmic.dev {
+    reverse_proxy api:8080
+    
+    # Optional: Add logging
+    log {
+        output file /var/log/caddy/access.log
+    }
+    
+    # Optional: Add compression
+    encode gzip
+}

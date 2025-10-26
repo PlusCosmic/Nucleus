@@ -3,7 +3,7 @@
     image: nucleus
     build:
       context: .
-      dockerfile: Nucleus/Dockerfile
+      dockerfile: Dockerfile
   caddy:
     image: caddy:latest
     container_name: caddy

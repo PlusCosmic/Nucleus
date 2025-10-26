@@ -1,9 +1,5 @@
-:80 {
-    reverse_proxy api:8080
-}
-
 nucleus.pluscosmic.dev {
-    reverse_proxy api:8080
+    reverse_proxy nucleus:8080
     
     # Optional: Add logging
     log {

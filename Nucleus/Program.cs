@@ -19,7 +19,7 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddOpenApi();
 builder.Services.AddHttpClient();
 builder.Services.AddSingleton<MapService>();
-builder.Services.AddSingleton<LinksService>();
+builder.Services.AddScoped<LinksService>();
 builder.Services.Configure<JsonOptions>(options => options.SerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower);
 
 var frontendOrigin = builder.Configuration["FrontendOrigin"] ?? "http://localhost:5173";

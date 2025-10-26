@@ -16,11 +16,14 @@ builder.Services.AddOpenApi();
 builder.Services.AddHttpClient();
 builder.Services.AddSingleton<MapService>();
 builder.Services.Configure<JsonOptions>(options => options.SerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower);
+
+var frontendOrigin = builder.Configuration["FrontendOrigin"] ?? "http://localhost:5173";
+
 builder.Services.AddCors(options =>
 {
     options.AddDefaultPolicy(policy =>
         policy
-            .AllowAnyOrigin()
+            .WithOrigins(frontendOrigin)
             .AllowAnyMethod()
             .AllowCredentials()
             .AllowAnyHeader());

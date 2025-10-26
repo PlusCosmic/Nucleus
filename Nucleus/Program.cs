@@ -6,8 +6,11 @@ using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.OAuth;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http.Json;
+using Microsoft.EntityFrameworkCore;
 using Nucleus.ApexLegends;
 using Nucleus.Discord;
+using Nucleus.Links;
+using Nucleus.Models;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -114,6 +117,9 @@ builder.Services.AddAuthentication(options =>
 
 builder.Services.AddAuthorization();
 
+builder.Services.AddDbContextPool<NucleusDbContext>(opt => 
+    opt.UseNpgsql($"Host=postgres;Port=5432;Database=nucleus_db;Username=nucleus_user;Password={builder.Configuration["POSTGRES_PASSWORD"]}"));
+
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
@@ -174,6 +180,39 @@ app.MapGet("/me", [Authorize] (ClaimsPrincipal user) => new User(user.FindFirstV
 
 app.MapGet("/apex-legends/map-rotation", (MapService mapService) => mapService.GetMapRotation())
     .WithName("GetApexMapRotation");
+
+app.MapGet("/links", [Authorize] async (LinksService linksService, ClaimsPrincipal user) =>
+    {
+        var discordId = user.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (string.IsNullOrEmpty(discordId))
+            return Results.Unauthorized();
+    
+        var links = await linksService.GetLinksForUser(discordId);
+        return Results.Ok(links);
+    })
+    .WithName("GetLinksForUser");
+
+app.MapDelete("/links/{id:guid}", [Authorize] async (LinksService linksService, Guid id, ClaimsPrincipal user) =>
+    {
+        var discordId = user.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (string.IsNullOrEmpty(discordId))
+            return Results.Unauthorized();
+    
+        var result = await linksService.DeleteLink(id, discordId);
+        return result ? Results.NoContent() : Results.NotFound();
+    })
+    .WithName("DeleteLink");
+
+app.MapPost("/links", [Authorize] async (LinksService linksService, Link link, ClaimsPrincipal user) =>
+    {
+        var discordId = user.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (string.IsNullOrEmpty(discordId))
+            return Results.Unauthorized();
+    
+        await linksService.AddLink(discordId, link);
+        return Results.Created();
+    })
+    .WithName("AddLink");
 
 app.Run();
 

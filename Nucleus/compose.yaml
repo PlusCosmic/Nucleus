@@ -4,6 +4,14 @@
     build:
       context: .
       dockerfile: Dockerfile
+    networks:
+      - app-network
+    environment:
+      - ASPNETCORE_URLS=http://+:8080
+      # Easiest way to honor X-Forwarded-* from Caddy without code changes:
+      - ASPNETCORE_FORWARDEDHEADERS_ENABLED=true
+      # Optional: make sure it's Production
+      - ASPNETCORE_ENVIRONMENT=Production
   caddy:
     image: caddy:latest
     container_name: caddy

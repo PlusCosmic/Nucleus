@@ -15,6 +15,9 @@
       # Optional: make sure it's Production
       - ASPNETCORE_ENVIRONMENT=Production
       - ApexLegendsApiKey=${ApexLegendsApiKey}
+      - DiscordClientId=${DiscordClientId}
+      - DiscordClientSecret=${DiscordClientSecret}
+      - FrontendOrigin=${FrontendOrigin}
       - DatabaseConnectionString=Host=postgres;Port=5432;Database=nucleus_db;Username=nucleus_user;Password=${POSTGRES_PASSWORD}
     depends_on:
       - postgres

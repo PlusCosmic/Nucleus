@@ -20,8 +20,23 @@ jobs:
         username: debian
         key: ${{ secrets.VPS_SSH_KEY }}
         script: |
+          echo "=== Current User ==="
           whoami
-          echo "Current directory: $(pwd)"
+          
+          echo "=== Home Directory ==="
+          echo $HOME
+          
+          echo "=== Current Working Directory ==="
+          pwd
+          
+          echo "=== Files in Current Directory ==="
+          ls -la
+          
+          echo "=== Files in Home Directory ==="
+          ls -la $HOME
+          
+          echo "=== Check if project exists ==="
+          ls -la $HOME/your-repo-name 2>&1 || echo "Project directory not found"
           cd /Nucleus
           git pull origin master
           cd /Nucleus

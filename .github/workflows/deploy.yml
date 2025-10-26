@@ -25,6 +25,8 @@ jobs:
           cd Nucleus
           cat > .env << EOF
           ApexLegendsApiKey=${{ secrets.APEXLEGENDSAPIKEY }}
+          DiscordClientId=${{ secrets.DISCORD_CLIENT_ID }}
+          DiscordClientSecret=${{ secrets.DISCORD_CLIENT_SECRET }}
           EOF
           docker compose down
           docker compose build

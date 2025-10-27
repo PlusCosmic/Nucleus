@@ -159,6 +159,7 @@ app.MapGet("/auth/post-login-redirect", async (HttpContext ctx, string? returnUr
     if (!dbContext.DiscordUsers.Any(u => u.DiscordId == discordId))
     {
         await dbContext.DiscordUsers.AddAsync(new DiscordUser { DiscordId = discordId, Username = username });
+        await dbContext.SaveChangesAsync();
     }
     // Validate return URL again for safety
     string redirect;

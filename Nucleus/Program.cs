@@ -119,7 +119,7 @@ builder.Services.AddAuthentication(options =>
 builder.Services.AddAuthorization();
 
 builder.Services.AddDbContextPool<NucleusDbContext>(opt => 
-    opt.UseNpgsql($"Host=postgres;Port=5432;Database=nucleus_db;Username=nucleus_user;Password={builder.Configuration["POSTGRES_PASSWORD"]}"));
+    opt.UseNpgsql(builder.Configuration["DatabaseConnectionString"] ?? throw new InvalidOperationException("DatabaseConnectionString not configured")));
 
 var app = builder.Build();
 

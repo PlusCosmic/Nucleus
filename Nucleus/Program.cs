@@ -151,8 +151,15 @@ app.MapGet("/auth/discord/login", (HttpContext http, string? returnUrl) =>
 });
 
 // Optional landing after successful auth cookie issued
-app.MapGet("/auth/post-login-redirect", (HttpContext ctx, string? returnUrl) =>
+app.MapGet("/auth/post-login-redirect", async (HttpContext ctx, string? returnUrl, NucleusDbContext dbContext, ClaimsPrincipal user) =>
 {
+    // Check if user is already in database
+    var discordId = user.FindFirstValue(ClaimTypes.NameIdentifier) ?? throw new InvalidOperationException("No Discord ID");
+    var username = user.FindFirstValue(ClaimTypes.Name) ?? throw new InvalidOperationException("No Discord username");
+    if (!dbContext.DiscordUsers.Any(u => u.DiscordId == discordId))
+    {
+        await dbContext.DiscordUsers.AddAsync(new DiscordUser { DiscordId = discordId, Username = username });
+    }
     // Validate return URL again for safety
     string redirect;
     if (!string.IsNullOrEmpty(returnUrl) && IsValidReturnUrl(returnUrl))

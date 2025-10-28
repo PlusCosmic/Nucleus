@@ -1,5 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Text.Json.Serialization;
 
 namespace Nucleus.Models;
 
@@ -15,5 +14,6 @@ public partial class UserFrequentLink
 
     public string? ThumbnailUrl { get; set; }
 
+    [JsonIgnore]
     public virtual DiscordUser User { get; set; } = null!;
 }

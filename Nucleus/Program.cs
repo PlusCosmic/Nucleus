@@ -1,6 +1,7 @@
 using System.Net.Http.Headers;
 using System.Security.Claims;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.OAuth;
@@ -20,7 +21,11 @@ builder.Services.AddOpenApi();
 builder.Services.AddHttpClient();
 builder.Services.AddSingleton<MapService>();
 builder.Services.AddScoped<LinksService>();
-builder.Services.Configure<JsonOptions>(options => options.SerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower);
+builder.Services.Configure<JsonOptions>(options =>
+{
+    options.SerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower;
+    options.SerializerOptions.ReferenceHandler = ReferenceHandler.IgnoreCycles;
+});
 
 var frontendOrigin = builder.Configuration["FrontendOrigin"] ?? "http://localhost:5173";
 
@@ -52,69 +57,93 @@ builder.Services.AddCors(options =>
             .AllowAnyHeader());
 });
 
+var discordClientId = builder.Configuration["DiscordClientId"];
+var discordClientSecret = builder.Configuration["DiscordClientSecret"];
+var hasDiscordOAuth = !string.IsNullOrWhiteSpace(discordClientId) && !string.IsNullOrWhiteSpace(discordClientSecret);
+
 builder.Services.AddAuthentication(options =>
 {
     options.DefaultScheme = CookieAuthenticationDefaults.AuthenticationScheme;
-    options.DefaultChallengeScheme = "Discord"; // so Challenge() uses Discord by default
+    options.DefaultChallengeScheme = hasDiscordOAuth ? "Discord" : CookieAuthenticationDefaults.AuthenticationScheme;
 })
 .AddCookie(options =>
 {
     options.Cookie.Name = "pcdash.auth";
     options.Cookie.HttpOnly = true;
-    options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
-    options.Cookie.SameSite = SameSiteMode.None; // if frontend and backend are on different sites, use None + HTTPS
+    options.Cookie.SecurePolicy = builder.Environment.IsDevelopment() 
+        ? CookieSecurePolicy.SameAsRequest  // Allow HTTP in development
+        : CookieSecurePolicy.Always;        // Require HTTPS in production
+    options.Cookie.SameSite = builder.Environment.IsDevelopment()
+        ? SameSiteMode.Lax                  // More lenient for development
+        : SameSiteMode.None;                // Strict for production cross-origin
     options.SlidingExpiration = true;
     options.ExpireTimeSpan = TimeSpan.FromDays(7);
-})
-.AddOAuth("Discord", options =>
-{
-    options.ClientId = builder.Configuration["DiscordClientId"]!;
-    options.ClientSecret = builder.Configuration["DiscordClientSecret"]!;
-
-    options.AuthorizationEndpoint = "https://discord.com/api/oauth2/authorize";
-    options.TokenEndpoint = "https://discord.com/api/oauth2/token";
-    options.UserInformationEndpoint = "https://discord.com/api/users/@me";
-
-    options.CallbackPath = "/auth/discord/callback"; // Must match the Discord app redirect URI
-
-    options.Scope.Clear();
-    options.Scope.Add("identify");
-    // options.Scope.Add("email"); // optional
-
-    options.SaveTokens = false; // we use cookie session; no need to store provider tokens in auth properties
-
-    // Claim mappings
-    options.ClaimActions.Clear();
-    options.ClaimActions.MapJsonKey(ClaimTypes.NameIdentifier, "id");
-    options.ClaimActions.MapJsonKey(ClaimTypes.Name, "username");
-    options.ClaimActions.MapJsonKey("urn:discord:discriminator", "discriminator");
-    options.ClaimActions.MapJsonKey("urn:discord:avatar", "avatar");
-
-    options.Events = new OAuthEvents
+    
+    // Prevent automatic redirects for API calls - return 401 instead
+    options.Events.OnRedirectToLogin = context =>
     {
-        OnCreatingTicket = async ctx =>
-        {
-            // Fetch user info from Discord and map claims
-            using var request = new HttpRequestMessage(HttpMethod.Get, ctx.Options.UserInformationEndpoint);
-            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ctx.AccessToken);
-            using var response = await ctx.Backchannel.SendAsync(request);
-            response.EnsureSuccessStatusCode();
-            var json = await response.Content.ReadFromJsonAsync<JsonElement>();
-
-            ctx.RunClaimActions(json);
-
-            // OPTIONAL: Upsert the user in your database here using the Discord ID
-            // var discordId = json.GetProperty("id").GetString();
-            // await users.UpsertAsync(...);
-        },
-        OnRemoteFailure = ctx =>
-        {
-            ctx.Response.Redirect("/auth/login-failed");
-            ctx.HandleResponse();
-            return Task.CompletedTask;
-        }
+        context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+        return Task.CompletedTask;
+    };
+    options.Events.OnRedirectToAccessDenied = context =>
+    {
+        context.Response.StatusCode = StatusCodes.Status403Forbidden;
+        return Task.CompletedTask;
     };
 });
+
+if (hasDiscordOAuth)
+{
+    builder.Services.AddAuthentication().AddOAuth("Discord", options =>
+    {
+        options.ClientId = discordClientId!;
+        options.ClientSecret = discordClientSecret!;
+
+        options.AuthorizationEndpoint = "https://discord.com/api/oauth2/authorize";
+        options.TokenEndpoint = "https://discord.com/api/oauth2/token";
+        options.UserInformationEndpoint = "https://discord.com/api/users/@me";
+
+        options.CallbackPath = "/auth/discord/callback"; // Must match the Discord app redirect URI
+
+        options.Scope.Clear();
+        options.Scope.Add("identify");
+        // options.Scope.Add("email"); // optional
+
+        options.SaveTokens = false; // we use cookie session; no need to store provider tokens in auth properties
+
+        // Claim mappings
+        options.ClaimActions.Clear();
+        options.ClaimActions.MapJsonKey(ClaimTypes.NameIdentifier, "id");
+        options.ClaimActions.MapJsonKey(ClaimTypes.Name, "username");
+        options.ClaimActions.MapJsonKey("urn:discord:discriminator", "discriminator");
+        options.ClaimActions.MapJsonKey("urn:discord:avatar", "avatar");
+        
+        options.Events = new OAuthEvents
+        {
+            OnCreatingTicket = async ctx =>
+            {
+                // Fetch user info from Discord and map claims
+                using var request = new HttpRequestMessage(HttpMethod.Get, ctx.Options.UserInformationEndpoint);
+                request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ctx.AccessToken);
+                using var response = await ctx.Backchannel.SendAsync(request);
+                response.EnsureSuccessStatusCode();
+                var json = await response.Content.ReadFromJsonAsync<JsonElement>();
+
+                ctx.RunClaimActions(json);
+
+                // OPTIONAL: Upsert the user in your database here using the Discord ID
+                // var discordId = json.GetProperty("id").GetString();
+                // await users.UpsertAsync(...);
+            },
+            OnRemoteFailure = ctx =>
+            {
+                ctx.Response.Redirect("/auth/login-failed");
+                ctx.HandleResponse();
+                return Task.CompletedTask;
+            }
+        };
+    });
+}
 
 builder.Services.AddAuthorization();
 
@@ -134,21 +163,31 @@ app.UseCors();
 app.UseAuthentication();
 app.UseAuthorization();
 
-// Initiate login: redirects to Discord
-app.MapGet("/auth/discord/login", (HttpContext http, string? returnUrl) =>
+// Initiate login: redirects to Discord (or returns setup guidance if OAuth not configured)
+if (hasDiscordOAuth)
 {
-    // Validate the return URL to prevent open redirect vulnerabilities
-    if (!string.IsNullOrEmpty(returnUrl) && !IsValidReturnUrl(returnUrl))
+    app.MapGet("/auth/discord/login", (HttpContext http, string? returnUrl) =>
     {
-        returnUrl = null;
-    }
-    
-    var props = new AuthenticationProperties
-    {
-        RedirectUri = "/auth/post-login-redirect" + (returnUrl != null ? $"?returnUrl={Uri.EscapeDataString(returnUrl)}" : "")
-    };
-    return Results.Challenge(props, new[] { "Discord" });
-});
+        // Validate the return URL to prevent open redirect vulnerabilities
+        if (!string.IsNullOrEmpty(returnUrl) && !IsValidReturnUrl(returnUrl))
+        {
+            returnUrl = null;
+        }
+        
+        var props = new AuthenticationProperties
+        {
+            RedirectUri = "/auth/post-login-redirect" + (returnUrl != null ? $"?returnUrl={Uri.EscapeDataString(returnUrl)}" : "")
+        };
+        return Results.Challenge(props, new[] { "Discord" });
+    });
+}
+else
+{
+    app.MapGet("/auth/discord/login", () => Results.Problem(
+        title: "Discord OAuth not configured",
+        detail: "Set user-secrets or environment variables for DiscordClientId and DiscordClientSecret, then restart the app.",
+        statusCode: StatusCodes.Status501NotImplemented));
+}
 
 // Optional landing after successful auth cookie issued
 app.MapGet("/auth/post-login-redirect", async (HttpContext ctx, string? returnUrl, NucleusDbContext dbContext, ClaimsPrincipal user) =>
@@ -212,13 +251,13 @@ app.MapDelete("/links/{id:guid}", [Authorize] async (LinksService linksService, 
     })
     .WithName("DeleteLink");
 
-app.MapPost("/links", [Authorize] async (LinksService linksService, Link link, ClaimsPrincipal user) =>
+app.MapPost("/links", [Authorize] async (LinksService linksService, LinkRequest link, ClaimsPrincipal user) =>
     {
         var discordId = user.FindFirstValue(ClaimTypes.NameIdentifier);
         if (string.IsNullOrEmpty(discordId))
             return Results.Unauthorized();
     
-        await linksService.AddLink(discordId, link);
+        await linksService.AddLink(discordId, link.Url);
         return Results.Created();
     })
     .WithName("AddLink");

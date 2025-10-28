@@ -5,18 +5,31 @@ namespace Nucleus.Links;
 
 public class LinksService(NucleusDbContext context)
 {
-    public async Task AddLink(string discordId, Link link)
+    public async Task AddLink(string discordId, string url)
     {
-        DiscordUser activeUser = await context.DiscordUsers.SingleAsync(u => u.DiscordId == discordId);
-        UserFrequentLink linkRecord = new UserFrequentLink
+        var meta = await PageMetadataFetcher.GetPageMetadataAsync(url);
+        if (meta != null)
         {
-            UserId = activeUser.Id,
-            Title = link.Title,
-            Url = link.Url,
-            ThumbnailUrl = link.ThumbnailUrl
-        };
-        await context.UserFrequentLinks.AddAsync(linkRecord);
-        await context.SaveChangesAsync();
+            var link = new Link(
+                Title: meta.Title ?? meta.PageUri.Host,
+                Url: meta.PageUri.ToString(),
+                ThumbnailUrl: meta.FaviconUri?.ToString() ?? string.Empty
+            );
+            DiscordUser activeUser = await context.DiscordUsers.SingleAsync(u => u.DiscordId == discordId);
+            UserFrequentLink linkRecord = new UserFrequentLink
+            {
+                UserId = activeUser.Id,
+                Title = link.Title,
+                Url = link.Url,
+                ThumbnailUrl = link.ThumbnailUrl
+            };
+            await context.UserFrequentLinks.AddAsync(linkRecord);
+            await context.SaveChangesAsync();
+        }
+        else
+        {
+            throw new InvalidOperationException("Failed to fetch page metadata");
+        }
     }
     
     public async Task<List<UserFrequentLink>> GetLinksForUser(string discordId)

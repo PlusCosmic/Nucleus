@@ -1,3 +1,3 @@
 namespace Nucleus.Discord;
 
-public record User(string? Id, string? Username, string? Avatar);
+public record User(Guid Id, string Username, string? Avatar);

@@ -1,4 +1,4 @@
-﻿namespace Nucleus.Models;
+﻿namespace Nucleus.Repository;
 
 public partial class DiscordUser
 {

@@ -1,18 +1,12 @@
-using System.Net.Http.Headers;
-using System.Security.Claims;
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using Microsoft.AspNetCore.Authentication;
-using Microsoft.AspNetCore.Authentication.Cookies;
-using Microsoft.AspNetCore.Authentication.OAuth;
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http.Json;
 using Microsoft.EntityFrameworkCore;
 using Nucleus.ApexLegends;
 using Nucleus.Auth;
 using Nucleus.Discord;
 using Nucleus.Links;
-using Nucleus.Models;
+using Nucleus.Repository;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -64,7 +58,8 @@ var connectionString = builder.Configuration.GetConnectionString("DatabaseConnec
                        ?? builder.Configuration["DatabaseConnectionString"];
 
 builder.Services.AddDbContextPool<NucleusDbContext>(opt => 
-    opt.UseNpgsql(connectionString ?? throw new InvalidOperationException("DatabaseConnectionString not configured")));
+    opt.UseNpgsql(connectionString ?? throw new InvalidOperationException("DatabaseConnectionString not configured"))
+        .UseSnakeCaseNamingConvention());
 
 var healthChecksBuilder = builder.Services.AddHealthChecks();
 
@@ -85,6 +80,7 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+app.UseStaticFiles();
 app.UseCors();
 app.UseAuthentication();
 app.UseAuthorization();

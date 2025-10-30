@@ -4,6 +4,8 @@ using Microsoft.AspNetCore.Http.Json;
 using Microsoft.EntityFrameworkCore;
 using Nucleus.ApexLegends;
 using Nucleus.Auth;
+using Nucleus.Clips;
+using Nucleus.Clips.Bunny;
 using Nucleus.Discord;
 using Nucleus.Links;
 using Nucleus.Repository;
@@ -16,6 +18,8 @@ builder.Services.AddOpenApi();
 builder.Services.AddHttpClient();
 builder.Services.AddSingleton<MapService>();
 builder.Services.AddScoped<LinksService>();
+builder.Services.AddSingleton<ClipService>();
+builder.Services.AddSingleton<BunnyService>();
 builder.Services.Configure<JsonOptions>(options =>
 {
     options.SerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower;
@@ -88,6 +92,7 @@ app.MapUserEndpoints();
 app.MapApexEndpoints();
 app.MapAuthEndpoints();
 app.MapLinksEndpoints();
+app.MapClipsEndpoints();
 app.MapHealthChecks("/health", new Microsoft.AspNetCore.Diagnostics.HealthChecks.HealthCheckOptions
 {
     Predicate = _ => true,

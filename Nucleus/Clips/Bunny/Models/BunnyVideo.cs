@@ -15,6 +15,10 @@ public record BunnyVideo(
     string ThumbnailFileName,
     string ThumbnailBlurhash,
     string Category,
-    List<object> Moments,
-    List<object> MetaTags
+    List<Moment> Moments,
+    List<MetaTag> MetaTags
 );
+
+public record Moment(string Label, int Timestamp);
+
+public record MetaTag(string Property, string Value);

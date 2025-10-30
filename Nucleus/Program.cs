@@ -60,16 +60,22 @@ builder.Services.AddCors(options =>
 
 builder.ConfigureDiscordAuth();
 
-builder.Services.AddDbContextPool<NucleusDbContext>(opt => 
-    opt.UseNpgsql(builder.Configuration["DatabaseConnectionString"] ?? throw new InvalidOperationException("DatabaseConnectionString not configured")));
+var connectionString = builder.Configuration.GetConnectionString("DatabaseConnectionString") 
+                       ?? builder.Configuration["DatabaseConnectionString"];
 
-builder.Services.AddHealthChecks()
-    .AddNpgSql(
-        builder.Configuration.GetConnectionString("DatabaseConnectionString") 
-        ?? builder.Configuration["DatabaseConnectionString"]!,
+builder.Services.AddDbContextPool<NucleusDbContext>(opt => 
+    opt.UseNpgsql(connectionString ?? throw new InvalidOperationException("DatabaseConnectionString not configured")));
+
+var healthChecksBuilder = builder.Services.AddHealthChecks();
+
+if (!string.IsNullOrEmpty(connectionString))
+{
+    healthChecksBuilder.AddNpgSql(
+        connectionString,
         name: "database",
         timeout: TimeSpan.FromSeconds(3),
         tags: new[] { "ready" });
+}
 
 var app = builder.Build();
 

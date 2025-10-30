@@ -3,7 +3,7 @@ using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Nucleus.Models;
 
-namespace Nucleus.Endpoints;
+namespace Nucleus.Auth;
 
 public static class AuthEndpoints
 {

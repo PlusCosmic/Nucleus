@@ -1,8 +1,7 @@
 using Microsoft.AspNetCore.Http.HttpResults;
-using Nucleus.ApexLegends;
 using Nucleus.ApexLegends.Models;
 
-namespace Nucleus.Endpoints;
+namespace Nucleus.ApexLegends;
 
 public static class ApexEndpoints
 {

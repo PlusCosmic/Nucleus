@@ -19,11 +19,14 @@ docker compose build nucleus
 
 # Run migrations
 echo "Running database migrations..."
-docker run --rm \
+if ! docker run --rm \
   --network nucleus_app-network \
   -e POSTGRES_PASSWORD="$POSTGRES_PASSWORD" \
   $IMAGE \
-  ./efbundle --connection "$CONNECTION_STRING"
+  ./efbundle --connection "$CONNECTION_STRING"; then
+    echo "ERROR: Migration failed! Aborting deployment."
+    exit 1
+fi
 
 echo "Migrations completed successfully!"
 

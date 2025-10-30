@@ -1,10 +1,8 @@
 using System.Security.Claims;
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http.HttpResults;
-using Nucleus.Links;
 using Nucleus.Models;
 
-namespace Nucleus.Endpoints;
+namespace Nucleus.Links;
 
 public static class LinksEndpoints
 {

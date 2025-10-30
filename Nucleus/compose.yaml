@@ -1,6 +1,19 @@
 ﻿services:
+  db-migrate:
+    image: nucleus:latest
+    container_name: nucleus-migrate
+    command: ["./efbundle", "--connection", "Host=postgres;Port=5432;Database=nucleus_db;Username=nucleus_user;Password=${POSTGRES_PASSWORD}"]
+    networks:
+      - app-network
+    environment:
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+    restart: "no"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
   nucleus:
-    image: nucleus
+    image: nucleus:latest
     build:
       context: .
       dockerfile: Dockerfile
@@ -10,18 +23,25 @@
       - app-network
     environment:
       - ASPNETCORE_URLS=http://+:8080
-      # Easiest way to honor X-Forwarded-* from Caddy without code changes:
       - ASPNETCORE_FORWARDEDHEADERS_ENABLED=true
-      # Optional: make sure it's Production
       - ASPNETCORE_ENVIRONMENT=Production
       - ApexLegendsApiKey=${ApexLegendsApiKey}
       - DiscordClientId=${DiscordClientId}
       - DiscordClientSecret=${DiscordClientSecret}
       - FrontendOrigin=${FrontendOrigin}
       - DatabaseConnectionString=Host=postgres;Port=5432;Database=nucleus_db;Username=nucleus_user;Password=${POSTGRES_PASSWORD}
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8080/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
     depends_on:
-      - postgres
-      
+      db-migrate:
+        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
+  
   postgres:
     image: postgres:16
     container_name: postgres
@@ -36,7 +56,12 @@
       - postgres_data:/var/lib/postgresql/data
     ports:
       - "127.0.0.1:5432:5432"
-  
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U nucleus_user -d nucleus_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
   caddy:
     image: caddy:latest
     container_name: caddy
@@ -44,7 +69,7 @@
     ports:
       - "80:80"
       - "443:443"
-      - "443:443/udp"  # For HTTP/3
+      - "443:443/udp"
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile
       - caddy_data:/data

@@ -11,7 +11,6 @@ using Microsoft.EntityFrameworkCore;
 using Nucleus.ApexLegends;
 using Nucleus.Auth;
 using Nucleus.Discord;
-using Nucleus.Endpoints;
 using Nucleus.Links;
 using Nucleus.Models;
 
@@ -64,9 +63,16 @@ builder.ConfigureDiscordAuth();
 builder.Services.AddDbContextPool<NucleusDbContext>(opt => 
     opt.UseNpgsql(builder.Configuration["DatabaseConnectionString"] ?? throw new InvalidOperationException("DatabaseConnectionString not configured")));
 
+builder.Services.AddHealthChecks()
+    .AddNpgSql(
+        builder.Configuration.GetConnectionString("DatabaseConnectionString") 
+        ?? builder.Configuration["DatabaseConnectionString"]!,
+        name: "database",
+        timeout: TimeSpan.FromSeconds(3),
+        tags: new[] { "ready" });
+
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
@@ -80,4 +86,16 @@ app.MapUserEndpoints();
 app.MapApexEndpoints();
 app.MapAuthEndpoints();
 app.MapLinksEndpoints();
+app.MapHealthChecks("/health", new Microsoft.AspNetCore.Diagnostics.HealthChecks.HealthCheckOptions
+{
+    Predicate = _ => true,
+    AllowCachingResponses = false,
+    ResultStatusCodes =
+    {
+        [Microsoft.Extensions.Diagnostics.HealthChecks.HealthStatus.Healthy] = StatusCodes.Status200OK,
+        [Microsoft.Extensions.Diagnostics.HealthChecks.HealthStatus.Degraded] = StatusCodes.Status200OK,
+        [Microsoft.Extensions.Diagnostics.HealthChecks.HealthStatus.Unhealthy] = StatusCodes.Status503ServiceUnavailable
+    }
+});
+
 app.Run();

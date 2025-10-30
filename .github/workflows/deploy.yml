@@ -2,35 +2,42 @@ name: Deploy to VPS
 
 on:
   push:
-    branches: [ master ]  # or master, depending on your default branch
-  workflow_dispatch:  # Allows manual trigger
+    branches: [ master ]
+  workflow_dispatch:
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
     
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v3
-    
-    - name: Deploy to VPS
-      uses: appleboy/ssh-action@v1.0.0
-      with:
-        host: ${{ secrets.VPS_HOST }}
-        username: debian
-        key: ${{ secrets.VPS_SSH_KEY }}
-        script: |
-          cd Nucleus
-          git pull origin master
-          cd Nucleus
-          cat > .env << EOF
-          ApexLegendsApiKey=${{ secrets.APEXLEGENDSAPIKEY }}
-          DiscordClientId=${{ secrets.DISCORD_CLIENT_ID }}
-          DiscordClientSecret=${{ secrets.DISCORD_CLIENT_SECRET }}
-          POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}
-          FrontendOrigin=${{ secrets.FRONTEND_ORIGIN }}
-          EOF
-          docker compose down
-          docker compose build
-          docker compose up -d
-          docker system prune -f
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Deploy to VPS
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: debian
+          key: ${{ secrets.VPS_SSH_KEY }}
+          script: |
+            cd Nucleus
+            git pull origin master
+            cd Nucleus
+            
+            # Create .env file
+            cat > .env << EOF
+            ApexLegendsApiKey=${{ secrets.APEXLEGENDSAPIKEY }}
+            DiscordClientId=${{ secrets.DISCORD_CLIENT_ID }}
+            DiscordClientSecret=${{ secrets.DISCORD_CLIENT_SECRET }}
+            POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}
+            FrontendOrigin=${{ secrets.FRONTEND_ORIGIN }}
+            EOF
+            
+            # Make deploy script executable
+            chmod +x deploy.sh
+            
+            # Run zero-downtime deployment
+            ./deploy.sh
+            
+            # Cleanup
+            docker system prune -f

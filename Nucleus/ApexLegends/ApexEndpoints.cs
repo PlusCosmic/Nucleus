@@ -18,7 +18,7 @@ public static class ApexEndpoints
         {
             return TypedResults.Ok(await mapService.GetMapRotation());
         }
-        catch (Exception e)
+        catch (Exception)
         {
             return TypedResults.Problem(title: "Apex Legends Status Unavailable", statusCode: 503, detail: "The API to fetch the map rotation is currently unavailable.");
         }

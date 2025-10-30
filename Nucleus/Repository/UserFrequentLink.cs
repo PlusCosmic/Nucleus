@@ -1,6 +1,6 @@
 ﻿using System.Text.Json.Serialization;
 
-namespace Nucleus.Models;
+namespace Nucleus.Repository;
 
 public partial class UserFrequentLink
 {

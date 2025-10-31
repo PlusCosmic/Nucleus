@@ -2,7 +2,8 @@
   db-migrate:
     image: nucleus:latest
     container_name: nucleus-migrate
-    command: ["./efbundle", "--idempotent", "--connection", "Host=postgres;Port=5432;Database=nucleus_db;Username=nucleus_user;Password=${POSTGRES_PASSWORD}"]
+    entrypoint: ["./efbundle"]
+    command: ["--connection", "Host=postgres;Port=5432;Database=nucleus_db;Username=nucleus_user;Password=${POSTGRES_PASSWORD}"]
     networks:
       - app-network
     environment:

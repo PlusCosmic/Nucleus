@@ -22,4 +22,8 @@
       <ProjectReference Include="..\Nucleus\Nucleus.csproj" />
     </ItemGroup>
 
+    <ItemGroup>
+      <Folder Include="ApexLegends\" />
+    </ItemGroup>
+
 </Project>

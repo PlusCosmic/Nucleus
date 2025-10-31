@@ -42,7 +42,9 @@ public class ClipService(BunnyService bunnyService, NucleusDbContext dbContext, 
 
     public List<ClipCategory> GetCategories()
     {
-        return [new("Apex Legends", ClipCategoryEnum.ApexLegends, "/images/apex_legends.jpg")];
+        return [new("Apex Legends", ClipCategoryEnum.ApexLegends, "/images/apex_legends.jpg"),
+            new ("Call of Duty: Warzone", ClipCategoryEnum.CallOfDutyWarzone, "/images/callofduty_warzone.jpg"),
+            new ("Snowboarding", ClipCategoryEnum.Snowboarding, "/images/snowboarding.png")];
     }
 
     public async Task<CreateClipResponse> CreateClip(ClipCategoryEnum categoryEnum, string videoTitle, string discordUserId)

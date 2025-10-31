@@ -21,6 +21,7 @@ docker compose build nucleus
 echo "Running database migrations..."
 if ! docker run --rm \
   --network nucleus_app-network \
+  --idempotent \
   --entrypoint ./efbundle \
   -e POSTGRES_PASSWORD="$POSTGRES_PASSWORD" \
   $IMAGE \

@@ -24,7 +24,7 @@ FROM build AS efbundle
 RUN dotnet tool install --global dotnet-ef
 RUN dotnet tool restore
 ENV PATH="$PATH:/root/.dotnet/tools"
-RUN dotnet ef migrations bundle --self-contained -r linux-x64 -o /app/efbundle
+RUN dotnet ef migrations bundle --self-contained -r linux-x64 -o /app/efbundle --idempotent
 
 FROM base AS final
 WORKDIR /app

@@ -31,6 +31,9 @@ jobs:
             DiscordClientSecret=${{ secrets.DISCORD_CLIENT_SECRET }}
             POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}
             FrontendOrigin=${{ secrets.FRONTEND_ORIGIN }}
+            BackendAddress=${{ secrets.BACKENDADDRESS }}
+            BunnyLibraryId=${{ secrets.BUNNYLIBRARYID }}
+            BunnyAccessKey=${{ secrets.BUNNYACCESSKEY }}
             EOF
             
             # Make deploy script executable

@@ -18,6 +18,7 @@ public static class PageMetadataFetcher
     public static async Task<PageMetadata?> GetPageMetadataAsync(string url, CancellationToken ct = default)
     {
         if (!TryNormalizeUrl(url, out var pageUri)) return null;
+        if (pageUri == null) return null;
 
         using var req = new HttpRequestMessage(HttpMethod.Get, pageUri);
         req.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("text/html"));
@@ -64,7 +65,7 @@ public static class PageMetadataFetcher
         return client;
     }
 
-    private static bool TryNormalizeUrl(string input, out Uri uri)
+    private static bool TryNormalizeUrl(string input, out Uri? uri)
     {
         // If no scheme, assume https
         if (Uri.TryCreate(input, UriKind.Absolute, out uri)) return true;
@@ -77,12 +78,12 @@ public static class PageMetadataFetcher
         // Priority: og:title > twitter:title > <title>
         var ogTitle = doc.DocumentNode
             .SelectSingleNode("//meta[translate(@property,'ABCDEFGHIJKLMNOPQRSTUVWXYZ','abcdefghijklmnopqrstuvwxyz')='og:title']")?
-            .GetAttributeValue("content", null);
+            .GetAttributeValue("content","");
         if (!string.IsNullOrWhiteSpace(ogTitle)) return ogTitle!.Trim();
 
         var twitterTitle = doc.DocumentNode
             .SelectSingleNode("//meta[translate(@name,'ABCDEFGHIJKLMNOPQRSTUVWXYZ','abcdefghijklmnopqrstuvwxyz')='twitter:title']")?
-            .GetAttributeValue("content", null);
+            .GetAttributeValue("content", "");
         if (!string.IsNullOrWhiteSpace(twitterTitle)) return twitterTitle!.Trim();
 
         var title = doc.DocumentNode.SelectSingleNode("//head/title")?.InnerText;
@@ -94,7 +95,7 @@ public static class PageMetadataFetcher
         // Respect <base href> when present
         var baseHref = doc.DocumentNode
             .SelectSingleNode("//head/base[@href]")?
-            .GetAttributeValue("href", null);
+            .GetAttributeValue("href", "");
         if (string.IsNullOrWhiteSpace(baseHref)) return pageUri;
         if (Uri.TryCreate(pageUri, baseHref, out var result)) return result;
         return pageUri;
@@ -115,7 +116,7 @@ public static class PageMetadataFetcher
             .Where(x => x.Rel.Contains("icon"))
             .ToList();
 
-        if (candidates.Count == 0) return null;
+        if (candidates == null || candidates.Count == 0) return null;
 
         // Score by preference: apple-touch-icon > icon > shortcut icon > mask-icon
         static int RelScore(string rel)

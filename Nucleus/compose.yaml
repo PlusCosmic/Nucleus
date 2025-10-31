@@ -30,6 +30,8 @@
       - DiscordClientSecret=${DiscordClientSecret}
       - FrontendOrigin=${FrontendOrigin}
       - DatabaseConnectionString=Host=postgres;Port=5432;Database=nucleus_db;Username=nucleus_user;Password=${POSTGRES_PASSWORD}
+      - BunnyAccessKey=${BunnyAccessKey}
+      - BunnyLibraryId=${BunnyLibraryId}
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:8080/health || exit 1"]
       interval: 10s

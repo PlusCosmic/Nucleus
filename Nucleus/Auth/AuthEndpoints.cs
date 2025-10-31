@@ -1,7 +1,7 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
-using Nucleus.Models;
+using Nucleus.Repository;
 
 namespace Nucleus.Auth;
 

@@ -1,7 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
 
-namespace Nucleus.Models;
+namespace Nucleus.Repository;
 
 // This class is used by EF Core tools at design time (migrations, bundle generation)
 // It provides a way to create the DbContext when there's no runtime environment

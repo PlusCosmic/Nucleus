@@ -1,18 +1,15 @@
-using System.Net.Http.Headers;
-using System.Security.Claims;
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using Microsoft.AspNetCore.Authentication;
-using Microsoft.AspNetCore.Authentication.Cookies;
-using Microsoft.AspNetCore.Authentication.OAuth;
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http.Json;
+using Microsoft.AspNetCore.StaticFiles;
 using Microsoft.EntityFrameworkCore;
 using Nucleus.ApexLegends;
 using Nucleus.Auth;
+using Nucleus.Clips;
+using Nucleus.Clips.Bunny;
 using Nucleus.Discord;
 using Nucleus.Links;
-using Nucleus.Models;
+using Nucleus.Repository;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -20,15 +17,16 @@ var builder = WebApplication.CreateBuilder(args);
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();
 builder.Services.AddHttpClient();
-builder.Services.AddSingleton<MapService>();
+builder.Services.AddScoped<MapService>();
 builder.Services.AddScoped<LinksService>();
+builder.Services.AddScoped<ClipService>();
+builder.Services.AddScoped<BunnyService>();
+builder.Services.AddHostedService<MapRefreshService>();
 builder.Services.Configure<JsonOptions>(options =>
 {
     options.SerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower;
     options.SerializerOptions.ReferenceHandler = ReferenceHandler.IgnoreCycles;
 });
-
-var frontendOrigin = builder.Configuration["FrontendOrigin"] ?? "http://localhost:5173";
 
 builder.Services.AddCors(options =>
 {
@@ -64,7 +62,8 @@ var connectionString = builder.Configuration.GetConnectionString("DatabaseConnec
                        ?? builder.Configuration["DatabaseConnectionString"];
 
 builder.Services.AddDbContextPool<NucleusDbContext>(opt => 
-    opt.UseNpgsql(connectionString ?? throw new InvalidOperationException("DatabaseConnectionString not configured")));
+    opt.UseNpgsql(connectionString ?? "Host=localhost;Database=nucleus_db;Username=nucleus_user;Password=dummy")
+        .UseSnakeCaseNamingConvention());
 
 var healthChecksBuilder = builder.Services.AddHealthChecks();
 
@@ -85,6 +84,14 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+var provider = new FileExtensionContentTypeProvider();
+// Add new mappings
+provider.Mappings[".avif"] = "image/avif";
+
+app.UseStaticFiles(new StaticFileOptions
+{
+    ContentTypeProvider = provider
+});
 app.UseCors();
 app.UseAuthentication();
 app.UseAuthorization();
@@ -92,6 +99,7 @@ app.MapUserEndpoints();
 app.MapApexEndpoints();
 app.MapAuthEndpoints();
 app.MapLinksEndpoints();
+app.MapClipsEndpoints();
 app.MapHealthChecks("/health", new Microsoft.AspNetCore.Diagnostics.HealthChecks.HealthCheckOptions
 {
     Predicate = _ => true,

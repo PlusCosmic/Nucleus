@@ -1,5 +1,5 @@
 using Microsoft.EntityFrameworkCore;
-using Nucleus.Models;
+using Nucleus.Repository;
 
 namespace Nucleus.Links;
 

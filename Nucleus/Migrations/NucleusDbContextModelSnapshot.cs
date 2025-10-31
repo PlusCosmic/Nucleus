@@ -4,7 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
-using Nucleus.Models;
+using Nucleus.Repository;
 
 #nullable disable
 
@@ -22,7 +22,91 @@ namespace Nucleus.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
-            modelBuilder.Entity("Nucleus.Models.DiscordUser", b =>
+            modelBuilder.Entity("Nucleus.Repository.ApexMapRotation", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id")
+                        .HasDefaultValueSql("gen_random_uuid()");
+
+                    b.Property<DateTimeOffset>("EndTime")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("end_time");
+
+                    b.Property<int>("Gamemode")
+                        .HasColumnType("integer")
+                        .HasColumnName("gamemode");
+
+                    b.Property<int>("Map")
+                        .HasColumnType("integer")
+                        .HasColumnName("map");
+
+                    b.Property<DateTimeOffset>("StartTime")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("start_time");
+
+                    b.HasKey("Id")
+                        .HasName("apex_map_rotation_pkey");
+
+                    b.ToTable("apex_map_rotation", (string)null);
+                });
+
+            modelBuilder.Entity("Nucleus.Repository.Clip", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id")
+                        .HasDefaultValueSql("gen_random_uuid()");
+
+                    b.Property<int>("CategoryEnum")
+                        .HasColumnType("integer")
+                        .HasColumnName("category");
+
+                    b.Property<Guid>("OwnerId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("owner_id");
+
+                    b.Property<Guid>("VideoId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("video_id");
+
+                    b.HasKey("Id")
+                        .HasName("clip_pkey");
+
+                    b.ToTable("clip", (string)null);
+                });
+
+            modelBuilder.Entity("Nucleus.Repository.ClipCollection", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id")
+                        .HasDefaultValueSql("gen_random_uuid()");
+
+                    b.Property<int>("CategoryEnum")
+                        .HasColumnType("integer")
+                        .HasColumnName("category");
+
+                    b.Property<Guid>("CollectionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("collection_id");
+
+                    b.Property<Guid>("OwnerId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("owner_id");
+
+                    b.HasKey("Id")
+                        .HasName("clip_collection_pkey");
+
+                    b.HasIndex(new[] { "OwnerId" }, "ix_clip_collection__owner_id");
+
+                    b.ToTable("clip_collection", (string)null);
+                });
+
+            modelBuilder.Entity("Nucleus.Repository.DiscordUser", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
@@ -49,7 +133,7 @@ namespace Nucleus.Migrations
                     b.ToTable("discord_user", (string)null);
                 });
 
-            modelBuilder.Entity("Nucleus.Models.UserFrequentLink", b =>
+            modelBuilder.Entity("Nucleus.Repository.UserFrequentLink", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
@@ -83,9 +167,19 @@ namespace Nucleus.Migrations
                     b.ToTable("user_frequent_link", (string)null);
                 });
 
-            modelBuilder.Entity("Nucleus.Models.UserFrequentLink", b =>
+            modelBuilder.Entity("Nucleus.Repository.ClipCollection", b =>
                 {
-                    b.HasOne("Nucleus.Models.DiscordUser", "User")
+                    b.HasOne("Nucleus.Repository.DiscordUser", null)
+                        .WithMany()
+                        .HasForeignKey("OwnerId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_clip_collection__discord_user");
+                });
+
+            modelBuilder.Entity("Nucleus.Repository.UserFrequentLink", b =>
+                {
+                    b.HasOne("Nucleus.Repository.DiscordUser", "User")
                         .WithMany("UserFrequentLinks")
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
@@ -95,7 +189,7 @@ namespace Nucleus.Migrations
                     b.Navigation("User");
                 });
 
-            modelBuilder.Entity("Nucleus.Models.DiscordUser", b =>
+            modelBuilder.Entity("Nucleus.Repository.DiscordUser", b =>
                 {
                     b.Navigation("UserFrequentLinks");
                 });

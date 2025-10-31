@@ -36,11 +36,9 @@ jobs:
             BunnyAccessKey=${{ secrets.BUNNYACCESSKEY }}
             EOF
             
-            # Make deploy script executable
-            chmod +x deploy.sh
-            
-            # Run zero-downtime deployment
-            ./deploy.sh
+            docker-compose down
+            docker-compose build
+            docker-compose up -d
             
             # Cleanup
             docker system prune -f

@@ -21,6 +21,8 @@ public partial class NucleusDbContext : DbContext
     public virtual DbSet<Clip> Clips { get; set; }
     
     public virtual DbSet<ClipCollection> ClipCollections { get; set; }
+    
+    public virtual DbSet<ApexMapRotation> ApexMapRotations { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -92,6 +94,19 @@ public partial class NucleusDbContext : DbContext
             entity.HasOne<DiscordUser>().WithMany()
                 .HasForeignKey(d => d.OwnerId)
                 .HasConstraintName("fk_clip_collection__discord_user");
+        });
+
+        modelBuilder.Entity<ApexMapRotation>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("apex_map_rotation_pkey");
+            entity.ToTable("apex_map_rotation");
+            entity.Property(e => e.Id)
+                .HasDefaultValueSql("gen_random_uuid()")
+                .HasColumnName("id");
+            entity.Property(e => e.Map).HasColumnName("map");
+            entity.Property(e => e.StartTime).HasColumnName("start_time");
+            entity.Property(e => e.EndTime).HasColumnName("end_time");
+            entity.Property(e => e.Gamemode).HasColumnName("gamemode");
         });
 
         OnModelCreatingPartial(modelBuilder);

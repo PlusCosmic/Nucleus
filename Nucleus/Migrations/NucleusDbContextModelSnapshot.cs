@@ -22,6 +22,36 @@ namespace Nucleus.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("Nucleus.Repository.ApexMapRotation", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id")
+                        .HasDefaultValueSql("gen_random_uuid()");
+
+                    b.Property<DateTimeOffset>("EndTime")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("end_time");
+
+                    b.Property<int>("Gamemode")
+                        .HasColumnType("integer")
+                        .HasColumnName("gamemode");
+
+                    b.Property<int>("Map")
+                        .HasColumnType("integer")
+                        .HasColumnName("map");
+
+                    b.Property<DateTimeOffset>("StartTime")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("start_time");
+
+                    b.HasKey("Id")
+                        .HasName("apex_map_rotation_pkey");
+
+                    b.ToTable("apex_map_rotation", (string)null);
+                });
+
             modelBuilder.Entity("Nucleus.Repository.Clip", b =>
                 {
                     b.Property<Guid>("Id")

@@ -20,7 +20,9 @@ public static class DiscordUserEndpoints
         if (discordId == null)
             return TypedResults.Unauthorized();
         var dbUser = await dbContext.DiscordUsers.SingleAsync();
-        return TypedResults.Ok(new DiscordUser(dbUser.Id, dbUser.Username,
-            user.FindFirst("urn:discord:avatar")?.Value));
+        string? avatar = user.FindFirst("urn:discord:avatar")?.Value;
+        string avatarUrl = $"https://cdn.discordapp.com/avatars/{discordId}/{avatar}";
+        return TypedResults.Ok(new DiscordUser(dbUser.Id, dbUser.Username, avatarUrl
+            ));
     }
 }

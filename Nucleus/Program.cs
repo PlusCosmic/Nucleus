@@ -1,6 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Http.Json;
+using Microsoft.AspNetCore.StaticFiles;
 using Microsoft.EntityFrameworkCore;
 using Nucleus.ApexLegends;
 using Nucleus.Auth;
@@ -16,17 +17,16 @@ var builder = WebApplication.CreateBuilder(args);
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();
 builder.Services.AddHttpClient();
-builder.Services.AddSingleton<MapService>();
+builder.Services.AddScoped<MapService>();
 builder.Services.AddScoped<LinksService>();
-builder.Services.AddSingleton<ClipService>();
-builder.Services.AddSingleton<BunnyService>();
+builder.Services.AddScoped<ClipService>();
+builder.Services.AddScoped<BunnyService>();
+builder.Services.AddHostedService<MapRefreshService>();
 builder.Services.Configure<JsonOptions>(options =>
 {
     options.SerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower;
     options.SerializerOptions.ReferenceHandler = ReferenceHandler.IgnoreCycles;
 });
-
-var frontendOrigin = builder.Configuration["FrontendOrigin"] ?? "http://localhost:5173";
 
 builder.Services.AddCors(options =>
 {
@@ -62,7 +62,7 @@ var connectionString = builder.Configuration.GetConnectionString("DatabaseConnec
                        ?? builder.Configuration["DatabaseConnectionString"];
 
 builder.Services.AddDbContextPool<NucleusDbContext>(opt => 
-    opt.UseNpgsql(connectionString ?? throw new InvalidOperationException("DatabaseConnectionString not configured"))
+    opt.UseNpgsql(connectionString ?? "Host=localhost;Database=nucleus_db;Username=nucleus_user;Password=dummy")
         .UseSnakeCaseNamingConvention());
 
 var healthChecksBuilder = builder.Services.AddHealthChecks();
@@ -84,7 +84,14 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
-app.UseStaticFiles();
+var provider = new FileExtensionContentTypeProvider();
+// Add new mappings
+provider.Mappings[".avif"] = "image/avif";
+
+app.UseStaticFiles(new StaticFileOptions
+{
+    ContentTypeProvider = provider
+});
 app.UseCors();
 app.UseAuthentication();
 app.UseAuthorization();

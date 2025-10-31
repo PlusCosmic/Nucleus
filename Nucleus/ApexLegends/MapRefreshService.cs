@@ -28,9 +28,18 @@ public class MapRefreshService(
     private async Task RefreshMapsAsync()
     {
         logger.LogInformation("Refreshing Map Rotation");
-        string mapRotation = await httpClient.GetStringAsync(_mapUrl);
-        MapRotationResponse response = JsonSerializer.Deserialize<MapRotationResponse>(mapRotation) ??
-                                       throw new InvalidOperationException("Failed to deserialize map rotation");
+        var mapRotation = await httpClient.GetAsync(_mapUrl);
+        if (!mapRotation.IsSuccessStatusCode)
+        {
+            logger.LogError("Failed to refresh map rotation");
+            return;
+        }
+        MapRotationResponse? response = await mapRotation.Content.ReadFromJsonAsync<MapRotationResponse>();
+        if (response == null)
+        {
+            logger.LogError("Failed to deserialize map rotation");
+            return;       
+        }
         // Check if the db knows about all the maps in the response
         using var scope = scopeFactory.CreateScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<NucleusDbContext>();

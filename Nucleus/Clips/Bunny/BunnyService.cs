@@ -1,3 +1,4 @@
+using System.Net.Http.Headers;
 using System.Text.Json;
 using Nucleus.Clips.Bunny.Models;
 
@@ -19,19 +20,25 @@ public class BunnyService
         _videosUrl = baseUrl + "/videos";
         
         _httpClient.DefaultRequestHeaders.Add("AccessKey", configuration["BunnyAccessKey"] ?? throw new InvalidOperationException("Bunny access key not configured"));
+        _httpClient.DefaultRequestHeaders.Add("Accept", "application/json");
     }
     
     public async Task<BunnyCollection> CreateCollectionAsync(ClipCategoryEnum categoryEnum, Guid userId)
     {
-       var collectionResponse = await _httpClient.PostAsync(_collectionsUrl, new StringContent($"{{\"name\":\"{userId.ToString() + categoryEnum}\"}}"));
-       return JsonSerializer.Deserialize<BunnyCollection>(collectionResponse.Content.ToString() ?? throw new InvalidOperationException("Failed to deserialize bunny collection")) ?? throw new InvalidOperationException("Failed to deserialize bunny collection");
+        JsonContent content = JsonContent.Create(
+            new CreateCollectionRequest(userId.ToString() + categoryEnum));
+        content.Headers.Remove("Content-Type");
+        content.Headers.Add("Content-Type", "application/json");
+       var collectionResponse = await _httpClient.PostAsync(_collectionsUrl, content);
+       BunnyCollection? response = await collectionResponse.Content.ReadFromJsonAsync<BunnyCollection>();
+       return response ?? throw new InvalidOperationException("Failed to deserialize bunny collection");
     }
-
+    
     public async Task<List<BunnyVideo>> GetVideosForCollectionAsync(Guid collectionId, int page)
     {
         string url = _videosUrl + $"?collection={collectionId}&page={page}";
         var videosResponse = await _httpClient.GetAsync(url);
-        var pagedResponse = JsonSerializer.Deserialize<PagedVideoResponse>(videosResponse.Content.ToString() ?? throw new InvalidOperationException("Failed to deserialize bunny videos")) ?? throw new InvalidOperationException("Failed to deserialize bunny videos");
+        var pagedResponse = JsonSerializer.Deserialize<PagedVideoResponse>(await videosResponse.Content.ReadAsStringAsync()) ?? throw new InvalidOperationException("Failed to deserialize bunny videos");
         return pagedResponse.Items;
     }
 

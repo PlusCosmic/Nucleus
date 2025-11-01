@@ -25,7 +25,9 @@ public partial class NucleusDbContext : DbContext
     public virtual DbSet<Tag> Tags { get; set; }
     
     public virtual DbSet<ClipTag> ClipTags { get; set; }
-    
+
+    public virtual DbSet<ClipView> ClipViews { get; set; }
+
     public virtual DbSet<ApexMapRotation> ApexMapRotations { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -117,7 +119,7 @@ public partial class NucleusDbContext : DbContext
             entity.HasKey(e => e.Id).HasName("clip_collection_pkey");
 
             entity.ToTable("clip_collection");
-            
+
             entity.HasIndex(e => e.OwnerId, "ix_clip_collection__owner_id");
 
             entity.Property(e => e.Id)
@@ -126,10 +128,30 @@ public partial class NucleusDbContext : DbContext
             entity.Property(e => e.CollectionId).HasColumnName("collection_id");
             entity.Property(e => e.OwnerId).HasColumnName("owner_id");
             entity.Property(e => e.CategoryEnum).HasColumnName("category");
-            
+
             entity.HasOne<DiscordUser>().WithMany()
                 .HasForeignKey(d => d.OwnerId)
                 .HasConstraintName("fk_clip_collection__discord_user");
+        });
+
+        modelBuilder.Entity<ClipView>(entity =>
+        {
+            entity.HasKey(e => new { e.UserId, e.ClipId }).HasName("clip_view_pkey");
+            entity.ToTable("clip_view");
+            entity.HasIndex(e => e.ClipId, "ix_clip_view__clip_id");
+            entity.Property(e => e.UserId).HasColumnName("user_id");
+            entity.Property(e => e.ClipId).HasColumnName("clip_id");
+            entity.Property(e => e.ViewedAt).HasColumnName("viewed_at");
+
+            entity.HasOne(d => d.Clip)
+                .WithMany()
+                .HasForeignKey(d => d.ClipId)
+                .HasConstraintName("fk_clip_view__clip");
+
+            entity.HasOne(d => d.User)
+                .WithMany()
+                .HasForeignKey(d => d.UserId)
+                .HasConstraintName("fk_clip_view__user");
         });
 
         modelBuilder.Entity<ApexMapRotation>(entity =>

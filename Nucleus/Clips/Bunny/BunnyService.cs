@@ -42,7 +42,7 @@ public class BunnyService
     {
         string url = _videosUrl + $"?collection={collectionId}&page={page}";
         var videosResponse = await _httpClient.GetAsync(url);
-        var pagedResponse = JsonSerializer.Deserialize<PagedVideoResponse>(await videosResponse.Content.ReadAsStringAsync()) ?? throw new InvalidOperationException("Failed to deserialize bunny videos");
+        var pagedResponse = await videosResponse.Content.ReadFromJsonAsync<PagedVideoResponse>() ?? throw new InvalidOperationException("Failed to deserialize bunny videos");
         return pagedResponse.Items;
     }
 
@@ -51,8 +51,19 @@ public class BunnyService
         string url = _videosUrl;
         
         CreateVideoRequest request = new CreateVideoRequest(videoTitle, collectionId.ToString(), 0);
-        string jsonRequest = JsonSerializer.Serialize(request);
-        var videoResponse = await _httpClient.PostAsync(url, new StringContent(jsonRequest));
-        return JsonSerializer.Deserialize<BunnyVideo>(videoResponse.Content.ToString() ?? throw new InvalidOperationException("Failed to deserialize bunny video")) ?? throw new InvalidOperationException("Failed to deserialize bunny video");
+        JsonContent content = JsonContent.Create(request);
+        content.Headers.Remove("Content-Type");
+        content.Headers.Add("Content-Type", "application/json");
+        var videoResponse = await _httpClient.PostAsync(url, content);
+        BunnyVideo? response = await videoResponse.Content.ReadFromJsonAsync<BunnyVideo>();
+        return response ?? throw new InvalidOperationException("Failed to deserialize bunny video");
+    }
+    
+    public async Task<BunnyVideo?> GetVideoByIdAsync(Guid videoId)
+    {
+        string url = _videosUrl + $"/{videoId}";
+        var videoResponse = await _httpClient.GetAsync(url);
+        BunnyVideo? response = await videoResponse.Content.ReadFromJsonAsync<BunnyVideo>();
+        return response;
     }
 }

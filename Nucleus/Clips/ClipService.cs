@@ -65,6 +65,23 @@ public class ClipService(BunnyService bunnyService, NucleusDbContext dbContext, 
         string secretKey = configuration["BunnyAccessKey"] ?? throw new InvalidOperationException("Bunny access key not configured");
         byte[] signature = Encoding.UTF8.GetBytes(libraryId + secretKey + expiration + video.Guid);
         var hash = SHA256.HashData(signature);
-        return new CreateClipResponse(hash.ToString() ?? throw new InvalidOperationException("Hash computation failed"), expiration);
+        string hashString = Convert.ToHexString(hash);
+        return new CreateClipResponse(hashString ?? throw new InvalidOperationException("Hash computation failed"), expiration, libraryId, video.Guid, video.CollectionId);
+    }
+    
+    public async Task<Clip?> GetClipById(Guid clipId, string discordUserId)
+    {
+        DiscordUser discordUser = await dbContext.DiscordUsers.SingleOrDefaultAsync(d => d.DiscordId == discordUserId) ?? throw new InvalidOperationException("No Discord user");
+        Guid userId = discordUser.Id;
+        
+        Repository.Clip? clip = await dbContext.Clips.SingleOrDefaultAsync(c => c.Id == clipId);
+        if (clip == null)
+            return null;
+        
+        BunnyVideo? video = await bunnyService.GetVideoByIdAsync(clip.VideoId);
+        if (video == null)
+            return null;
+        
+        return new Clip(clip.Id, clip.OwnerId, clip.VideoId, clip.CategoryEnum, video);
     }
 }

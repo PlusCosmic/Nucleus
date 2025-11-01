@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
@@ -11,6 +11,11 @@ namespace Nucleus.Migrations
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
+            migrationBuilder.RenameColumn(
+                name: "Avatar",
+                table: "discord_user",
+                newName: "avatar");
+
             migrationBuilder.CreateTable(
                 name: "tag",
                 columns: table => new
@@ -48,15 +53,15 @@ namespace Nucleus.Migrations
                 });
 
             migrationBuilder.CreateIndex(
+                name: "ix_clip_tag__tag_id",
+                table: "clip_tag",
+                column: "tag_id");
+
+            migrationBuilder.CreateIndex(
                 name: "uq_tag__name",
                 table: "tag",
                 column: "name",
                 unique: true);
-
-            migrationBuilder.CreateIndex(
-                name: "ix_clip_tag__tag_id",
-                table: "clip_tag",
-                column: "tag_id");
         }
 
         /// <inheritdoc />
@@ -67,6 +72,11 @@ namespace Nucleus.Migrations
 
             migrationBuilder.DropTable(
                 name: "tag");
+
+            migrationBuilder.RenameColumn(
+                name: "avatar",
+                table: "discord_user",
+                newName: "Avatar");
         }
     }
 }

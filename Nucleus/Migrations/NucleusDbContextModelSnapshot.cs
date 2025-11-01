@@ -106,6 +106,24 @@ namespace Nucleus.Migrations
                     b.ToTable("clip_collection", (string)null);
                 });
 
+            modelBuilder.Entity("Nucleus.Repository.ClipTag", b =>
+                {
+                    b.Property<Guid>("ClipId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("clip_id");
+
+                    b.Property<Guid>("TagId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tag_id");
+
+                    b.HasKey("ClipId", "TagId")
+                        .HasName("clip_tag_pkey");
+
+                    b.HasIndex(new[] { "TagId" }, "ix_clip_tag__tag_id");
+
+                    b.ToTable("clip_tag", (string)null);
+                });
+
             modelBuilder.Entity("Nucleus.Repository.DiscordUser", b =>
                 {
                     b.Property<Guid>("Id")
@@ -116,7 +134,8 @@ namespace Nucleus.Migrations
 
                     b.Property<string>("Avatar")
                         .HasMaxLength(100)
-                        .HasColumnType("character varying(100)");
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("avatar");
 
                     b.Property<string>("DiscordId")
                         .IsRequired()
@@ -137,6 +156,28 @@ namespace Nucleus.Migrations
                         .IsUnique();
 
                     b.ToTable("discord_user", (string)null);
+                });
+
+            modelBuilder.Entity("Nucleus.Repository.Tag", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id")
+                        .HasDefaultValueSql("gen_random_uuid()");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("name");
+
+                    b.HasKey("Id")
+                        .HasName("tag_pkey");
+
+                    b.HasIndex(new[] { "Name" }, "uq_tag__name")
+                        .IsUnique();
+
+                    b.ToTable("tag", (string)null);
                 });
 
             modelBuilder.Entity("Nucleus.Repository.UserFrequentLink", b =>
@@ -183,6 +224,27 @@ namespace Nucleus.Migrations
                         .HasConstraintName("fk_clip_collection__discord_user");
                 });
 
+            modelBuilder.Entity("Nucleus.Repository.ClipTag", b =>
+                {
+                    b.HasOne("Nucleus.Repository.Clip", "Clip")
+                        .WithMany("ClipTags")
+                        .HasForeignKey("ClipId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_clip_tag__clip");
+
+                    b.HasOne("Nucleus.Repository.Tag", "Tag")
+                        .WithMany("ClipTags")
+                        .HasForeignKey("TagId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_clip_tag__tag");
+
+                    b.Navigation("Clip");
+
+                    b.Navigation("Tag");
+                });
+
             modelBuilder.Entity("Nucleus.Repository.UserFrequentLink", b =>
                 {
                     b.HasOne("Nucleus.Repository.DiscordUser", "User")
@@ -195,9 +257,19 @@ namespace Nucleus.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("Nucleus.Repository.Clip", b =>
+                {
+                    b.Navigation("ClipTags");
+                });
+
             modelBuilder.Entity("Nucleus.Repository.DiscordUser", b =>
                 {
                     b.Navigation("UserFrequentLinks");
+                });
+
+            modelBuilder.Entity("Nucleus.Repository.Tag", b =>
+                {
+                    b.Navigation("ClipTags");
                 });
 #pragma warning restore 612, 618
         }

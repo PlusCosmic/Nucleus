@@ -124,6 +124,28 @@ namespace Nucleus.Migrations
                     b.ToTable("clip_tag", (string)null);
                 });
 
+            modelBuilder.Entity("Nucleus.Repository.ClipView", b =>
+                {
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("user_id");
+
+                    b.Property<Guid>("ClipId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("clip_id");
+
+                    b.Property<DateTime>("ViewedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("viewed_at");
+
+                    b.HasKey("UserId", "ClipId")
+                        .HasName("clip_view_pkey");
+
+                    b.HasIndex(new[] { "ClipId" }, "ix_clip_view__clip_id");
+
+                    b.ToTable("clip_view", (string)null);
+                });
+
             modelBuilder.Entity("Nucleus.Repository.DiscordUser", b =>
                 {
                     b.Property<Guid>("Id")
@@ -243,6 +265,27 @@ namespace Nucleus.Migrations
                     b.Navigation("Clip");
 
                     b.Navigation("Tag");
+                });
+
+            modelBuilder.Entity("Nucleus.Repository.ClipView", b =>
+                {
+                    b.HasOne("Nucleus.Repository.Clip", "Clip")
+                        .WithMany()
+                        .HasForeignKey("ClipId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_clip_view__clip");
+
+                    b.HasOne("Nucleus.Repository.DiscordUser", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_clip_view__user");
+
+                    b.Navigation("Clip");
+
+                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("Nucleus.Repository.UserFrequentLink", b =>

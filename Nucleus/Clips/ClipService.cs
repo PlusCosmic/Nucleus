@@ -14,11 +14,11 @@ public class ClipService(BunnyService bunnyService, NucleusDbContext dbContext, 
         return tag.Trim().ToLowerInvariant();
     }
 
-    public async Task<List<Clip>> GetClipsForCategory(ClipCategoryEnum categoryEnum, string discordUserId, int page)
+    public async Task<PagedClipsResponse> GetClipsForCategory(ClipCategoryEnum categoryEnum, string discordUserId, int page, int pageSize)
     {
         DiscordUser discordUser = await dbContext.DiscordUsers.SingleOrDefaultAsync(d => d.DiscordId == discordUserId) ?? throw new InvalidOperationException("No Discord user");
         Guid userId = discordUser.Id;
-        
+
         // get collection
         ClipCollection? clipCollection = await dbContext.ClipCollections.SingleOrDefaultAsync(s => s.OwnerId == userId && s.CategoryEnum == categoryEnum);
         if (clipCollection == null)
@@ -34,26 +34,38 @@ public class ClipService(BunnyService bunnyService, NucleusDbContext dbContext, 
             await dbContext.ClipCollections.AddAsync(clipCollection);
             await dbContext.SaveChangesAsync();
             // If the collection didn't exist, there won't be any videos in it
-            return [];
+            return new PagedClipsResponse([], 0);
         }
         // get videos from bunny
-        List<BunnyVideo> bunnyVideos = await bunnyService.GetVideosForCollectionAsync(clipCollection.CollectionId, page);
-        
+        PagedVideoResponse pagedResponse = await bunnyService.GetVideosForCollectionAsync(clipCollection.CollectionId, page, pageSize);
+
         // get clips from db including tags
         List<Repository.Clip> repositoryClips = await dbContext.Clips
             .Where(c => c.CategoryEnum == categoryEnum && c.OwnerId == userId)
             .Include(c => c.ClipTags)
             .ThenInclude(ct => ct.Tag)
             .ToListAsync();
+
+        // get viewed clips for this user
+        var clipIds = repositoryClips.Select(c => c.Id).ToList();
+        var viewedClipIds = dbContext.ClipViews
+            .Where(cv => cv.UserId == userId && clipIds.Contains(cv.ClipId))
+            .Select(cv => cv.ClipId)
+            .ToHashSet();
+
         // create clip objects
-        return repositoryClips.Select(c => new Clip(
+        var clips = repositoryClips.Select(c => new Clip(
             c.Id,
             c.OwnerId,
             c.VideoId,
             categoryEnum,
-            bunnyVideos.First(v => v.Guid == c.VideoId),
-            c.ClipTags.Select(ct => ct.Tag.Name).ToList()
+            pagedResponse.Items.First(v => v.Guid == c.VideoId),
+            c.ClipTags.Select(ct => ct.Tag.Name).ToList(),
+            viewedClipIds.Contains(c.Id)
         )).ToList();
+
+        int totalPages = (int)Math.Ceiling((double)pagedResponse.TotalItems / pagedResponse.ItemsPerPage);
+        return new PagedClipsResponse(clips, totalPages);
     }
 
     public List<ClipCategory> GetCategories()
@@ -89,19 +101,21 @@ public class ClipService(BunnyService bunnyService, NucleusDbContext dbContext, 
     {
         DiscordUser discordUser = await dbContext.DiscordUsers.SingleOrDefaultAsync(d => d.DiscordId == discordUserId) ?? throw new InvalidOperationException("No Discord user");
         Guid userId = discordUser.Id;
-        
+
         Repository.Clip? clip = await dbContext.Clips
             .Include(c => c.ClipTags)
             .ThenInclude(ct => ct.Tag)
             .SingleOrDefaultAsync(c => c.Id == clipId);
         if (clip == null)
             return null;
-        
+
         BunnyVideo? video = await bunnyService.GetVideoByIdAsync(clip.VideoId);
         if (video == null)
             return null;
-        
-        return new Clip(clip.Id, clip.OwnerId, clip.VideoId, clip.CategoryEnum, video, clip.ClipTags.Select(ct => ct.Tag.Name).ToList());
+
+        bool isViewed = await dbContext.ClipViews.AnyAsync(cv => cv.UserId == userId && cv.ClipId == clipId);
+
+        return new Clip(clip.Id, clip.OwnerId, clip.VideoId, clip.CategoryEnum, video, clip.ClipTags.Select(ct => ct.Tag.Name).ToList(), isViewed);
     }
 
     public async Task<Clip?> AddTagToClip(Guid clipId, string discordUserId, string tag)
@@ -156,6 +170,19 @@ public class ClipService(BunnyService bunnyService, NucleusDbContext dbContext, 
         return await GetClipById(clipId, discordUserId);
     }
 
+    public async Task<Clip?> UpdateClipTitle(Guid clipId, string discordUserId, string newTitle)
+    {
+        if (string.IsNullOrWhiteSpace(newTitle)) throw new ArgumentException("Title cannot be empty", nameof(newTitle));
+        if (newTitle.Length > 200) newTitle = newTitle.Substring(0, 200);
+
+        DiscordUser discordUser = await dbContext.DiscordUsers.SingleOrDefaultAsync(d => d.DiscordId == discordUserId) ?? throw new InvalidOperationException("No Discord user");
+        Repository.Clip? clip = await dbContext.Clips.SingleOrDefaultAsync(c => c.Id == clipId && c.OwnerId == discordUser.Id);
+        if (clip == null) return null;
+
+        await bunnyService.UpdateVideoTitleAsync(clip.VideoId, newTitle);
+        return await GetClipById(clipId, discordUserId);
+    }
+
     public async Task<List<TopTag>> GetTopTags(int limit = 20)
     {
         return await dbContext.ClipTags
@@ -165,5 +192,65 @@ public class ClipService(BunnyService bunnyService, NucleusDbContext dbContext, 
             .ThenBy(t => t.Name)
             .Take(limit)
             .ToListAsync();
+    }
+
+    public async Task<bool> MarkClipAsViewed(Guid clipId, string discordUserId)
+    {
+        DiscordUser discordUser = await dbContext.DiscordUsers.SingleOrDefaultAsync(d => d.DiscordId == discordUserId) ?? throw new InvalidOperationException("No Discord user");
+        Guid userId = discordUser.Id;
+
+        Repository.Clip? clip = await dbContext.Clips.SingleOrDefaultAsync(c => c.Id == clipId);
+        if (clip == null) return false;
+
+        bool alreadyViewed = await dbContext.ClipViews.AnyAsync(cv => cv.UserId == userId && cv.ClipId == clipId);
+        if (alreadyViewed) return true;
+
+        ClipView clipView = new ClipView
+        {
+            UserId = userId,
+            ClipId = clipId,
+            ViewedAt = DateTime.UtcNow
+        };
+        await dbContext.ClipViews.AddAsync(clipView);
+        await dbContext.SaveChangesAsync();
+        return true;
+    }
+
+    public async Task<PagedClipsResponse> GetUnviewedClipsForCategory(ClipCategoryEnum categoryEnum, string discordUserId, int page, int pageSize)
+    {
+        DiscordUser discordUser = await dbContext.DiscordUsers.SingleOrDefaultAsync(d => d.DiscordId == discordUserId) ?? throw new InvalidOperationException("No Discord user");
+        Guid userId = discordUser.Id;
+
+        ClipCollection? clipCollection = await dbContext.ClipCollections.SingleOrDefaultAsync(s => s.OwnerId == userId && s.CategoryEnum == categoryEnum);
+        if (clipCollection == null) return new PagedClipsResponse([], 0);
+
+        PagedVideoResponse pagedResponse = await bunnyService.GetVideosForCollectionAsync(clipCollection.CollectionId, page, pageSize);
+
+        List<Repository.Clip> repositoryClips = await dbContext.Clips
+            .Where(c => c.CategoryEnum == categoryEnum && c.OwnerId == userId)
+            .Include(c => c.ClipTags)
+            .ThenInclude(ct => ct.Tag)
+            .ToListAsync();
+
+        var clipIds = repositoryClips.Select(c => c.Id).ToList();
+        var viewedClipIds = dbContext.ClipViews
+            .Where(cv => cv.UserId == userId && clipIds.Contains(cv.ClipId))
+            .Select(cv => cv.ClipId)
+            .ToHashSet();
+
+        var clips = repositoryClips
+            .Where(c => !viewedClipIds.Contains(c.Id))
+            .Select(c => new Clip(
+                c.Id,
+                c.OwnerId,
+                c.VideoId,
+                categoryEnum,
+                pagedResponse.Items.First(v => v.Guid == c.VideoId),
+                c.ClipTags.Select(ct => ct.Tag.Name).ToList(),
+                false
+            )).ToList();
+
+        int totalPages = (int)Math.Ceiling((double)pagedResponse.TotalItems / pagedResponse.ItemsPerPage);
+        return new PagedClipsResponse(clips, totalPages);
     }
 }

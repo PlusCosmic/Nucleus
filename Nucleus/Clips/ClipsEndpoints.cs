@@ -12,6 +12,9 @@ public static class ClipsEndpoints
         group.MapGet("categories/{category}/videos", GetVideosByCategory).WithName("GetVideosByCategory");
         group.MapPost("categories/{category}/videos", CreateVideo).WithName("CreateVideo");
         group.MapGet("videos/{clipId}", GetVideoById).WithName("GetVideoById");
+        group.MapPost("videos/{clipId}/tags", AddTagToClip).WithName("AddTagToClip");
+        group.MapDelete("videos/{clipId}/tags/{tag}", RemoveTagFromClip).WithName("RemoveTagFromClip");
+        group.MapGet("tags/top", GetTopTags).WithName("GetTopTags");
     }
     
     public static Ok<List<ClipCategory>> GetCategories(ClipService clipService)
@@ -46,5 +49,43 @@ public static class ClipsEndpoints
         if (clip == null)
             return TypedResults.NotFound();
         return TypedResults.Ok(clip);
+    }
+
+    public sealed record AddTagRequest(string Tag);
+    
+    public static async Task<Results<UnauthorizedHttpResult, Ok<Clip>, NotFound, BadRequest<string>>> AddTagToClip(ClipService clipService, ClaimsPrincipal user, Guid clipId, AddTagRequest request)
+    {
+        var discordId = user.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (string.IsNullOrEmpty(discordId))
+            return TypedResults.Unauthorized();
+        try
+        {
+            Clip? updated = await clipService.AddTagToClip(clipId, discordId, request.Tag);
+            if (updated == null) return TypedResults.NotFound();
+            return TypedResults.Ok(updated);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return TypedResults.BadRequest(ex.Message);
+        }
+        catch (ArgumentException ex)
+        {
+            return TypedResults.BadRequest(ex.Message);
+        }
+    }
+    
+    public static async Task<Results<UnauthorizedHttpResult, Ok<Clip>, NotFound>> RemoveTagFromClip(ClipService clipService, ClaimsPrincipal user, Guid clipId, string tag)
+    {
+        var discordId = user.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (string.IsNullOrEmpty(discordId))
+            return TypedResults.Unauthorized();
+        Clip? updated = await clipService.RemoveTagFromClip(clipId, discordId, tag);
+        if (updated == null) return TypedResults.NotFound();
+        return TypedResults.Ok(updated);
+    }
+
+    public static async Task<Ok<List<TopTag>>> GetTopTags(ClipService clipService)
+    {
+        return TypedResults.Ok(await clipService.GetTopTags());
     }
 }

@@ -22,6 +22,10 @@ public partial class NucleusDbContext : DbContext
     
     public virtual DbSet<ClipCollection> ClipCollections { get; set; }
     
+    public virtual DbSet<Tag> Tags { get; set; }
+    
+    public virtual DbSet<ClipTag> ClipTags { get; set; }
+    
     public virtual DbSet<ApexMapRotation> ApexMapRotations { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -75,6 +79,37 @@ public partial class NucleusDbContext : DbContext
             entity.Property(e => e.OwnerId).HasColumnName("owner_id");
             entity.Property(e => e.VideoId).HasColumnName("video_id");
             entity.Property(e => e.CategoryEnum).HasColumnName("category");
+        });
+        
+        modelBuilder.Entity<Tag>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("tag_pkey");
+            entity.ToTable("tag");
+            entity.HasIndex(e => e.Name, "uq_tag__name").IsUnique();
+            entity.Property(e => e.Id)
+                .HasDefaultValueSql("gen_random_uuid()")
+                .HasColumnName("id");
+            entity.Property(e => e.Name)
+                .HasColumnName("name");
+        });
+        
+        modelBuilder.Entity<ClipTag>(entity =>
+        {
+            entity.HasKey(e => new { e.ClipId, e.TagId }).HasName("clip_tag_pkey");
+            entity.ToTable("clip_tag");
+            entity.HasIndex(e => e.TagId, "ix_clip_tag__tag_id");
+            entity.Property(e => e.ClipId).HasColumnName("clip_id");
+            entity.Property(e => e.TagId).HasColumnName("tag_id");
+            
+            entity.HasOne(d => d.Clip)
+                .WithMany(p => p.ClipTags)
+                .HasForeignKey(d => d.ClipId)
+                .HasConstraintName("fk_clip_tag__clip");
+            
+            entity.HasOne(d => d.Tag)
+                .WithMany(p => p.ClipTags)
+                .HasForeignKey(d => d.TagId)
+                .HasConstraintName("fk_clip_tag__tag");
         });
 
         modelBuilder.Entity<ClipCollection>(entity =>

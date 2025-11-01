@@ -39,6 +39,7 @@ public partial class NucleusDbContext : DbContext
                 .HasColumnName("id");
             entity.Property(e => e.DiscordId).HasColumnName("discord_id");
             entity.Property(e => e.Username).HasColumnName("username");
+            entity.Property(e => e.Avatar).HasColumnName("avatar");
         });
 
         modelBuilder.Entity<UserFrequentLink>(entity =>

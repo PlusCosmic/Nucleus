@@ -11,6 +11,7 @@ public static class ClipsEndpoints
         group.MapGet("categories",  GetCategories).WithName("GetCategories");
         group.MapGet("categories/{category}/videos", GetVideosByCategory).WithName("GetVideosByCategory");
         group.MapPost("categories/{category}/videos", CreateVideo).WithName("CreateVideo");
+        group.MapGet("videos/{clipId}", GetVideoById).WithName("GetVideoById");
     }
     
     public static Ok<List<ClipCategory>> GetCategories(ClipService clipService)
@@ -34,5 +35,16 @@ public static class ClipsEndpoints
             return TypedResults.Unauthorized();
 
         return TypedResults.Ok(await clipService.CreateClip(category, videoTitle, discordId));
+    }
+    
+    public static async Task<Results<UnauthorizedHttpResult, Ok<Clip>, NotFound>> GetVideoById(ClipService clipService, ClaimsPrincipal user, Guid clipId)
+    {
+        var discordId = user.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (string.IsNullOrEmpty(discordId))
+            return TypedResults.Unauthorized();
+        Clip? clip = await clipService.GetClipById(clipId, discordId);
+        if (clip == null)
+            return TypedResults.NotFound();
+        return TypedResults.Ok(clip);
     }
 }

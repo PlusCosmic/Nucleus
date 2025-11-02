@@ -1,60 +1,54 @@
-using System.Text.Json;
-using Microsoft.EntityFrameworkCore;
 using Nucleus.ApexLegends.Models;
 using Nucleus.Repository;
 
 namespace Nucleus.ApexLegends;
 
-public class MapService(NucleusDbContext dbContext, IConfiguration configuration)
+public class MapService(ApexStatements apexStatements, IConfiguration configuration)
 {
-    private readonly string _mapUrl =
-        $"https://api.mozambiquehe.re/maprotation?version=2&auth={configuration["ApexLegendsApiKey"] ?? throw new InvalidOperationException("API key not configured")}";
-
     public async Task<CurrentMapRotation> GetMapRotation()
     {
-        List<ApexMapRotation> recentRotations = await dbContext.ApexMapRotations
-            .Where(r => r.StartTime >= DateTimeOffset.UtcNow.AddDays(-2)).ToListAsync();
+        var recentRotationRows = await apexStatements.GetRecentRotations(DateTimeOffset.UtcNow.AddDays(-2));
 
         DateTimeOffset now = DateTimeOffset.UtcNow;
 
-        ApexMapRotation? currentStandard = recentRotations.Find(r =>
-            r.StartTime <= now && r.EndTime > now && r.Gamemode == ApexGamemode.Standard);
-        if (currentStandard == null)
+        var currentStandardRow = recentRotationRows.Find(r =>
+            r.StartTime <= now && r.EndTime > now && r.Gamemode == (int)ApexGamemode.Standard);
+        if (currentStandardRow == null)
         {
             throw new InvalidOperationException("No current standard map rotation found");
         }
 
-        DateTimeOffset nextTime = currentStandard.EndTime.AddMinutes(1);
+        DateTimeOffset nextTime = currentStandardRow.EndTime.AddMinutes(1);
 
-        ApexMapRotation? nextStandard = recentRotations.Find(r =>
-            r.StartTime <= nextTime && r.EndTime > nextTime && r.Gamemode == ApexGamemode.Standard);
-        if (nextStandard == null)
+        var nextStandardRow = recentRotationRows.Find(r =>
+            r.StartTime <= nextTime && r.EndTime > nextTime && r.Gamemode == (int)ApexGamemode.Standard);
+        if (nextStandardRow == null)
         {
             throw new InvalidOperationException("No next standard map rotation found");
         }
 
-        ApexMapRotation? currentRanked =
-            recentRotations.Find(r => r.StartTime <= now && r.EndTime > now && r.Gamemode == ApexGamemode.Ranked);
-        if (currentRanked == null)
+        var currentRankedRow = recentRotationRows.Find(r =>
+            r.StartTime <= now && r.EndTime > now && r.Gamemode == (int)ApexGamemode.Ranked);
+        if (currentRankedRow == null)
         {
             throw new InvalidOperationException("No current ranked map rotation found");
         }
 
-        DateTimeOffset nextRankedTime = currentRanked.EndTime.AddMinutes(1);
+        DateTimeOffset nextRankedTime = currentRankedRow.EndTime.AddMinutes(1);
 
-        ApexMapRotation? nextRanked = recentRotations.Find(r =>
-            r.StartTime <= nextRankedTime && r.EndTime > nextRankedTime && r.Gamemode == ApexGamemode.Ranked);
-        if (nextRanked == null)
+        var nextRankedRow = recentRotationRows.Find(r =>
+            r.StartTime <= nextRankedTime && r.EndTime > nextRankedTime && r.Gamemode == (int)ApexGamemode.Ranked);
+        if (nextRankedRow == null)
         {
             throw new InvalidOperationException("No next ranked map rotation found");
         }
 
         return new CurrentMapRotation
         (
-            ApexMapRotationToMapInfo(currentStandard),
-            ApexMapRotationToMapInfo(nextStandard),
-            ApexMapRotationToMapInfo(currentRanked),
-            ApexMapRotationToMapInfo(nextRanked),
+            RowToMapInfo(currentStandardRow),
+            RowToMapInfo(nextStandardRow),
+            RowToMapInfo(currentRankedRow),
+            RowToMapInfo(nextRankedRow),
             now);
     }
 
@@ -90,9 +84,9 @@ public class MapService(NucleusDbContext dbContext, IConfiguration configuration
         return new Uri($"{start}/images/{filename}");
     }
 
-    private MapInfo ApexMapRotationToMapInfo(ApexMapRotation rotation)
+    private MapInfo RowToMapInfo(ApexStatements.ApexMapRotationRow row)
     {
-        return new MapInfo(GetFriendlyNameForMap(rotation.Map), rotation.StartTime, rotation.EndTime,
-            GetAssetUriForMap(rotation.Map));
+        var map = row.GetMap();
+        return new MapInfo(GetFriendlyNameForMap(map), row.StartTime, row.EndTime, GetAssetUriForMap(map));
     }
 }

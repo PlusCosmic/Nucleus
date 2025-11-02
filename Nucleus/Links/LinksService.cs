@@ -1,9 +1,8 @@
-using Microsoft.EntityFrameworkCore;
-using Nucleus.Repository;
+using Nucleus.Discord;
 
 namespace Nucleus.Links;
 
-public class LinksService(NucleusDbContext context)
+public class LinksService(LinksStatements linksStatements, DiscordStatements discordStatements)
 {
     public async Task AddLink(string discordId, string url)
     {
@@ -15,39 +14,40 @@ public class LinksService(NucleusDbContext context)
                 Url: meta.PageUri.ToString(),
                 ThumbnailUrl: meta.FaviconUri?.ToString() ?? string.Empty
             );
-            DiscordUser activeUser = await context.DiscordUsers.SingleAsync(u => u.DiscordId == discordId);
-            UserFrequentLink linkRecord = new UserFrequentLink
-            {
-                UserId = activeUser.Id,
-                Title = link.Title,
-                Url = link.Url,
-                ThumbnailUrl = link.ThumbnailUrl
-            };
-            await context.UserFrequentLinks.AddAsync(linkRecord);
-            await context.SaveChangesAsync();
+
+            var activeUser = await discordStatements.GetUserByDiscordId(discordId)
+                ?? throw new InvalidOperationException("Discord user not found");
+
+            await linksStatements.InsertLink(activeUser.Id, link.Title, link.Url, link.ThumbnailUrl);
         }
         else
         {
             throw new InvalidOperationException("Failed to fetch page metadata");
         }
     }
-    
-    public async Task<List<UserFrequentLink>> GetLinksForUser(string discordId)
+
+    public async Task<List<LinksStatements.UserFrequentLinkRow>> GetLinksForUser(string discordId)
     {
-        DiscordUser activeUser = await context.DiscordUsers.SingleAsync(u => u.DiscordId == discordId);
-        return await context.UserFrequentLinks.Where(l => l.UserId == activeUser.Id).ToListAsync();
+        var activeUser = await discordStatements.GetUserByDiscordId(discordId)
+            ?? throw new InvalidOperationException("Discord user not found");
+
+        var linkRows = await linksStatements.GetLinksByUserId(activeUser.Id);
+
+        return linkRows;
     }
-    
+
     public async Task<bool> DeleteLink(Guid id, string discordId)
     {
-        DiscordUser activeUser = await context.DiscordUsers.SingleAsync(u => u.DiscordId == discordId);
-        UserFrequentLink link = await context.UserFrequentLinks.SingleAsync(l => l.Id == id);
-        if (link.UserId != activeUser.Id)
+        var activeUser = await discordStatements.GetUserByDiscordId(discordId)
+            ?? throw new InvalidOperationException("Discord user not found");
+
+        var link = await linksStatements.GetLinkById(id);
+        if (link == null || link.UserId != activeUser.Id)
         {
             return false;
         }
-        context.UserFrequentLinks.Remove(link);
-        await context.SaveChangesAsync();
+
+        await linksStatements.DeleteLink(id);
         return true;
     }
 }

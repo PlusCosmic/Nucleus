@@ -8,6 +8,8 @@
     restart: unless-stopped
     networks:
       - app-network
+    volumes:
+      - ffmpeg_shared:/tmp/ffmpeg-downloads
     environment:
       - ASPNETCORE_URLS=http://+:8080
       - ASPNETCORE_FORWARDEDHEADERS_ENABLED=true
@@ -20,6 +22,7 @@
       - BunnyAccessKey=${BunnyAccessKey}
       - BunnyLibraryId=${BunnyLibraryId}
       - BackendAddress=${BackendAddress}
+      - FFmpegSharedPath=/tmp/ffmpeg-downloads
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:8080/health || exit 1"]
       interval: 10s
@@ -67,6 +70,20 @@
     depends_on:
       - nucleus
 
+  ffmpeg:
+    image: linuxserver/ffmpeg:latest
+    container_name: ffmpeg
+    networks:
+      - app-network
+    volumes:
+      - ffmpeg_data:/config
+      - ffmpeg_shared:/config
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Etc/UTC
+    restart: unless-stopped
+
 networks:
   app-network:
     driver: bridge
@@ -75,3 +92,5 @@ volumes:
   caddy_data:
   caddy_config:
   postgres_data:
+  ffmpeg_data:
+  ffmpeg_shared:

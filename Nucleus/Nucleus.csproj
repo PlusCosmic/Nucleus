@@ -12,18 +12,13 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <PackageReference Include="AspNetCore.HealthChecks.NpgSql" Version="9.0.0"/>
+        <PackageReference Include="AspNetCore.HealthChecks.NpgSql" Version="9.0.0" />
+        <PackageReference Include="Dapper" Version="2.1.66" />
         <PackageReference Include="EFCore.NamingConventions" Version="10.0.0-rc.2" />
+        <PackageReference Include="Evolve" Version="3.2.0" />
         <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.0-rc.2.25502.107" />
-        <PackageReference Include="HtmlAgilityPack" Version="1.12.4"/>
-        <PackageReference Include="Microsoft.Build" Version="17.14.28" />
-        <PackageReference Include="Microsoft.Build.Tasks.Core" Version="17.14.28" />
-        <PackageReference Include="Microsoft.Build.Utilities.Core" Version="17.14.28" />
+        <PackageReference Include="HtmlAgilityPack" Version="1.12.4" />
         <PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.0-rc.2.25502.107" />
-        <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.0-rc.2.25502.107">
-            <PrivateAssets>all</PrivateAssets>
-            <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-        </PackageReference>
         <PackageReference Include="Microsoft.Extensions.ApiDescription.Server" Version="10.0.0-rc.2.25502.107">
             <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
             <PrivateAssets>all</PrivateAssets>
@@ -32,23 +27,21 @@
     </ItemGroup>
 
     <ItemGroup>
-        <_ContentIncludedByDefault Remove="Nucleus.Tests\obj\Nucleus.Tests.csproj.nuget.dgspec.json"/>
-        <_ContentIncludedByDefault Remove="Nucleus.Tests\obj\project.assets.json"/>
-        <_ContentIncludedByDefault Remove="Nucleus.Tests\obj\project.packagespec.json"/>
+        <_ContentIncludedByDefault Remove="Nucleus.Tests\obj\Nucleus.Tests.csproj.nuget.dgspec.json" />
+        <_ContentIncludedByDefault Remove="Nucleus.Tests\obj\project.assets.json" />
+        <_ContentIncludedByDefault Remove="Nucleus.Tests\obj\project.packagespec.json" />
     </ItemGroup>
 
     <ItemGroup>
         <Content Include="..\.dockerignore">
             <Link>.dockerignore</Link>
         </Content>
-        <Content Include="whitelist.json">
-            <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-        </Content>
     </ItemGroup>
     
-    <Target Name="CopyOpenApiSpec" AfterTargets="Build" Condition="'$(CI)' == ''">
-        <Copy SourceFiles="$(BaseIntermediateOutputPath)Nucleus.json"
-              DestinationFolder="$(SolutionDir)..\plus-cosmic-dev\packages\nucleus-api-client" />
+<!--
+    <Target Name="CopyOpenApiSpec" AfterTargets="Build" Condition="'$(CI)' == '' And '$(SolutionDir)' != ''">
+        <Copy SourceFiles="$(BaseIntermediateOutputPath)Nucleus.json" DestinationFolder="$(SolutionDir)..\plus-cosmic-dev\packages\nucleus-api-client" />
     </Target>
+-->
 
 </Project>

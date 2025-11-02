@@ -1,5 +1,3 @@
-using System.Net.Http.Headers;
-using System.Text.Json;
 using Nucleus.Clips.Bunny.Models;
 
 namespace Nucleus.Clips.Bunny;
@@ -38,12 +36,12 @@ public class BunnyService
        return response ?? throw new InvalidOperationException("Failed to deserialize bunny collection");
     }
     
-    public async Task<List<BunnyVideo>> GetVideosForCollectionAsync(Guid collectionId, int page)
+    public async Task<PagedVideoResponse> GetVideosForCollectionAsync(Guid collectionId, int page, int pageSize)
     {
-        string url = _videosUrl + $"?collection={collectionId}&page={page}";
+        string url = _videosUrl + $"?collection={collectionId}&page={page}&itemsPerPage={pageSize}";
         var videosResponse = await _httpClient.GetAsync(url);
         var pagedResponse = await videosResponse.Content.ReadFromJsonAsync<PagedVideoResponse>() ?? throw new InvalidOperationException("Failed to deserialize bunny videos");
-        return pagedResponse.Items;
+        return pagedResponse;
     }
 
     public async Task<BunnyVideo> CreateVideoAsync(Guid collectionId, string videoTitle)
@@ -65,5 +63,23 @@ public class BunnyService
         var videoResponse = await _httpClient.GetAsync(url);
         BunnyVideo? response = await videoResponse.Content.ReadFromJsonAsync<BunnyVideo>();
         return response;
+    }
+
+    public async Task UpdateVideoTitleAsync(Guid videoId, string newTitle)
+    {
+        string url = _videosUrl + $"/{videoId}";
+        var content = JsonContent.Create(new { title = newTitle });
+        content.Headers.Remove("Content-Type");
+        content.Headers.Add("Content-Type", "application/json");
+
+        var response = await _httpClient.PostAsync(url, content);
+        response.EnsureSuccessStatusCode();
+    }
+
+    public async Task DeleteVideoAsync(Guid videoId)
+    {
+        string url = _videosUrl + $"/{videoId}";
+        var response = await _httpClient.DeleteAsync(url);
+        response.EnsureSuccessStatusCode();
     }
 }

@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using Nucleus.Repository;
@@ -11,9 +12,11 @@ using Nucleus.Repository;
 namespace Nucleus.Migrations
 {
     [DbContext(typeof(NucleusDbContext))]
-    partial class NucleusDbContextModelSnapshot : ModelSnapshot
+    [Migration("20251101215537_ClipViews")]
+    partial class ClipViews
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -63,10 +66,6 @@ namespace Nucleus.Migrations
                     b.Property<int>("CategoryEnum")
                         .HasColumnType("integer")
                         .HasColumnName("category");
-
-                    b.Property<string>("Md5Hash")
-                        .HasColumnType("text")
-                        .HasColumnName("md5_hash");
 
                     b.Property<Guid>("OwnerId")
                         .HasColumnType("uuid")

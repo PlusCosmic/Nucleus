@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using Nucleus.Repository;
@@ -11,9 +12,11 @@ using Nucleus.Repository;
 namespace Nucleus.Migrations
 {
     [DbContext(typeof(NucleusDbContext))]
-    partial class NucleusDbContextModelSnapshot : ModelSnapshot
+    [Migration("20251101194604_Tags")]
+    partial class Tags
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -63,10 +66,6 @@ namespace Nucleus.Migrations
                     b.Property<int>("CategoryEnum")
                         .HasColumnType("integer")
                         .HasColumnName("category");
-
-                    b.Property<string>("Md5Hash")
-                        .HasColumnType("text")
-                        .HasColumnName("md5_hash");
 
                     b.Property<Guid>("OwnerId")
                         .HasColumnType("uuid")
@@ -126,28 +125,6 @@ namespace Nucleus.Migrations
                     b.HasIndex(new[] { "TagId" }, "ix_clip_tag__tag_id");
 
                     b.ToTable("clip_tag", (string)null);
-                });
-
-            modelBuilder.Entity("Nucleus.Repository.ClipView", b =>
-                {
-                    b.Property<Guid>("UserId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("user_id");
-
-                    b.Property<Guid>("ClipId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("clip_id");
-
-                    b.Property<DateTime>("ViewedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("viewed_at");
-
-                    b.HasKey("UserId", "ClipId")
-                        .HasName("clip_view_pkey");
-
-                    b.HasIndex(new[] { "ClipId" }, "ix_clip_view__clip_id");
-
-                    b.ToTable("clip_view", (string)null);
                 });
 
             modelBuilder.Entity("Nucleus.Repository.DiscordUser", b =>
@@ -269,27 +246,6 @@ namespace Nucleus.Migrations
                     b.Navigation("Clip");
 
                     b.Navigation("Tag");
-                });
-
-            modelBuilder.Entity("Nucleus.Repository.ClipView", b =>
-                {
-                    b.HasOne("Nucleus.Repository.Clip", "Clip")
-                        .WithMany()
-                        .HasForeignKey("ClipId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired()
-                        .HasConstraintName("fk_clip_view__clip");
-
-                    b.HasOne("Nucleus.Repository.DiscordUser", "User")
-                        .WithMany()
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired()
-                        .HasConstraintName("fk_clip_view__user");
-
-                    b.Navigation("Clip");
-
-                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("Nucleus.Repository.UserFrequentLink", b =>

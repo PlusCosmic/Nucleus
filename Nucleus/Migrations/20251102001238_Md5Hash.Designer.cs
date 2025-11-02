@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using Nucleus.Repository;
@@ -11,9 +12,11 @@ using Nucleus.Repository;
 namespace Nucleus.Migrations
 {
     [DbContext(typeof(NucleusDbContext))]
-    partial class NucleusDbContextModelSnapshot : ModelSnapshot
+    [Migration("20251102001238_Md5Hash")]
+    partial class Md5Hash
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder

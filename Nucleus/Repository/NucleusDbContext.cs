@@ -81,6 +81,7 @@ public partial class NucleusDbContext : DbContext
             entity.Property(e => e.OwnerId).HasColumnName("owner_id");
             entity.Property(e => e.VideoId).HasColumnName("video_id");
             entity.Property(e => e.CategoryEnum).HasColumnName("category");
+            entity.Property(e => e.Md5Hash).HasColumnName("md5_hash");
         });
         
         modelBuilder.Entity<Tag>(entity =>

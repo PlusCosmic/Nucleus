@@ -64,6 +64,10 @@ namespace Nucleus.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("category");
 
+                    b.Property<string>("Md5Hash")
+                        .HasColumnType("text")
+                        .HasColumnName("md5_hash");
+
                     b.Property<Guid>("OwnerId")
                         .HasColumnType("uuid")
                         .HasColumnName("owner_id");

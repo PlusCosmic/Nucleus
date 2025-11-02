@@ -12,8 +12,8 @@ using Nucleus.Repository;
 namespace Nucleus.Migrations
 {
     [DbContext(typeof(NucleusDbContext))]
-    [Migration("20251102000644_AddMd5HashToClips")]
-    partial class AddMd5HashToClips
+    [Migration("20251102001238_Md5Hash")]
+    partial class Md5Hash
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -66,6 +66,10 @@ namespace Nucleus.Migrations
                     b.Property<int>("CategoryEnum")
                         .HasColumnType("integer")
                         .HasColumnName("category");
+
+                    b.Property<string>("Md5Hash")
+                        .HasColumnType("text")
+                        .HasColumnName("md5_hash");
 
                     b.Property<Guid>("OwnerId")
                         .HasColumnType("uuid")

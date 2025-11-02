@@ -14,7 +14,7 @@ public static class LinksEndpoints
         group.MapPost("", AddLink).WithName("AddLink");
     }
     
-    public static async Task<Results<Ok<List<UserFrequentLink>>, UnauthorizedHttpResult>> GetLinksForUser(LinksService linksService, ClaimsPrincipal user)
+    public static async Task<Results<Ok<List<LinksStatements.UserFrequentLinkRow>>, UnauthorizedHttpResult>> GetLinksForUser(LinksService linksService, ClaimsPrincipal user)
     {
         var discordId = user.FindFirstValue(ClaimTypes.NameIdentifier);
         if (string.IsNullOrEmpty(discordId))

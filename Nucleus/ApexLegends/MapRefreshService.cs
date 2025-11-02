@@ -1,4 +1,3 @@
-using Microsoft.EntityFrameworkCore;
 using Nucleus.ApexLegends.Models;
 using Nucleus.Repository;
 
@@ -37,32 +36,26 @@ public class MapRefreshService(
         if (response == null)
         {
             logger.LogError("Failed to deserialize map rotation");
-            return;       
+            return;
         }
-        // Check if the db knows about all the maps in the response
+
         using var scope = scopeFactory.CreateScope();
-        var dbContext = scope.ServiceProvider.GetRequiredService<NucleusDbContext>();
-        await dbContext.Database.EnsureCreatedAsync();
-        await UpsertMapAsync(response.BattleRoyale.Current, ApexGamemode.Standard, dbContext);
-        await UpsertMapAsync(response.BattleRoyale.Next, ApexGamemode.Standard, dbContext);
-        await UpsertMapAsync(response.Ranked.Current, ApexGamemode.Ranked, dbContext);
-        await UpsertMapAsync(response.Ranked.Next, ApexGamemode.Ranked, dbContext);
+        var apexStatements = scope.ServiceProvider.GetRequiredService<ApexStatements>();
+
+        await UpsertMapAsync(response.BattleRoyale.Current, ApexGamemode.Standard, apexStatements);
+        await UpsertMapAsync(response.BattleRoyale.Next, ApexGamemode.Standard, apexStatements);
+        await UpsertMapAsync(response.Ranked.Current, ApexGamemode.Ranked, apexStatements);
+        await UpsertMapAsync(response.Ranked.Next, ApexGamemode.Ranked, apexStatements);
     }
 
-    private async Task UpsertMapAsync(MapRotationInfo mapInfo, ApexGamemode gamemode, NucleusDbContext dbContext)
+    private async Task UpsertMapAsync(MapRotationInfo mapInfo, ApexGamemode gamemode, ApexStatements apexStatements)
     {
-        ApexMapRotation? existingRotation = await dbContext.ApexMapRotations.SingleOrDefaultAsync(r => r.Gamemode == gamemode && r.StartTime == mapInfo.StartTime && r.EndTime == mapInfo.EndTime);
-        if (existingRotation == null)
+        var map = MapCodeToEnum(mapInfo.Code);
+        bool exists = await apexStatements.RotationExists(mapInfo.StartTime, mapInfo.EndTime, (int)gamemode, (int)map);
+
+        if (!exists)
         {
-            var mapRotation = new ApexMapRotation
-            {
-                Map = MapCodeToEnum(mapInfo.Code),
-                StartTime = mapInfo.StartTime,
-                EndTime = mapInfo.EndTime,
-                Gamemode = gamemode
-            };
-            await dbContext.ApexMapRotations.AddAsync(mapRotation);
-            await dbContext.SaveChangesAsync();
+            await apexStatements.InsertRotation(map, mapInfo.StartTime, mapInfo.EndTime, gamemode);
         }
     }
 

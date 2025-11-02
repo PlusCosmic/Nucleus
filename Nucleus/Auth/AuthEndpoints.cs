@@ -39,17 +39,17 @@ public static class AuthEndpoints
         return Results.Challenge(props, new[] { "Discord" });
     }
 
-    public static async Task<IResult> PostLoginRedirect(HttpContext ctx, string? returnUrl, NucleusDbContext dbContext,
+    public static async Task<IResult> PostLoginRedirect(HttpContext ctx, string? returnUrl,
         ClaimsPrincipal user)
     {
         // Check if the user is already in the database
         var discordId = user.FindFirstValue(ClaimTypes.NameIdentifier) ?? throw new InvalidOperationException("No Discord ID");
         var username = user.FindFirstValue(ClaimTypes.Name) ?? throw new InvalidOperationException("No Discord username");
-        if (!dbContext.DiscordUsers.Any(u => u.DiscordId == discordId))
+        /*if (!dbContext.DiscordUsers.Any(u => u.DiscordId == discordId))
         {
             await dbContext.DiscordUsers.AddAsync(new DiscordUser { DiscordId = discordId, Username = username });
             await dbContext.SaveChangesAsync();
-        }
+        }*/
         // Validate return URL again for safety
         string redirect;
         if (!string.IsNullOrEmpty(returnUrl) && IsValidReturnUrl(returnUrl))

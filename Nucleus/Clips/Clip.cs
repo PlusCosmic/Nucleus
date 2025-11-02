@@ -6,4 +6,4 @@ public record Clip(Guid ClipId, Guid OwnerId, Guid VideoId, ClipCategoryEnum Cat
 {
 }
 
-public record PagedClipsResponse(List<Clip> Clips, int TotalPages);
+public record PagedClipsResponse(List<Clip> Clips, long TotalPages);

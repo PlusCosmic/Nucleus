@@ -49,6 +49,7 @@ builder.Services.Configure<JsonOptions>(options =>
 {
     options.SerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower;
     options.SerializerOptions.ReferenceHandler = ReferenceHandler.IgnoreCycles;
+    options.SerializerOptions.NumberHandling = JsonNumberHandling.Strict;
 });
 
 builder.Services.AddCors(options =>

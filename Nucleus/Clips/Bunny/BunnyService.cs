@@ -71,8 +71,15 @@ public class BunnyService
         var content = JsonContent.Create(new { title = newTitle });
         content.Headers.Remove("Content-Type");
         content.Headers.Add("Content-Type", "application/json");
-        
+
         var response = await _httpClient.PostAsync(url, content);
+        response.EnsureSuccessStatusCode();
+    }
+
+    public async Task DeleteVideoAsync(Guid videoId)
+    {
+        string url = _videosUrl + $"/{videoId}";
+        var response = await _httpClient.DeleteAsync(url);
         response.EnsureSuccessStatusCode();
     }
 }

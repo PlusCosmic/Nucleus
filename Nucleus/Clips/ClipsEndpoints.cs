@@ -18,6 +18,7 @@ public static class ClipsEndpoints
         group.MapDelete("videos/{clipId}/tags/{tag}", RemoveTagFromClip).WithName("RemoveTagFromClip");
         group.MapGet("tags/top", GetTopTags).WithName("GetTopTags");
         group.MapPatch("videos/{clipId}/title", UpdateClipTitle).WithName("UpdateClipTitle");
+        group.MapDelete("videos/{clipId}", DeleteClip).WithName("DeleteClip");
     }
     
     public static Ok<List<ClipCategory>> GetCategories(ClipService clipService)
@@ -33,14 +34,18 @@ public static class ClipsEndpoints
         return TypedResults.Ok(await clipService.GetClipsForCategory(category, discordId, page, pageSize));
     }
 
-    public static async Task<Results<UnauthorizedHttpResult, Ok<CreateClipResponse>>> CreateVideo(ClipService clipService,
-        ClipCategoryEnum category, ClaimsPrincipal user, string videoTitle)
+    public static async Task<Results<UnauthorizedHttpResult, Ok<CreateClipResponse>, Conflict<string>>> CreateVideo(ClipService clipService,
+        ClipCategoryEnum category, ClaimsPrincipal user, string videoTitle, string? md5Hash = null)
     {
         var discordId = user.FindFirstValue(ClaimTypes.NameIdentifier);
         if (string.IsNullOrEmpty(discordId))
             return TypedResults.Unauthorized();
 
-        return TypedResults.Ok(await clipService.CreateClip(category, videoTitle, discordId));
+        var result = await clipService.CreateClip(category, videoTitle, discordId, md5Hash);
+        if (result == null)
+            return TypedResults.Conflict("A video with this MD5 hash already exists");
+
+        return TypedResults.Ok(result);
     }
     
     public static async Task<Results<UnauthorizedHttpResult, Ok<Clip>, NotFound>> GetVideoById(ClipService clipService, ClaimsPrincipal user, Guid clipId)
@@ -130,5 +135,15 @@ public static class ClipsEndpoints
         if (string.IsNullOrEmpty(discordId))
             return TypedResults.Unauthorized();
         return TypedResults.Ok(await clipService.GetUnviewedClipsForCategory(category, discordId, page, pageSize));
+    }
+
+    public static async Task<Results<UnauthorizedHttpResult, Ok, NotFound>> DeleteClip(ClipService clipService, ClaimsPrincipal user, Guid clipId)
+    {
+        var discordId = user.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (string.IsNullOrEmpty(discordId))
+            return TypedResults.Unauthorized();
+        bool success = await clipService.DeleteClip(clipId, discordId);
+        if (!success) return TypedResults.NotFound();
+        return TypedResults.Ok();
     }
 }

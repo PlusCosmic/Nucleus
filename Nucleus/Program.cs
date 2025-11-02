@@ -95,6 +95,7 @@ app.UseStaticFiles(new StaticFileOptions
 app.UseCors();
 app.UseAuthentication();
 app.UseAuthorization();
+app.UseMiddleware<WhitelistMiddleware>();
 app.MapUserEndpoints();
 app.MapApexEndpoints();
 app.MapAuthEndpoints();

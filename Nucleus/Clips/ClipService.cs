@@ -52,17 +52,25 @@ public class ClipService(BunnyService bunnyService, NucleusDbContext dbContext, 
             .Where(cv => cv.UserId == userId && clipIds.Contains(cv.ClipId))
             .Select(cv => cv.ClipId)
             .ToHashSet();
-
-        // create clip objects
-        var clips = repositoryClips.Select(c => new Clip(
-            c.Id,
-            c.OwnerId,
-            c.VideoId,
-            categoryEnum,
-            pagedResponse.Items.First(v => v.Guid == c.VideoId),
-            c.ClipTags.Select(ct => ct.Tag.Name).ToList(),
-            viewedClipIds.Contains(c.Id)
-        )).ToList();
+        
+        var repoClipsByVideoId = repositoryClips.ToDictionary(c => c.VideoId, c => c);
+        var clips = pagedResponse.Items
+            .Select(v =>
+            {
+                if (!repoClipsByVideoId.TryGetValue(v.Guid, out var repoClip)) return null;
+                return new Clip(
+                    repoClip.Id,
+                    repoClip.OwnerId,
+                    repoClip.VideoId,
+                    categoryEnum,
+                    v,
+                    repoClip.ClipTags.Count > 0 ? repoClip.ClipTags.Select(ct => ct.Tag.Name).ToList() : [],
+                    viewedClipIds.Contains(repoClip.Id)
+                );
+            })
+            .Where(c => c != null)
+            .Cast<Clip>()
+            .ToList();
 
         int totalPages = (int)Math.Ceiling((double)pagedResponse.TotalItems / pagedResponse.ItemsPerPage);
         return new PagedClipsResponse(clips, totalPages);
@@ -75,18 +83,26 @@ public class ClipService(BunnyService bunnyService, NucleusDbContext dbContext, 
             new ("Snowboarding", ClipCategoryEnum.Snowboarding, "/images/snowboarding.png")];
     }
 
-    public async Task<CreateClipResponse> CreateClip(ClipCategoryEnum categoryEnum, string videoTitle, string discordUserId)
+    public async Task<CreateClipResponse?> CreateClip(ClipCategoryEnum categoryEnum, string videoTitle, string discordUserId, string? md5Hash = null)
     {
         DiscordUser discordUser = await dbContext.DiscordUsers.SingleOrDefaultAsync(d => d.DiscordId == discordUserId) ?? throw new InvalidOperationException("No Discord user");
         Guid userId = discordUser.Id;
 
+        // Check if a video with this MD5 hash already exists for this user and category
+        if (!string.IsNullOrWhiteSpace(md5Hash))
+        {
+            bool exists = await dbContext.Clips.AnyAsync(c => c.OwnerId == userId && c.CategoryEnum == categoryEnum && c.Md5Hash == md5Hash);
+            if (exists)
+                return null; // Duplicate detected
+        }
+
         ClipCollection clipCollection = await dbContext.ClipCollections.SingleOrDefaultAsync(cc => cc.OwnerId == userId && cc.CategoryEnum == categoryEnum) ?? throw new InvalidOperationException("No Clip Collection");
         BunnyVideo video = await bunnyService.CreateVideoAsync(clipCollection.CollectionId, videoTitle);
-        
-        Repository.Clip clip = new Repository.Clip { CategoryEnum = categoryEnum, OwnerId = userId, VideoId = video.Guid };
+
+        Repository.Clip clip = new Repository.Clip { CategoryEnum = categoryEnum, OwnerId = userId, VideoId = video.Guid, Md5Hash = md5Hash };
         await dbContext.Clips.AddAsync(clip);
         await dbContext.SaveChangesAsync();
-        
+
         long expiration = DateTimeOffset.Now.AddHours(1).ToUnixTimeSeconds();
         string libraryId = configuration["BunnyLibraryId"] ??
                            throw new InvalidOperationException("Bunny API library ID not configured");
@@ -252,5 +268,20 @@ public class ClipService(BunnyService bunnyService, NucleusDbContext dbContext, 
 
         int totalPages = (int)Math.Ceiling((double)pagedResponse.TotalItems / pagedResponse.ItemsPerPage);
         return new PagedClipsResponse(clips, totalPages);
+    }
+
+    public async Task<bool> DeleteClip(Guid clipId, string discordUserId)
+    {
+        DiscordUser discordUser = await dbContext.DiscordUsers.SingleOrDefaultAsync(d => d.DiscordId == discordUserId) ?? throw new InvalidOperationException("No Discord user");
+
+        Repository.Clip? clip = await dbContext.Clips
+            .Include(c => c.ClipTags)
+            .SingleOrDefaultAsync(c => c.Id == clipId && c.OwnerId == discordUser.Id);
+        if (clip == null) return false;
+
+        await bunnyService.DeleteVideoAsync(clip.VideoId);
+        dbContext.Clips.Remove(clip);
+        await dbContext.SaveChangesAsync();
+        return true;
     }
 }

@@ -25,7 +25,7 @@ public static class DiscordUserEndpoints
 
         string? avatar = user.FindFirst("urn:discord:avatar")?.Value;
         string avatarUrl = $"https://cdn.discordapp.com/avatars/{discordId}/{avatar}";
-        return TypedResults.Ok(new DiscordUser(dbUser.Id, dbUser.Username, avatarUrl));
+        return TypedResults.Ok(new DiscordUser(dbUser.Id, dbUser.Username, dbUser.GlobalName, avatarUrl));
     }
 
     [Authorize]
@@ -35,6 +35,6 @@ public static class DiscordUserEndpoints
         if (dbUser == null)
             return TypedResults.NotFound();
 
-        return TypedResults.Ok(new DiscordUser(dbUser.Id, dbUser.Username, $"https://cdn.discordapp.com/avatars/{dbUser.DiscordId}/{dbUser.Avatar}"));
+        return TypedResults.Ok(new DiscordUser(dbUser.Id, dbUser.Username, dbUser.GlobalName, $"https://cdn.discordapp.com/avatars/{dbUser.DiscordId}/{dbUser.Avatar}"));
     }
 }

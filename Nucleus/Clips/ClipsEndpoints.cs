@@ -35,13 +35,13 @@ public static class ClipsEndpoints
     }
 
     public static async Task<Results<UnauthorizedHttpResult, Ok<CreateClipResponse>, Conflict<string>>> CreateVideo(ClipService clipService,
-        ClipCategoryEnum category, ClaimsPrincipal user, string videoTitle, string? md5Hash = null)
+        ClipCategoryEnum category, ClaimsPrincipal user, string videoTitle, DateTimeOffset? createdAt = null, string? md5Hash = null)
     {
         var discordId = user.FindFirstValue(ClaimTypes.NameIdentifier);
         if (string.IsNullOrEmpty(discordId))
             return TypedResults.Unauthorized();
 
-        var result = await clipService.CreateClip(category, videoTitle, discordId, md5Hash);
+        var result = await clipService.CreateClip(category, videoTitle, discordId, createdAt ?? DateTimeOffset.UtcNow, md5Hash);
         if (result == null)
             return TypedResults.Conflict("A video with this MD5 hash already exists");
 

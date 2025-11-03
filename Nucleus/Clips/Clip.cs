@@ -2,7 +2,7 @@ using Nucleus.Clips.Bunny.Models;
 
 namespace Nucleus.Clips;
 
-public record Clip(Guid ClipId, Guid OwnerId, Guid VideoId, ClipCategoryEnum CategoryEnum, BunnyVideo Video, IReadOnlyList<string> Tags, bool IsViewed)
+public record Clip(Guid ClipId, Guid OwnerId, Guid VideoId, ClipCategoryEnum CategoryEnum, DateTimeOffset CreatedAt, BunnyVideo Video, IReadOnlyList<string> Tags, bool IsViewed)
 {
 }
 

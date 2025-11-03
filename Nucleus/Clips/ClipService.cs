@@ -57,6 +57,7 @@ public class ClipService(
                     repoClip.OwnerId,
                     repoClip.VideoId,
                     categoryEnum,
+                    repoClip.CreatedAt,
                     v,
                     tags,
                     viewedClipIds.Contains(repoClip.Id)
@@ -77,7 +78,7 @@ public class ClipService(
             new ("Snowboarding", ClipCategoryEnum.Snowboarding, "/images/snowboarding.png")];
     }
 
-    public async Task<CreateClipResponse?> CreateClip(ClipCategoryEnum categoryEnum, string videoTitle, string discordUserId, string? md5Hash = null)
+    public async Task<CreateClipResponse?> CreateClip(ClipCategoryEnum categoryEnum, string videoTitle, string discordUserId, DateTimeOffset createdAt, string? md5Hash = null)
     {
         var discordUser = await discordStatements.GetUserByDiscordId(discordUserId)
             ?? throw new InvalidOperationException("No Discord user");
@@ -96,7 +97,7 @@ public class ClipService(
 
         BunnyVideo video = await bunnyService.CreateVideoAsync(clipCollection.CollectionId, videoTitle);
 
-        await clipsStatements.InsertClip(userId, video.Guid, (int)categoryEnum, md5Hash);
+        await clipsStatements.InsertClip(userId, video.Guid, (int)categoryEnum, md5Hash, createdAt);
 
         long expiration = DateTimeOffset.Now.AddHours(1).ToUnixTimeSeconds();
         string libraryId = configuration["BunnyLibraryId"]
@@ -134,7 +135,7 @@ public class ClipService(
             ? clipWithTags.TagNames.Split(',', StringSplitOptions.RemoveEmptyEntries).ToList()
             : new List<string>();
 
-        return new Clip(clipWithTags.Id, clipWithTags.OwnerId, clipWithTags.VideoId, (ClipCategoryEnum)clipWithTags.Category, video, tags, isViewed);
+        return new Clip(clipWithTags.Id, clipWithTags.OwnerId, clipWithTags.VideoId, (ClipCategoryEnum)clipWithTags.Category, clipWithTags.CreatedAt, video, tags, isViewed);
     }
 
     public async Task<Clip?> AddTagToClip(Guid clipId, string discordUserId, string tag)
@@ -258,6 +259,7 @@ public class ClipService(
                     c.OwnerId,
                     c.VideoId,
                     categoryEnum,
+                    c.CreatedAt,
                     video,
                     tags,
                     false

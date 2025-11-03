@@ -42,10 +42,41 @@ public class MapRefreshService(
         using var scope = scopeFactory.CreateScope();
         var apexStatements = scope.ServiceProvider.GetRequiredService<ApexStatements>();
 
-        await UpsertMapAsync(response.BattleRoyale.Current, ApexGamemode.Standard, apexStatements);
-        await UpsertMapAsync(response.BattleRoyale.Next, ApexGamemode.Standard, apexStatements);
-        await UpsertMapAsync(response.Ranked.Current, ApexGamemode.Ranked, apexStatements);
-        await UpsertMapAsync(response.Ranked.Next, ApexGamemode.Ranked, apexStatements);
+        try
+        {
+            await UpsertMapAsync(response.BattleRoyale.Current, ApexGamemode.Standard, apexStatements);
+        }
+        catch (Exception e)
+        {
+            logger.LogError(e, "Failed to upsert current map");
+        }
+        
+        try
+        {
+            await UpsertMapAsync(response.BattleRoyale.Next, ApexGamemode.Standard, apexStatements);
+        }
+        catch (Exception e)
+        {
+            logger.LogError(e, "Failed to upsert next map");
+        } 
+        
+        try
+        {
+            await UpsertMapAsync(response.Ranked.Current, ApexGamemode.Ranked, apexStatements);
+        }
+        catch (Exception e)
+        {
+            logger.LogError(e, "Failed to upsert ranked current map");
+        }
+        
+        try
+        {
+            await UpsertMapAsync(response.Ranked.Next, ApexGamemode.Ranked, apexStatements);
+        }
+        catch (Exception e)
+        {
+            logger.LogError(e, "Failed to upsert ranked next map");
+        }
     }
 
     private async Task UpsertMapAsync(MapRotationInfo mapInfo, ApexGamemode gamemode, ApexStatements apexStatements)

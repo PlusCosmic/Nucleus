@@ -4,6 +4,7 @@ using System.Text.Json;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.OAuth;
+using Microsoft.Extensions.Logging;
 
 namespace Nucleus.Auth;
 
@@ -62,13 +63,13 @@ public static class CookieAuth
             options.Scope.Add("identify");
             // options.Scope.Add("email"); // optional
 
-            options.SaveTokens =
-                false; // we use cookie session; no need to store provider tokens in auth properties
+            options.SaveTokens = true; // Store tokens to enable refresh
 
             // Claim mappings
             options.ClaimActions.Clear();
             options.ClaimActions.MapJsonKey(ClaimTypes.NameIdentifier, "id");
             options.ClaimActions.MapJsonKey(ClaimTypes.Name, "username");
+            options.ClaimActions.MapJsonKey("urn:discord:global_name", "global_name");
             options.ClaimActions.MapJsonKey("urn:discord:discriminator", "discriminator");
             options.ClaimActions.MapJsonKey("urn:discord:avatar", "avatar");
 
@@ -76,6 +77,10 @@ public static class CookieAuth
             {
                 OnCreatingTicket = async ctx =>
                 {
+                    // NOTE: State parameter validation has already occurred by this point
+                    // The ASP.NET Core OAuth middleware automatically validates the state parameter
+                    // against the correlation cookie for CSRF protection
+
                     // Fetch user info from Discord and map claims
                     using var request = new HttpRequestMessage(HttpMethod.Get, ctx.Options.UserInformationEndpoint);
                     request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ctx.AccessToken);
@@ -85,12 +90,24 @@ public static class CookieAuth
 
                     ctx.RunClaimActions(json);
 
-                    // OPTIONAL: Upsert the user in your database here using the Discord ID
-                    // var discordId = json.GetProperty("id").GetString();
-                    // await users.UpsertAsync(...);
+                    // User upsert is handled in PostLoginRedirect endpoint
                 },
                 OnRemoteFailure = ctx =>
                 {
+                    // Handle OAuth failures including state validation errors
+                    var loggerFactory = ctx.HttpContext.RequestServices.GetRequiredService<ILoggerFactory>();
+                    var logger = loggerFactory.CreateLogger("Nucleus.Auth.DiscordOAuth");
+
+                    if (ctx.Failure?.Message?.Contains("correlation") == true ||
+                        ctx.Failure?.Message?.Contains("state") == true)
+                    {
+                        logger.LogWarning("OAuth state validation failed - possible CSRF attack: {Error}", ctx.Failure.Message);
+                    }
+                    else
+                    {
+                        logger.LogError("OAuth authentication failed: {Error}", ctx.Failure?.Message ?? "Unknown error");
+                    }
+
                     ctx.Response.Redirect("/auth/login-failed");
                     ctx.HandleResponse();
                     return Task.CompletedTask;

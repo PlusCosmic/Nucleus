@@ -6,7 +6,21 @@ public class LinksService(LinksStatements linksStatements, DiscordStatements dis
 {
     public async Task AddLink(string discordId, string url)
     {
-        var meta = await PageMetadataFetcher.GetPageMetadataAsync(url);
+        PageMetadata? meta;
+        try
+        {
+            meta = await PageMetadataFetcher.GetPageMetadataAsync(url);
+        }
+        catch (Exception)
+        {
+            // If metadata fetching fails (network error, invalid URL, etc.),
+            // still create the link with basic info
+            meta = null;
+        }
+
+        var activeUser = await discordStatements.GetUserByDiscordId(discordId)
+            ?? throw new InvalidOperationException("Discord user not found");
+
         if (meta != null)
         {
             var link = new Link(
@@ -15,14 +29,12 @@ public class LinksService(LinksStatements linksStatements, DiscordStatements dis
                 ThumbnailUrl: meta.FaviconUri?.ToString() ?? string.Empty
             );
 
-            var activeUser = await discordStatements.GetUserByDiscordId(discordId)
-                ?? throw new InvalidOperationException("Discord user not found");
-
             await linksStatements.InsertLink(activeUser.Id, link.Title, link.Url, link.ThumbnailUrl);
         }
         else
         {
-            throw new InvalidOperationException("Failed to fetch page metadata");
+            // Fallback: create link with just the URL
+            await linksStatements.InsertLink(activeUser.Id, url, url, string.Empty);
         }
     }
 

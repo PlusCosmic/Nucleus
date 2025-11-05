@@ -20,6 +20,12 @@
           <PrivateAssets>all</PrivateAssets>
           <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
         </PackageReference>
+        <PackageReference Include="Moq" Version="4.20.72" />
+        <PackageReference Include="FluentAssertions" Version="6.12.2" />
+        <PackageReference Include="Testcontainers.PostgreSql" Version="4.1.0" />
+        <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" Version="10.0.0-rc.2.24474.3" />
+        <PackageReference Include="Bogus" Version="35.6.1" />
+        <PackageReference Include="WireMock.Net" Version="1.6.11" />
     </ItemGroup>
 
     <ItemGroup>
@@ -31,7 +37,10 @@
     </ItemGroup>
 
     <ItemGroup>
-      <Folder Include="ApexLegends\" />
+        <Content Include="..\Nucleus\db\migrations\**\*">
+            <Link>db/migrations/%(RecursiveDir)%(Filename)%(Extension)</Link>
+            <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+        </Content>
     </ItemGroup>
 
 </Project>

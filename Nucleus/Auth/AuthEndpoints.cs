@@ -3,6 +3,7 @@ using System.Security.Cryptography;
 using System.Text.Json;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.Http.HttpResults;
 using Nucleus.Discord;
 
 namespace Nucleus.Auth;
@@ -10,14 +11,11 @@ namespace Nucleus.Auth;
 public static class AuthEndpoints
 {
     private static string _frontendOrigin = "http://localhost:5173";
-    
+
     public static void MapAuthEndpoints(this WebApplication app)
     {
-        string? frontendOrigin = app.Configuration["FrontendOrigin"];
-        if (frontendOrigin != null)
-        {
-            _frontendOrigin = frontendOrigin;
-        }
+        var frontendOrigin = app.Configuration["FrontendOrigin"];
+        if (frontendOrigin != null) _frontendOrigin = frontendOrigin;
 
         var group = app.MapGroup("auth");
 
@@ -26,21 +24,19 @@ public static class AuthEndpoints
         group.MapPost("logout", Logout).WithName("Logout");
         group.MapPost("refresh", RefreshToken).WithName("RefreshToken");
     }
-    
+
     public static IResult Login(HttpContext ctx, string? returnUrl)
     {
         // Validate the return URL to prevent open redirect vulnerabilities
-        if (!string.IsNullOrEmpty(returnUrl) && !IsValidReturnUrl(returnUrl))
-        {
-            returnUrl = null;
-        }
+        if (!string.IsNullOrEmpty(returnUrl) && !IsValidReturnUrl(returnUrl)) returnUrl = null;
 
         // Generate CSRF state parameter
         var state = GenerateSecureRandomState();
 
         var props = new AuthenticationProperties
         {
-            RedirectUri = "/auth/post-login-redirect" + (returnUrl != null ? $"?returnUrl={Uri.EscapeDataString(returnUrl)}" : "")
+            RedirectUri = "/auth/post-login-redirect" +
+                          (returnUrl != null ? $"?returnUrl={Uri.EscapeDataString(returnUrl)}" : "")
         };
 
         // Store state in AuthenticationProperties for validation
@@ -50,12 +46,14 @@ public static class AuthEndpoints
         return Results.Challenge(props, new[] { "Discord" });
     }
 
-    public static async Task<IResult> PostLoginRedirect(HttpContext ctx, string? returnUrl,
+    public static async Task<Results<RedirectHttpResult, UnauthorizedHttpResult>> PostLoginRedirect(HttpContext ctx,
+        string? returnUrl,
         ClaimsPrincipal user, DiscordStatements discordStatements)
     {
         // Upsert user to database on each login to keep profile updated
-        var discordId = user.FindFirstValue(ClaimTypes.NameIdentifier) ?? throw new InvalidOperationException("No Discord ID");
-        var username = user.FindFirstValue(ClaimTypes.Name) ?? throw new InvalidOperationException("No Discord username");
+        var discordId = user.FindFirstValue(ClaimTypes.NameIdentifier) ?? "";
+        var username = user.FindFirstValue(ClaimTypes.Name) ?? "";
+        if (string.IsNullOrEmpty(discordId) || string.IsNullOrEmpty(username)) return TypedResults.Unauthorized();
         var globalName = user.FindFirstValue("urn:discord:global_name");
         var avatar = user.FindFirstValue("urn:discord:avatar");
 
@@ -63,16 +61,12 @@ public static class AuthEndpoints
         // Validate return URL again for safety
         string redirect;
         if (!string.IsNullOrEmpty(returnUrl) && IsValidReturnUrl(returnUrl))
-        {
             redirect = returnUrl;
-        }
         else
-        {
             redirect = _frontendOrigin;
-        }
-    
+
         ctx.Response.Redirect(redirect);
-        return Results.Empty;
+        return TypedResults.Redirect(redirect);
     }
 
     public static async Task Logout(HttpContext ctx)
@@ -80,29 +74,22 @@ public static class AuthEndpoints
         await ctx.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
     }
 
-    public static async Task<IResult> RefreshToken(HttpContext ctx, IConfiguration config, DiscordStatements discordStatements)
+    public static async Task<IResult> RefreshToken(HttpContext ctx, IConfiguration config,
+        DiscordStatements discordStatements)
     {
         // Get the current authentication result
         var authenticateResult = await ctx.AuthenticateAsync(CookieAuthenticationDefaults.AuthenticationScheme);
-        if (!authenticateResult.Succeeded)
-        {
-            return Results.Unauthorized();
-        }
+        if (!authenticateResult.Succeeded) return Results.Unauthorized();
 
         // Get the stored refresh token
         var refreshToken = await ctx.GetTokenAsync("refresh_token");
-        if (string.IsNullOrEmpty(refreshToken))
-        {
-            return Results.BadRequest(new { error = "No refresh token available" });
-        }
+        if (string.IsNullOrEmpty(refreshToken)) return Results.BadRequest(new { error = "No refresh token available" });
 
         var discordClientId = config["DiscordClientId"];
         var discordClientSecret = config["DiscordClientSecret"];
 
         if (string.IsNullOrWhiteSpace(discordClientId) || string.IsNullOrWhiteSpace(discordClientSecret))
-        {
             return Results.Problem("Discord OAuth not configured");
-        }
 
         // Exchange refresh token for new access token
         using var httpClient = new HttpClient();
@@ -115,10 +102,7 @@ public static class AuthEndpoints
         });
 
         var tokenResponse = await httpClient.PostAsync("https://discord.com/api/oauth2/token", tokenRequest);
-        if (!tokenResponse.IsSuccessStatusCode)
-        {
-            return Results.Problem("Failed to refresh token");
-        }
+        if (!tokenResponse.IsSuccessStatusCode) return Results.Problem("Failed to refresh token");
 
         var tokenData = await tokenResponse.Content.ReadFromJsonAsync<JsonElement>();
         var newAccessToken = tokenData.GetProperty("access_token").GetString();
@@ -130,16 +114,17 @@ public static class AuthEndpoints
         userRequest.Headers.Add("Authorization", $"Bearer {newAccessToken}");
         var userResponse = await httpClient.SendAsync(userRequest);
 
-        if (!userResponse.IsSuccessStatusCode)
-        {
-            return Results.Problem("Failed to fetch user info");
-        }
+        if (!userResponse.IsSuccessStatusCode) return Results.Problem("Failed to fetch user info");
 
         var userData = await userResponse.Content.ReadFromJsonAsync<JsonElement>();
         var discordId = userData.GetProperty("id").GetString()!;
         var username = userData.GetProperty("username").GetString()!;
-        var globalName = userData.TryGetProperty("global_name", out var gn) && gn.ValueKind != JsonValueKind.Null ? gn.GetString() : null;
-        var avatar = userData.TryGetProperty("avatar", out var av) && av.ValueKind != JsonValueKind.Null ? av.GetString() : null;
+        var globalName = userData.TryGetProperty("global_name", out var gn) && gn.ValueKind != JsonValueKind.Null
+            ? gn.GetString()
+            : null;
+        var avatar = userData.TryGetProperty("avatar", out var av) && av.ValueKind != JsonValueKind.Null
+            ? av.GetString()
+            : null;
 
         // Update user in database
         await discordStatements.UpsertUser(discordId, username, globalName, avatar);
@@ -176,7 +161,7 @@ public static class AuthEndpoints
 
         return Results.Ok(new { message = "Token refreshed successfully" });
     }
-    
+
     private static bool IsValidReturnUrl(string url)
     {
         if (!Uri.TryCreate(url, UriKind.Absolute, out var uri))

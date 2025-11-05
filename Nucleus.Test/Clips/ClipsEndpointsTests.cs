@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Json;
 using FluentAssertions;
+using Npgsql;
 using Nucleus.Clips;
 using Nucleus.Test.Helpers;
 using Nucleus.Test.TestFixtures;
@@ -8,13 +9,13 @@ using Nucleus.Test.TestFixtures;
 namespace Nucleus.Test.Clips;
 
 /// <summary>
-/// Tests for Clips API endpoints.
+///     Tests for Clips API endpoints.
 /// </summary>
 public class ClipsEndpointsTests : IClassFixture<WebApplicationFixture>, IAsyncLifetime
 {
     private readonly WebApplicationFixture _fixture;
-    private readonly string _testDiscordId = AuthHelper.DefaultTestDiscordId;
     private readonly string _secondaryDiscordId = AuthHelper.SecondaryTestDiscordId;
+    private readonly string _testDiscordId = AuthHelper.DefaultTestDiscordId;
 
     public ClipsEndpointsTests(WebApplicationFixture fixture)
     {
@@ -23,16 +24,41 @@ public class ClipsEndpointsTests : IClassFixture<WebApplicationFixture>, IAsyncL
 
     public async Task InitializeAsync()
     {
-        // Create whitelist for test users
-        WebApplicationFixture.CreateTestWhitelist(_testDiscordId, _secondaryDiscordId);
-        await Task.CompletedTask;
+        // Clean database first to ensure isolation between test runs
+        var connection = _fixture.GetService<NpgsqlConnection>();
+        await DatabaseHelper.ClearAllTablesAsync(connection);
+
+        // Seed Discord users in database
+        await DatabaseHelper.SeedDiscordUserAsync(connection, _testDiscordId);
+        await DatabaseHelper.SeedDiscordUserAsync(connection, _secondaryDiscordId, "testuser2", "Test User 2");
     }
 
-    public Task DisposeAsync()
+    public async Task DisposeAsync()
     {
-        WebApplicationFixture.CleanupTestWhitelist();
-        return Task.CompletedTask;
+        // Clean up database to prevent test interference
+        var connection = _fixture.GetService<NpgsqlConnection>();
+        await DatabaseHelper.ClearAllTablesAsync(connection);
     }
+
+    #region Snake Case JSON Serialization Tests
+
+    [Fact]
+    [Trait("Category", "Endpoint")]
+    public async Task Endpoints_UseSnakeCaseJsonSerialization()
+    {
+        // Arrange
+        var client = _fixture.CreateAuthenticatedClient(_testDiscordId);
+
+        // Act
+        var response = await client.GetAsync("/clips/categories/ApexLegends/videos?page=1&pageSize=1");
+        var content = await response.Content.ReadAsStringAsync();
+
+        // Assert
+        content.Should().Contain("total_pages"); // snake_case
+        content.Should().NotContain("TotalPages"); // NOT PascalCase
+    }
+
+    #endregion
 
     #region GetCategories Tests
 
@@ -94,7 +120,7 @@ public class ClipsEndpointsTests : IClassFixture<WebApplicationFixture>, IAsyncL
         var client = _fixture.CreateAuthenticatedClient(_testDiscordId);
 
         // Act
-        var response = await client.GetAsync("/clips/categories/ApexLegends/videos?page=1&pageSize=10");
+        var response = await client.GetAsync("/clips/categories/ApexLegends/videos?page=1&pageSize=1");
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.OK);
@@ -108,7 +134,7 @@ public class ClipsEndpointsTests : IClassFixture<WebApplicationFixture>, IAsyncL
         var client = _fixture.CreateAuthenticatedClient(_testDiscordId);
 
         // Act
-        var response = await client.GetAsync("/clips/categories/ApexLegends/videos?page=1&pageSize=10");
+        var response = await client.GetAsync("/clips/categories/ApexLegends/videos?page=1&pageSize=1");
         var pagedResponse = await response.Content.ReadFromJsonAsync<PagedClipsResponse>();
 
         // Assert
@@ -143,7 +169,7 @@ public class ClipsEndpointsTests : IClassFixture<WebApplicationFixture>, IAsyncL
         var client = _fixture.CreateAuthenticatedClient(_testDiscordId);
 
         // Act
-        var response = await client.GetAsync("/clips/categories/ApexLegends/videos/unviewed?page=1&pageSize=10");
+        var response = await client.GetAsync("/clips/categories/ApexLegends/videos/unviewed?page=1&pageSize=1");
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.OK);
@@ -174,10 +200,12 @@ public class ClipsEndpointsTests : IClassFixture<WebApplicationFixture>, IAsyncL
     {
         // Arrange
         var client = _fixture.CreateAuthenticatedClient(_testDiscordId);
-        var request = new { videoTitle = "Test Video " + Guid.NewGuid() };
 
         // Act
-        var response = await client.PostAsJsonAsync("/clips/categories/ApexLegends/videos", request);
+        var response =
+            await client.PostAsync(
+                "/clips/categories/0/videos?videoTitle=Replay.mkv&createdAt=2025-08-10T19%3A43%3A00.000Z&md5Hash=9665acddc302b03ffc28bb1b954c660f",
+                null);
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.OK);
@@ -190,15 +218,19 @@ public class ClipsEndpointsTests : IClassFixture<WebApplicationFixture>, IAsyncL
         // Arrange
         var client = _fixture.CreateAuthenticatedClient(_testDiscordId);
         var md5 = "duplicate_" + Guid.NewGuid().ToString("N");
-        var request1 = new { videoTitle = "Video 1", md5Hash = md5 };
-        var request2 = new { videoTitle = "Video 2", md5Hash = md5 };
 
         // Act - Create first video
-        var response1 = await client.PostAsJsonAsync("/clips/categories/ApexLegends/videos", request1);
+        var response1 =
+            await client.PostAsync(
+                $"/clips/categories/0/videos?videoTitle=Replay1.mkv&createdAt=2025-08-10T19%3A43%3A00.000Z&md5Hash={md5}",
+                null);
         response1.StatusCode.Should().Be(HttpStatusCode.OK);
 
         // Act - Try to create duplicate
-        var response2 = await client.PostAsJsonAsync("/clips/categories/ApexLegends/videos", request2);
+        var response2 =
+            await client.PostAsync(
+                $"/clips/categories/0/videos?videoTitle=Replay2.mkv&createdAt=2025-08-10T19%3A43%3A00.000Z&md5Hash={md5}",
+                null);
 
         // Assert
         response2.StatusCode.Should().Be(HttpStatusCode.Conflict);
@@ -443,26 +475,6 @@ public class ClipsEndpointsTests : IClassFixture<WebApplicationFixture>, IAsyncL
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.NotFound);
-    }
-
-    #endregion
-
-    #region Snake Case JSON Serialization Tests
-
-    [Fact]
-    [Trait("Category", "Endpoint")]
-    public async Task Endpoints_UseSnakeCaseJsonSerialization()
-    {
-        // Arrange
-        var client = _fixture.CreateAuthenticatedClient(_testDiscordId);
-
-        // Act
-        var response = await client.GetAsync("/clips/categories/ApexLegends/videos?page=1&pageSize=10");
-        var content = await response.Content.ReadAsStringAsync();
-
-        // Assert
-        content.Should().Contain("total_pages"); // snake_case
-        content.Should().NotContain("TotalPages"); // NOT PascalCase
     }
 
     #endregion

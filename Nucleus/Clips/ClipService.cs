@@ -92,8 +92,13 @@ public class ClipService(
                 return null; // Duplicate detected
         }
 
-        var clipCollection = await clipsStatements.GetCollectionByOwnerAndCategory(userId, (int)categoryEnum)
-            ?? throw new InvalidOperationException("No Clip Collection");
+        // Get or create collection (same pattern as GetClipsForCategory)
+        var clipCollection = await clipsStatements.GetCollectionByOwnerAndCategory(userId, (int)categoryEnum);
+        if (clipCollection == null)
+        {
+            BunnyCollection bunnyCollection = await bunnyService.CreateCollectionAsync(categoryEnum, userId);
+            clipCollection = await clipsStatements.InsertCollection(userId, bunnyCollection.Guid, (int)categoryEnum);
+        }
 
         BunnyVideo video = await bunnyService.CreateVideoAsync(clipCollection.CollectionId, videoTitle);
 

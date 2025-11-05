@@ -35,6 +35,7 @@ public static class CookieAuth
                     : SameSiteMode.None; // Strict for production cross-origin
                 options.SlidingExpiration = true;
                 options.ExpireTimeSpan = TimeSpan.FromDays(7);
+                options.Cookie.MaxAge = TimeSpan.FromDays(7);
 
                 // Prevent automatic redirects for API calls - return 401 instead
                 options.Events.OnRedirectToLogin = context =>

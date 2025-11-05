@@ -1,15 +1,15 @@
 using System.Net;
-using System.Net.Http.Json;
 using FluentAssertions;
+using Npgsql;
 using Nucleus.Test.Helpers;
 using Nucleus.Test.TestFixtures;
 
 namespace Nucleus.Test.Auth;
 
 /// <summary>
-/// Tests for Authentication API endpoints.
-/// Note: Full OAuth flow testing requires external mocking which is complex.
-/// These tests focus on endpoint behavior, redirects, and authorization checks.
+///     Tests for Authentication API endpoints.
+///     Note: Full OAuth flow testing requires external mocking which is complex.
+///     These tests focus on endpoint behavior, redirects, and authorization checks.
 /// </summary>
 public class AuthEndpointsTests : IClassFixture<WebApplicationFixture>, IAsyncLifetime
 {
@@ -23,15 +23,19 @@ public class AuthEndpointsTests : IClassFixture<WebApplicationFixture>, IAsyncLi
 
     public async Task InitializeAsync()
     {
-        // Create whitelist for test users
-        WebApplicationFixture.CreateTestWhitelist(_testDiscordId);
-        await Task.CompletedTask;
+        // Clean database first to ensure isolation between test runs
+        var connection = _fixture.GetService<NpgsqlConnection>();
+        await DatabaseHelper.ClearAllTablesAsync(connection);
+
+        // Seed Discord user in database
+        await DatabaseHelper.SeedDiscordUserAsync(connection, _testDiscordId);
     }
 
-    public Task DisposeAsync()
+    public async Task DisposeAsync()
     {
-        WebApplicationFixture.CleanupTestWhitelist();
-        return Task.CompletedTask;
+        // Clean up database to prevent test interference
+        var connection = _fixture.GetService<NpgsqlConnection>();
+        await DatabaseHelper.ClearAllTablesAsync(connection);
     }
 
     #region Login Tests
@@ -129,10 +133,7 @@ public class AuthEndpointsTests : IClassFixture<WebApplicationFixture>, IAsyncLi
         // Assert
         // Without authentication, this should fail or redirect back to login
         response.StatusCode.Should().BeOneOf(
-            HttpStatusCode.Unauthorized,
-            HttpStatusCode.Redirect,
-            HttpStatusCode.Found,
-            HttpStatusCode.InternalServerError);
+            HttpStatusCode.Unauthorized);
     }
 
     [Fact]
@@ -185,7 +186,8 @@ public class AuthEndpointsTests : IClassFixture<WebApplicationFixture>, IAsyncLi
         var maliciousUrl = "https://attacker.com/steal-cookies";
 
         // Act
-        var response = await client.GetAsync($"/auth/post-login-redirect?returnUrl={Uri.EscapeDataString(maliciousUrl)}");
+        var response =
+            await client.GetAsync($"/auth/post-login-redirect?returnUrl={Uri.EscapeDataString(maliciousUrl)}");
 
         // Assert
         // Should redirect safely, not to the malicious URL
@@ -196,10 +198,7 @@ public class AuthEndpointsTests : IClassFixture<WebApplicationFixture>, IAsyncLi
             HttpStatusCode.InternalServerError);
 
         // If it's a redirect, verify it's not to the malicious URL
-        if (response.Headers.Location != null)
-        {
-            response.Headers.Location.ToString().Should().NotContain("attacker.com");
-        }
+        if (response.Headers.Location != null) response.Headers.Location.ToString().Should().NotContain("attacker.com");
     }
 
     #endregion
@@ -331,7 +330,7 @@ public class AuthEndpointsTests : IClassFixture<WebApplicationFixture>, IAsyncLi
             "http://attacker.com/phishing",
             "javascript:alert('xss')",
             "//evil.com/redirect",
-            "https://pluscosmic.dev.evil.com", // Domain confusion
+            "https://pluscosmic.dev.evil.com" // Domain confusion
         };
 
         var client = _fixture.CreateUnauthenticatedClient();
@@ -363,7 +362,7 @@ public class AuthEndpointsTests : IClassFixture<WebApplicationFixture>, IAsyncLi
             "http://localhost:5173/dashboard",
             "http://127.0.0.1:3000/profile",
             "https://pluscosmic.dev/app",
-            "https://subdomain.pluscosmic.dev/page",
+            "https://subdomain.pluscosmic.dev/page"
         };
 
         var client = _fixture.CreateUnauthenticatedClient();

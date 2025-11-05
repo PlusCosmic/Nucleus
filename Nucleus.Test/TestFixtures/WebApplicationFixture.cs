@@ -1,20 +1,23 @@
 using System.Security.Claims;
-using System.Text;
+using System.Text.Encodings.Web;
 using System.Text.Json;
+using EvolveDb;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Npgsql;
+using Nucleus.Clips.Bunny;
 using Testcontainers.PostgreSql;
 
 namespace Nucleus.Test.TestFixtures;
 
 /// <summary>
-/// Provides a test web application factory for integration testing endpoints.
-/// Sets up test authentication and uses a test database.
+///     Provides a test web application factory for integration testing endpoints.
+///     Sets up test authentication and uses a test database.
 /// </summary>
 public class WebApplicationFixture : WebApplicationFactory<Program>, IAsyncLifetime
 {
@@ -33,13 +36,51 @@ public class WebApplicationFixture : WebApplicationFactory<Program>, IAsyncLifet
     }
 
     /// <summary>
-    /// Gets the database connection string.
+    ///     Gets the database connection string.
     /// </summary>
     public string ConnectionString =>
         _connectionString ?? throw new InvalidOperationException("Container not started");
 
+    public async Task InitializeAsync()
+    {
+        await _container.StartAsync();
+        _connectionString = _container.GetConnectionString();
+
+        // Set environment to Testing, but Program.cs will skip migrations for "Testing" environment
+        // We'll run migrations manually here instead
+        Environment.SetEnvironmentVariable("ASPNETCORE_ENVIRONMENT", "Testing");
+
+        // Run migrations manually with the test container's connection string
+        await using var connection = new NpgsqlConnection(_connectionString);
+        await connection.OpenAsync();
+
+        var evolve = new Evolve(connection, msg => Console.WriteLine($"[Evolve Test] {msg}"))
+        {
+            Locations = ["db/migrations"],
+            IsEraseDisabled = true
+        };
+
+        evolve.Migrate();
+
+        // Create whitelist ONCE for all tests to prevent race conditions
+        // Include all test user IDs that any test might use
+        CreateTestWhitelist(
+            "123456789012345678", // AuthHelper.DefaultTestDiscordId
+            "987654321098765432"  // AuthHelper.SecondaryTestDiscordId
+        );
+    }
+
+    public new async Task DisposeAsync()
+    {
+        // Clean up whitelist file at the very end
+        CleanupTestWhitelist();
+
+        await _container.DisposeAsync();
+        await base.DisposeAsync();
+    }
+
     /// <summary>
-    /// Creates an authenticated HTTP client with a test Discord user.
+    ///     Creates an authenticated HTTP client with a test Discord user.
     /// </summary>
     /// <param name="discordId">Discord user ID to use for authentication</param>
     /// <param name="username">Discord username</param>
@@ -57,7 +98,7 @@ public class WebApplicationFixture : WebApplicationFactory<Program>, IAsyncLifet
     }
 
     /// <summary>
-    /// Creates an unauthenticated HTTP client.
+    ///     Creates an unauthenticated HTTP client.
     /// </summary>
     public HttpClient CreateUnauthenticatedClient()
     {
@@ -69,7 +110,7 @@ public class WebApplicationFixture : WebApplicationFactory<Program>, IAsyncLifet
     }
 
     /// <summary>
-    /// Gets a scoped service from the test application.
+    ///     Gets a scoped service from the test application.
     /// </summary>
     public T GetService<T>() where T : notnull
     {
@@ -95,13 +136,9 @@ public class WebApplicationFixture : WebApplicationFactory<Program>, IAsyncLifet
         builder.ConfigureTestServices(services =>
         {
             // Replace the database connection with test container
-            var descriptor = services.SingleOrDefault(
-                d => d.ServiceType == typeof(NpgsqlConnection));
+            var descriptor = services.SingleOrDefault(d => d.ServiceType == typeof(NpgsqlConnection));
 
-            if (descriptor != null)
-            {
-                services.Remove(descriptor);
-            }
+            if (descriptor != null) services.Remove(descriptor);
 
             services.AddScoped(_ =>
             {
@@ -110,70 +147,60 @@ public class WebApplicationFixture : WebApplicationFactory<Program>, IAsyncLifet
                 return connection;
             });
 
-            // Add test authentication
-            services.AddAuthentication("TestScheme")
+            // Replace BunnyService with mock implementation
+            var bunnyServiceDescriptor = services.SingleOrDefault(d => d.ServiceType == typeof(BunnyService));
+
+            if (bunnyServiceDescriptor != null) services.Remove(bunnyServiceDescriptor);
+
+            services.AddScoped<BunnyService, MockBunnyService>();
+
+            // Override authentication to use TestScheme
+            // Configure test authentication to be the default scheme
+            services.Configure<AuthenticationOptions>(options =>
+            {
+                options.DefaultScheme = "TestScheme";
+                options.DefaultAuthenticateScheme = "TestScheme";
+                options.DefaultChallengeScheme = "TestScheme";
+            });
+
+            // Add test authentication scheme
+            services.AddAuthentication()
                 .AddScheme<AuthenticationSchemeOptions, TestAuthHandler>("TestScheme", _ => { });
         });
     }
 
-    public async Task InitializeAsync()
-    {
-        await _container.StartAsync();
-        _connectionString = _container.GetConnectionString();
-
-        // Set environment to Testing, but Program.cs will skip migrations for "Testing" environment
-        // We'll run migrations manually here instead
-        Environment.SetEnvironmentVariable("ASPNETCORE_ENVIRONMENT", "Testing");
-
-        // Run migrations manually with the test container's connection string
-        await using var connection = new NpgsqlConnection(_connectionString);
-        await connection.OpenAsync();
-
-        var evolve = new EvolveDb.Evolve(connection, msg => Console.WriteLine($"[Evolve Test] {msg}"))
-        {
-            Locations = ["db/migrations"],
-            IsEraseDisabled = true,
-        };
-
-        evolve.Migrate();
-    }
-
-    public new async Task DisposeAsync()
-    {
-        await _container.DisposeAsync();
-        await base.DisposeAsync();
-    }
-
     /// <summary>
-    /// Creates a test whitelist.json file for authentication tests.
+    ///     Creates a test whitelist.json file for authentication tests.
     /// </summary>
     public static void CreateTestWhitelist(params string[] discordIds)
     {
-        var json = JsonSerializer.Serialize(discordIds);
-        File.WriteAllText("whitelist.json", json);
+        var whitelistConfig = new { WhitelistedDiscordUserIds = discordIds };
+        var json = JsonSerializer.Serialize(whitelistConfig, new JsonSerializerOptions { WriteIndented = true });
+
+        // Write to AppContext.BaseDirectory so WhitelistMiddleware can find it
+        var whitelistPath = Path.Combine(AppContext.BaseDirectory, "whitelist.json");
+        File.WriteAllText(whitelistPath, json);
     }
 
     /// <summary>
-    /// Cleans up test whitelist file.
+    ///     Cleans up test whitelist file.
     /// </summary>
     public static void CleanupTestWhitelist()
     {
-        if (File.Exists("whitelist.json"))
-        {
-            File.Delete("whitelist.json");
-        }
+        var whitelistPath = Path.Combine(AppContext.BaseDirectory, "whitelist.json");
+        if (File.Exists(whitelistPath)) File.Delete(whitelistPath);
     }
 }
 
 /// <summary>
-/// Test authentication handler for integration tests.
+///     Test authentication handler for integration tests.
 /// </summary>
 public class TestAuthHandler : AuthenticationHandler<AuthenticationSchemeOptions>
 {
     public TestAuthHandler(
-        Microsoft.Extensions.Options.IOptionsMonitor<AuthenticationSchemeOptions> options,
-        Microsoft.Extensions.Logging.ILoggerFactory logger,
-        System.Text.Encodings.Web.UrlEncoder encoder)
+        IOptionsMonitor<AuthenticationSchemeOptions> options,
+        ILoggerFactory logger,
+        UrlEncoder encoder)
         : base(options, logger, encoder)
     {
     }
@@ -182,24 +209,19 @@ public class TestAuthHandler : AuthenticationHandler<AuthenticationSchemeOptions
     {
         // Check for test authentication header
         if (!Request.Headers.TryGetValue("X-Test-Auth", out var authHeaderValue))
-        {
             return Task.FromResult(AuthenticateResult.NoResult());
-        }
 
         try
         {
             // Parse the auth header: "discordId:username:globalName"
             var parts = authHeaderValue.ToString().Split(':', 3);
-            if (parts.Length != 3)
-            {
-                return Task.FromResult(AuthenticateResult.Fail("Invalid test auth header"));
-            }
+            if (parts.Length != 3) return Task.FromResult(AuthenticateResult.Fail("Invalid test auth header"));
 
             var claims = new[]
             {
                 new Claim(ClaimTypes.NameIdentifier, parts[0]), // Discord ID
-                new Claim(ClaimTypes.Name, parts[1]),          // Username
-                new Claim("global_name", parts[2])             // Global name
+                new Claim(ClaimTypes.Name, parts[1]), // Username
+                new Claim("global_name", parts[2]) // Global name
             };
 
             var identity = new ClaimsIdentity(claims, "TestScheme");
@@ -216,12 +238,12 @@ public class TestAuthHandler : AuthenticationHandler<AuthenticationSchemeOptions
 }
 
 /// <summary>
-/// Extension methods for HttpClient to add test authentication.
+///     Extension methods for HttpClient to add test authentication.
 /// </summary>
 public static class HttpClientAuthExtensions
 {
     /// <summary>
-    /// Adds test authentication headers to the HTTP client.
+    ///     Adds test authentication headers to the HTTP client.
     /// </summary>
     public static HttpClient WithTestAuthentication(
         this HttpClient client,

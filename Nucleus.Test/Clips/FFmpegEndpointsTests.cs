@@ -23,15 +23,20 @@ public class FFmpegEndpointsTests : IClassFixture<WebApplicationFixture>, IAsync
 
     public async Task InitializeAsync()
     {
-        // Create whitelist for test users
-        WebApplicationFixture.CreateTestWhitelist(_testDiscordId, _secondaryDiscordId);
-        await Task.CompletedTask;
+        // Clean database first to ensure isolation between test runs
+        var connection = _fixture.GetService<Npgsql.NpgsqlConnection>();
+        await DatabaseHelper.ClearAllTablesAsync(connection);
+
+        // Seed Discord users in database
+        await DatabaseHelper.SeedDiscordUserAsync(connection, _testDiscordId, "testuser", "Test User");
+        await DatabaseHelper.SeedDiscordUserAsync(connection, _secondaryDiscordId, "testuser2", "Test User 2");
     }
 
-    public Task DisposeAsync()
+    public async Task DisposeAsync()
     {
-        WebApplicationFixture.CleanupTestWhitelist();
-        return Task.CompletedTask;
+        // Clean up database to prevent test interference
+        var connection = _fixture.GetService<Npgsql.NpgsqlConnection>();
+        await DatabaseHelper.ClearAllTablesAsync(connection);
     }
 
     #region DownloadVideo Tests

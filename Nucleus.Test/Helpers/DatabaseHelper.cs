@@ -37,6 +37,7 @@ public static class DatabaseHelper
 
     /// <summary>
     /// Seeds a test Discord user into the database.
+    /// Uses INSERT ... ON CONFLICT to handle duplicates gracefully.
     /// </summary>
     public static async Task<Guid> SeedDiscordUserAsync(
         NpgsqlConnection connection,
@@ -46,8 +47,12 @@ public static class DatabaseHelper
         string? avatar = null)
     {
         const string sql = """
-            INSERT INTO discord_user (id, discord_id, username, global_name, avatar, last_login)
-            VALUES (gen_random_uuid(), @DiscordId, @Username, @GlobalName, @Avatar, @LastLogin)
+            INSERT INTO discord_user (id, discord_id, username, global_name, avatar)
+            VALUES (gen_random_uuid(), @DiscordId, @Username, @GlobalName, @Avatar)
+            ON CONFLICT (discord_id) DO UPDATE
+                SET username = EXCLUDED.username,
+                    global_name = EXCLUDED.global_name,
+                    avatar = EXCLUDED.avatar
             RETURNING id
             """;
 
@@ -56,8 +61,7 @@ public static class DatabaseHelper
             DiscordId = discordId,
             Username = username,
             GlobalName = globalName,
-            Avatar = avatar,
-            LastLogin = DateTimeOffset.UtcNow
+            Avatar = avatar
         });
 
         return userId;
@@ -179,24 +183,22 @@ public static class DatabaseHelper
     /// </summary>
     public static async Task SeedApexMapRotationAsync(
         NpgsqlConnection connection,
-        string gamemode = "battle_royale",
-        string map = "Kings Canyon",
-        DateTimeOffset? start = null,
-        DateTimeOffset? end = null)
+        int gamemode = 0, // 0 = BattleRoyale
+        int map = 0,      // 0 = KingsCanyon
+        DateTimeOffset? startTime = null,
+        DateTimeOffset? endTime = null)
     {
         const string sql = """
-            INSERT INTO apex_map_rotation (id, gamemode, map, start, "end", created_at)
-            VALUES (gen_random_uuid(), @Gamemode, @Map, @Start, @End, @CreatedAt)
-            ON CONFLICT (gamemode, start) DO NOTHING
+            INSERT INTO apex_map_rotation (id, gamemode, map, start_time, end_time)
+            VALUES (gen_random_uuid(), @Gamemode, @Map, @StartTime, @EndTime)
             """;
 
         await connection.ExecuteAsync(sql, new
         {
             Gamemode = gamemode,
             Map = map,
-            Start = start ?? DateTimeOffset.UtcNow,
-            End = end ?? DateTimeOffset.UtcNow.AddHours(1),
-            CreatedAt = DateTimeOffset.UtcNow
+            StartTime = startTime ?? DateTimeOffset.UtcNow,
+            EndTime = endTime ?? DateTimeOffset.UtcNow.AddHours(1)
         });
     }
 
@@ -254,8 +256,8 @@ public static class DatabaseHelper
             "https://github.com",
             "GitHub");
 
-        await SeedApexMapRotationAsync(connection, "battle_royale", "Kings Canyon");
-        await SeedApexMapRotationAsync(connection, "ranked", "Worlds Edge");
+        await SeedApexMapRotationAsync(connection, 0, 0); // BattleRoyale - Kings Canyon
+        await SeedApexMapRotationAsync(connection, 1, 1); // Ranked - Worlds Edge
 
         return new TestDataContext
         {

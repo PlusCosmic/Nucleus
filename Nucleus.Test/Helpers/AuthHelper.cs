@@ -43,10 +43,12 @@ public static class AuthHelper
     /// Creates a test whitelist.json file with specified Discord IDs.
     /// </summary>
     /// <param name="discordIds">Discord user IDs to whitelist</param>
-    /// <param name="filePath">Path to whitelist file (default: whitelist.json in current directory)</param>
-    public static void CreateTestWhitelist(string[] discordIds, string filePath = "whitelist.json")
+    /// <param name="filePath">Path to whitelist file (default: whitelist.json in AppContext.BaseDirectory)</param>
+    public static void CreateTestWhitelist(string[] discordIds, string? filePath = null)
     {
-        var json = JsonSerializer.Serialize(discordIds, new JsonSerializerOptions
+        filePath ??= Path.Combine(AppContext.BaseDirectory, "whitelist.json");
+        var whitelistConfig = new { WhitelistedDiscordUserIds = discordIds };
+        var json = JsonSerializer.Serialize(whitelistConfig, new JsonSerializerOptions
         {
             WriteIndented = true
         });
@@ -57,8 +59,9 @@ public static class AuthHelper
     /// Deletes the test whitelist file.
     /// </summary>
     /// <param name="filePath">Path to whitelist file</param>
-    public static void DeleteTestWhitelist(string filePath = "whitelist.json")
+    public static void DeleteTestWhitelist(string? filePath = null)
     {
+        filePath ??= Path.Combine(AppContext.BaseDirectory, "whitelist.json");
         if (File.Exists(filePath))
         {
             File.Delete(filePath);
@@ -100,7 +103,7 @@ public static class AuthHelper
     /// <summary>
     /// Creates a default test whitelist with the default test users.
     /// </summary>
-    public static void CreateDefaultTestWhitelist(string filePath = "whitelist.json")
+    public static void CreateDefaultTestWhitelist(string? filePath = null)
     {
         CreateTestWhitelist(new[] { DefaultTestDiscordId, SecondaryTestDiscordId }, filePath);
     }

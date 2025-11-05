@@ -55,6 +55,13 @@ public class WhitelistMiddleware
             return;
         }
 
+        // Skip whitelist check for apex-legends endpoint (public endpoint)
+        if (context.Request.Path.StartsWithSegments("/apex-legends"))
+        {
+            await _next(context);
+            return;
+        }
+
         // Check if user is authenticated
         if (!context.User.Identity?.IsAuthenticated ?? true)
         {

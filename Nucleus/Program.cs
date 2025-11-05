@@ -21,7 +21,9 @@ var builder = WebApplication.CreateBuilder(args);
 var connectionString = builder.Configuration.GetConnectionString("DatabaseConnectionString")
                        ?? builder.Configuration["DatabaseConnectionString"];
 
-if (Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") != null)
+// Run migrations automatically, but skip in Testing environment (tests handle migrations)
+var environment = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT");
+if (environment != null && environment != "Testing")
 {
     using var connection =
         new NpgsqlConnection(connectionString ??

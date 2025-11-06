@@ -17,7 +17,7 @@ public class ClipService(
         return tag.Trim().ToLowerInvariant();
     }
 
-    public async Task<PagedClipsResponse> GetClipsForCategory(ClipCategoryEnum categoryEnum, string discordUserId, int page, int pageSize)
+    public async Task<PagedClipsResponse> GetClipsForCategory(ClipCategoryEnum categoryEnum, string discordUserId, int page, int pageSize, List<string>? tags = null, string? titleSearch = null)
     {
         var discordUser = await discordStatements.GetUserByDiscordId(discordUserId)
             ?? throw new InvalidOperationException("No Discord user");
@@ -33,11 +33,14 @@ public class ClipService(
             return new PagedClipsResponse([], 0);
         }
 
+        // Normalize tags for filtering (same as when adding tags)
+        var normalizedTags = tags?.Select(NormalizeTag).ToList();
+
         // get videos from bunny
         PagedVideoResponse pagedResponse = await bunnyService.GetVideosForCollectionAsync(clipCollection.CollectionId, page, pageSize);
 
-        // get clips from db including tags
-        var clipsWithTags = await clipsStatements.GetClipsWithTagsByOwnerAndCategory(userId, (int)categoryEnum);
+        // get clips from db including tags, with optional tag filtering
+        var clipsWithTags = await clipsStatements.GetClipsWithTagsByOwnerAndCategory(userId, (int)categoryEnum, normalizedTags);
 
         // get viewed clips for this user
         var clipIds = clipsWithTags.Select(c => c.Id).ToList();
@@ -48,7 +51,7 @@ public class ClipService(
             .Select(v =>
             {
                 if (!repoClipsByVideoId.TryGetValue(v.Guid, out var repoClip)) return null;
-                var tags = !string.IsNullOrEmpty(repoClip.TagNames)
+                var clipTags = !string.IsNullOrEmpty(repoClip.TagNames)
                     ? repoClip.TagNames.Split(',', StringSplitOptions.RemoveEmptyEntries).ToList()
                     : new List<string>();
 
@@ -59,16 +62,23 @@ public class ClipService(
                     categoryEnum,
                     repoClip.CreatedAt,
                     v,
-                    tags,
+                    clipTags,
                     viewedClipIds.Contains(repoClip.Id)
                 );
             })
             .Where(c => c != null)
-            .Cast<Clip>()
-            .ToList();
+            .Cast<Clip>();
+
+        // Apply title search filter if provided (in-memory since titles are in Bunny)
+        if (!string.IsNullOrWhiteSpace(titleSearch))
+        {
+            clips = clips.Where(c => c.Video.Title.Contains(titleSearch, StringComparison.OrdinalIgnoreCase));
+        }
+
+        var clipsList = clips.ToList();
 
         int totalPages = (int)Math.Ceiling((double)pagedResponse.TotalItems / pagedResponse.ItemsPerPage);
-        return new PagedClipsResponse(clips, totalPages);
+        return new PagedClipsResponse(clipsList, totalPages);
     }
 
     public List<ClipCategory> GetCategories()
@@ -231,7 +241,7 @@ public class ClipService(
         return true;
     }
 
-    public async Task<PagedClipsResponse> GetUnviewedClipsForCategory(ClipCategoryEnum categoryEnum, string discordUserId, int page, int pageSize)
+    public async Task<PagedClipsResponse> GetUnviewedClipsForCategory(ClipCategoryEnum categoryEnum, string discordUserId, int page, int pageSize, List<string>? tags = null, string? titleSearch = null)
     {
         var discordUser = await discordStatements.GetUserByDiscordId(discordUserId)
             ?? throw new InvalidOperationException("No Discord user");
@@ -240,9 +250,12 @@ public class ClipService(
         var clipCollection = await clipsStatements.GetCollectionByOwnerAndCategory(userId, (int)categoryEnum);
         if (clipCollection == null) return new PagedClipsResponse([], 0);
 
+        // Normalize tags for filtering (same as when adding tags)
+        var normalizedTags = tags?.Select(NormalizeTag).ToList();
+
         PagedVideoResponse pagedResponse = await bunnyService.GetVideosForCollectionAsync(clipCollection.CollectionId, page, pageSize);
 
-        var clipsWithTags = await clipsStatements.GetClipsWithTagsByOwnerAndCategory(userId, (int)categoryEnum);
+        var clipsWithTags = await clipsStatements.GetClipsWithTagsByOwnerAndCategory(userId, (int)categoryEnum, normalizedTags);
 
         var clipIds = clipsWithTags.Select(c => c.Id).ToList();
         var viewedClipIds = await clipsStatements.GetViewedClipIds(userId, clipIds);
@@ -255,7 +268,7 @@ public class ClipService(
                 var video = pagedResponse.Items.FirstOrDefault(v => v.Guid == c.VideoId);
                 if (video == null) return null;
 
-                var tags = !string.IsNullOrEmpty(c.TagNames)
+                var clipTags = !string.IsNullOrEmpty(c.TagNames)
                     ? c.TagNames.Split(',', StringSplitOptions.RemoveEmptyEntries).ToList()
                     : new List<string>();
 
@@ -266,16 +279,23 @@ public class ClipService(
                     categoryEnum,
                     c.CreatedAt,
                     video,
-                    tags,
+                    clipTags,
                     false
                 );
             })
             .Where(c => c != null)
-            .Cast<Clip>()
-            .ToList();
+            .Cast<Clip>();
+
+        // Apply title search filter if provided (in-memory since titles are in Bunny)
+        if (!string.IsNullOrWhiteSpace(titleSearch))
+        {
+            clips = clips.Where(c => c.Video.Title.Contains(titleSearch, StringComparison.OrdinalIgnoreCase));
+        }
+
+        var clipsList = clips.ToList();
 
         int totalPages = (int)Math.Ceiling((double)pagedResponse.TotalItems / pagedResponse.ItemsPerPage);
-        return new PagedClipsResponse(clips, totalPages);
+        return new PagedClipsResponse(clipsList, totalPages);
     }
 
     public async Task<bool> DeleteClip(Guid clipId, string discordUserId)

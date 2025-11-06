@@ -26,12 +26,27 @@ public static class ClipsEndpoints
         return TypedResults.Ok(clipService.GetCategories());
     }
     
-    public static async Task<Results<UnauthorizedHttpResult, Ok<PagedClipsResponse>>> GetVideosByCategory(ClipService clipService, ClipCategoryEnum category, ClaimsPrincipal user, int page, int pageSize)
+    public static async Task<Results<UnauthorizedHttpResult, Ok<PagedClipsResponse>>> GetVideosByCategory(
+        ClipService clipService,
+        ClipCategoryEnum category,
+        ClaimsPrincipal user,
+        int page,
+        int pageSize,
+        string? tags = null,
+        string? titleSearch = null)
     {
         var discordId = user.FindFirstValue(ClaimTypes.NameIdentifier);
         if (string.IsNullOrEmpty(discordId))
             return TypedResults.Unauthorized();
-        return TypedResults.Ok(await clipService.GetClipsForCategory(category, discordId, page, pageSize));
+
+        // Parse tags from comma-separated string to list
+        List<string>? tagList = null;
+        if (!string.IsNullOrWhiteSpace(tags))
+        {
+            tagList = tags.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).ToList();
+        }
+
+        return TypedResults.Ok(await clipService.GetClipsForCategory(category, discordId, page, pageSize, tagList, titleSearch));
     }
 
     public static async Task<Results<UnauthorizedHttpResult, Ok<CreateClipResponse>, Conflict<string>>> CreateVideo(ClipService clipService,
@@ -129,12 +144,27 @@ public static class ClipsEndpoints
         return TypedResults.Ok();
     }
 
-    public static async Task<Results<UnauthorizedHttpResult, Ok<PagedClipsResponse>>> GetUnviewedVideosByCategory(ClipService clipService, ClipCategoryEnum category, ClaimsPrincipal user, int page, int pageSize)
+    public static async Task<Results<UnauthorizedHttpResult, Ok<PagedClipsResponse>>> GetUnviewedVideosByCategory(
+        ClipService clipService,
+        ClipCategoryEnum category,
+        ClaimsPrincipal user,
+        int page,
+        int pageSize,
+        string? tags = null,
+        string? titleSearch = null)
     {
         var discordId = user.FindFirstValue(ClaimTypes.NameIdentifier);
         if (string.IsNullOrEmpty(discordId))
             return TypedResults.Unauthorized();
-        return TypedResults.Ok(await clipService.GetUnviewedClipsForCategory(category, discordId, page, pageSize));
+
+        // Parse tags from comma-separated string to list
+        List<string>? tagList = null;
+        if (!string.IsNullOrWhiteSpace(tags))
+        {
+            tagList = tags.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).ToList();
+        }
+
+        return TypedResults.Ok(await clipService.GetUnviewedClipsForCategory(category, discordId, page, pageSize, tagList, titleSearch));
     }
 
     public static async Task<Results<UnauthorizedHttpResult, Ok, NotFound>> DeleteClip(ClipService clipService, ClaimsPrincipal user, Guid clipId)

@@ -128,10 +128,9 @@ public class ClipsStatements(NpgsqlConnection connection)
         return await connection.QuerySingleAsync<ClipCollectionRow>(sql, new { ownerId, collectionId, category });
     }
 
-    public async Task<List<ClipWithTagsRow>> GetClipsWithTagsByOwnerAndCategory(Guid ownerId, int category)
+    public async Task<List<ClipWithTagsRow>> GetClipsWithTagsByOwnerAndCategory(Guid ownerId, int category, List<string>? tags = null)
     {
-        const string sql =
-            """
+        var sql = new System.Text.StringBuilder("""
 
                         SELECT
                             c.id,
@@ -145,10 +144,38 @@ public class ClipsStatements(NpgsqlConnection connection)
                         LEFT JOIN clip_tag ct ON c.id = ct.clip_id
                         LEFT JOIN tag t ON ct.tag_id = t.id
                         WHERE c.owner_id = @ownerId AND c.category = @category
-                        GROUP BY c.id, c.owner_id, c.video_id, c.category, c.md5_hash, c.created_at
-            """;
+            """);
 
-        return (await connection.QueryAsync<ClipWithTagsRow>(sql, new { ownerId, category })).ToList();
+        // If tags filter is provided, add HAVING clause to filter by tags
+        if (tags != null && tags.Any())
+        {
+            sql.Append("""
+
+                        GROUP BY c.id, c.owner_id, c.video_id, c.category, c.md5_hash, c.created_at
+                        HAVING
+            """);
+
+            // For each tag, ensure it exists in the aggregated tag_names
+            var conditions = tags.Select((_, i) => $"STRING_AGG(t.name, ',') LIKE @tag{i}").ToList();
+            sql.Append(" " + string.Join(" AND ", conditions));
+
+            var parameters = new DynamicParameters();
+            parameters.Add("ownerId", ownerId);
+            parameters.Add("category", category);
+            for (int i = 0; i < tags.Count; i++)
+            {
+                parameters.Add($"tag{i}", $"%{tags[i]}%");
+            }
+
+            return (await connection.QueryAsync<ClipWithTagsRow>(sql.ToString(), parameters)).ToList();
+        }
+
+        sql.Append("""
+
+                        GROUP BY c.id, c.owner_id, c.video_id, c.category, c.md5_hash, c.created_at
+            """);
+
+        return (await connection.QueryAsync<ClipWithTagsRow>(sql.ToString(), new { ownerId, category })).ToList();
     }
 
     public async Task<HashSet<Guid>> GetViewedClipIds(Guid userId, List<Guid> clipIds)

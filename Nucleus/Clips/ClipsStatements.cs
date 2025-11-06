@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations.Schema;
+using System.Text;
 using Dapper;
 using Npgsql;
 
@@ -6,106 +7,6 @@ namespace Nucleus.Clips;
 
 public class ClipsStatements(NpgsqlConnection connection)
 {
-    // Database Models (PascalCase properties with Column attributes for snake_case mapping)
-    public class ClipRow
-    {
-        [Column("id")]
-        public Guid Id { get; set; }
-
-        [Column("owner_id")]
-        public Guid OwnerId { get; set; }
-
-        [Column("video_id")]
-        public Guid VideoId { get; set; }
-
-        [Column("category")]
-        public int Category { get; set; }
-
-        [Column("md5_hash")]
-        public string? Md5Hash { get; set; }
-
-        [Column("created_at")]
-        public DateTimeOffset CreatedAt { get; set; }
-    }
-
-    public class TagRow
-    {
-        [Column("id")]
-        public Guid Id { get; set; }
-
-        [Column("name")]
-        public string Name { get; set; } = string.Empty;
-    }
-
-    public class ClipTagRow
-    {
-        [Column("clip_id")]
-        public Guid ClipId { get; set; }
-
-        [Column("tag_id")]
-        public Guid TagId { get; set; }
-    }
-
-    public class ClipCollectionRow
-    {
-        [Column("id")]
-        public Guid Id { get; set; }
-
-        [Column("owner_id")]
-        public Guid OwnerId { get; set; }
-
-        [Column("collection_id")]
-        public Guid CollectionId { get; set; }
-
-        [Column("category")]
-        public int Category { get; set; }
-    }
-
-    public class ClipViewRow
-    {
-        [Column("user_id")]
-        public Guid UserId { get; set; }
-
-        [Column("clip_id")]
-        public Guid ClipId { get; set; }
-
-        [Column("viewed_at")]
-        public DateTime ViewedAt { get; set; }
-    }
-
-    public class ClipWithTagsRow
-    {
-        [Column("id")]
-        public Guid Id { get; set; }
-
-        [Column("owner_id")]
-        public Guid OwnerId { get; set; }
-
-        [Column("video_id")]
-        public Guid VideoId { get; set; }
-
-        [Column("category")]
-        public int Category { get; set; }
-
-        [Column("md5_hash")]
-        public string? Md5Hash { get; set; }
-
-        [Column("created_at")]
-        public DateTimeOffset CreatedAt { get; set; }
-
-        [Column("tag_names")]
-        public string? TagNames { get; set; } // comma-separated tags
-    }
-
-    public class TopTagRow
-    {
-        [Column("name")]
-        public string Name { get; set; } = string.Empty;
-
-        [Column("count")]
-        public int Count { get; set; }
-    }
-
     // Queries
     public async Task<ClipCollectionRow?> GetCollectionByOwnerAndCategory(Guid ownerId, int category)
     {
@@ -128,27 +29,52 @@ public class ClipsStatements(NpgsqlConnection connection)
         return await connection.QuerySingleAsync<ClipCollectionRow>(sql, new { ownerId, collectionId, category });
     }
 
-    public async Task<List<ClipWithTagsRow>> GetClipsWithTagsByOwnerAndCategory(Guid ownerId, int category)
+    public async Task<List<ClipWithTagsRow>> GetClipsWithTagsByOwnerAndCategory(Guid ownerId, int category,
+        List<string>? tags = null)
     {
-        const string sql =
-            """
+        var sql = new StringBuilder("""
 
-                        SELECT
-                            c.id,
-                            c.owner_id,
-                            c.video_id,
-                            c.category,
-                            c.md5_hash,
-                            c.created_at,
-                            STRING_AGG(t.name, ',') as tag_names
-                        FROM clip c
-                        LEFT JOIN clip_tag ct ON c.id = ct.clip_id
-                        LEFT JOIN tag t ON ct.tag_id = t.id
-                        WHERE c.owner_id = @ownerId AND c.category = @category
-                        GROUP BY c.id, c.owner_id, c.video_id, c.category, c.md5_hash, c.created_at
-            """;
+                                                SELECT
+                                                    c.id,
+                                                    c.owner_id,
+                                                    c.video_id,
+                                                    c.category,
+                                                    c.md5_hash,
+                                                    c.created_at,
+                                                    STRING_AGG(t.name, ',') as tag_names
+                                                FROM clip c
+                                                LEFT JOIN clip_tag ct ON c.id = ct.clip_id
+                                                LEFT JOIN tag t ON ct.tag_id = t.id
+                                                WHERE c.owner_id = @ownerId AND c.category = @category
+                                    """);
 
-        return (await connection.QueryAsync<ClipWithTagsRow>(sql, new { ownerId, category })).ToList();
+        // If tags filter is provided, add HAVING clause to filter by tags
+        if (tags != null && tags.Any())
+        {
+            sql.Append("""
+
+                                   GROUP BY c.id, c.owner_id, c.video_id, c.category, c.md5_hash, c.created_at
+                                   HAVING
+                       """);
+
+            // For each tag, ensure it exists in the aggregated tag_names
+            var conditions = tags.Select((_, i) => $"STRING_AGG(t.name, ',') LIKE @tag{i}").ToList();
+            sql.Append(" " + string.Join(" AND ", conditions));
+
+            var parameters = new DynamicParameters();
+            parameters.Add("ownerId", ownerId);
+            parameters.Add("category", category);
+            for (var i = 0; i < tags.Count; i++) parameters.Add($"tag{i}", $"%{tags[i]}%");
+
+            return (await connection.QueryAsync<ClipWithTagsRow>(sql.ToString(), parameters)).ToList();
+        }
+
+        sql.Append("""
+
+                               GROUP BY c.id, c.owner_id, c.video_id, c.category, c.md5_hash, c.created_at
+                   """);
+
+        return (await connection.QueryAsync<ClipWithTagsRow>(sql.ToString(), new { ownerId, category })).ToList();
     }
 
     public async Task<HashSet<Guid>> GetViewedClipIds(Guid userId, List<Guid> clipIds)
@@ -174,7 +100,8 @@ public class ClipsStatements(NpgsqlConnection connection)
         return await connection.QuerySingleAsync<bool>(sql, new { ownerId, category, md5Hash });
     }
 
-    public async Task<ClipRow> InsertClip(Guid ownerId, Guid videoId, int category, string? md5Hash, DateTimeOffset createdAt)
+    public async Task<ClipRow> InsertClip(Guid ownerId, Guid videoId, int category, string? md5Hash,
+        DateTimeOffset createdAt)
     {
         const string sql = @"
             INSERT INTO clip (owner_id, video_id, category, md5_hash, created_at)
@@ -288,7 +215,8 @@ public class ClipsStatements(NpgsqlConnection connection)
 
     public async Task<ClipRow?> GetClipById(Guid clipId)
     {
-        const string sql = "SELECT id, owner_id, video_id, category, md5_hash, created_at FROM clip WHERE id = @clipId LIMIT 1";
+        const string sql =
+            "SELECT id, owner_id, video_id, category, md5_hash, created_at FROM clip WHERE id = @clipId LIMIT 1";
         return await connection.QuerySingleOrDefaultAsync<ClipRow>(sql, new { clipId });
     }
 
@@ -328,5 +256,91 @@ public class ClipsStatements(NpgsqlConnection connection)
             LIMIT 1";
 
         return await connection.QuerySingleOrDefaultAsync<TagRow>(sql, new { clipId, tagName });
+    }
+
+    public async Task<List<TagRow>> GetTagsForClip(Guid clipId)
+    {
+        const string sql = @"
+            SELECT t.id, t.name
+            FROM tag t
+            INNER JOIN clip_tag ct ON t.id = ct.tag_id
+            WHERE ct.clip_id = @clipId
+            ORDER BY t.name";
+
+        return (await connection.QueryAsync<TagRow>(sql, new { clipId })).ToList();
+    }
+
+    // Database Models (PascalCase properties with Column attributes for snake_case mapping)
+    public class ClipRow
+    {
+        [Column("id")] public Guid Id { get; set; }
+
+        [Column("owner_id")] public Guid OwnerId { get; set; }
+
+        [Column("video_id")] public Guid VideoId { get; set; }
+
+        [Column("category")] public int Category { get; set; }
+
+        [Column("md5_hash")] public string? Md5Hash { get; set; }
+
+        [Column("created_at")] public DateTimeOffset CreatedAt { get; set; }
+    }
+
+    public class TagRow
+    {
+        [Column("id")] public Guid Id { get; set; }
+
+        [Column("name")] public string Name { get; set; } = string.Empty;
+    }
+
+    public class ClipTagRow
+    {
+        [Column("clip_id")] public Guid ClipId { get; set; }
+
+        [Column("tag_id")] public Guid TagId { get; set; }
+    }
+
+    public class ClipCollectionRow
+    {
+        [Column("id")] public Guid Id { get; set; }
+
+        [Column("owner_id")] public Guid OwnerId { get; set; }
+
+        [Column("collection_id")] public Guid CollectionId { get; set; }
+
+        [Column("category")] public int Category { get; set; }
+    }
+
+    public class ClipViewRow
+    {
+        [Column("user_id")] public Guid UserId { get; set; }
+
+        [Column("clip_id")] public Guid ClipId { get; set; }
+
+        [Column("viewed_at")] public DateTime ViewedAt { get; set; }
+    }
+
+    public class ClipWithTagsRow
+    {
+        [Column("id")] public Guid Id { get; set; }
+
+        [Column("owner_id")] public Guid OwnerId { get; set; }
+
+        [Column("video_id")] public Guid VideoId { get; set; }
+
+        [Column("category")] public int Category { get; set; }
+
+        [Column("md5_hash")] public string? Md5Hash { get; set; }
+
+        [Column("created_at")] public DateTimeOffset CreatedAt { get; set; }
+
+        [Column("tag_names")] public string? TagNames { get; set; } // comma-separated tags
+    }
+
+    public class TopTagRow
+    {
+        [Column("name")] public string Name { get; set; } = string.Empty;
+
+        [Column("count")] public int Count { get; set; }
     }
 }

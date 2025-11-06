@@ -274,28 +274,27 @@ public class ClipService(
         List<Guid> clipIds = clipsWithTags.Select(c => c.Id).ToList();
         HashSet<Guid> viewedClipIds = await clipsStatements.GetViewedClipIds(userId, clipIds);
 
-        // filter down bunny videos to those with the tag filters
-        allBunnyVideos.RemoveAll(v => clipsWithTags.All(c => c.VideoId != v.Guid));
-
         if (unviewedOnly)
         {
-            allBunnyVideos.RemoveAll(v => viewedClipIds.Contains(v.Guid));
+            clipsWithTags.RemoveAll(c => viewedClipIds.Contains(c.Id));
         }
 
+        clipsWithTags = clipsWithTags.OrderByDescending(c => c.CreatedAt).ToList();
+
         // get correct page from filtered list
-        List<BunnyVideo> pagedBunnyVideos = allBunnyVideos.Skip((page - 1) * pageSize).Take(pageSize).ToList();
-        int totalPages = (int)Math.Ceiling((double)allBunnyVideos.Count / pageSize);
+        List<ClipsStatements.ClipWithTagsRow> pagedClips = clipsWithTags.Skip((page - 1) * pageSize).Take(pageSize).ToList();
+        int totalPages = (int)Math.Ceiling((double)clipsWithTags.Count / pageSize);
 
-        List<Clip> finalClips = pagedBunnyVideos.Select(bv =>
+        List<Clip> finalClips = pagedClips.Select(c =>
         {
-            ClipsStatements.ClipWithTagsRow clipWithTagsRow = clipsWithTags.First(c => c.VideoId == bv.Guid);
+            BunnyVideo video = allBunnyVideos.First(v => v.Guid == c.VideoId);
 
-            return new Clip(clipWithTagsRow.Id, clipWithTagsRow.OwnerId, clipWithTagsRow.VideoId, categoryEnum, clipWithTagsRow.CreatedAt, bv,
-                clipWithTagsRow.TagNames?.Split(',', StringSplitOptions.RemoveEmptyEntries).ToList() ?? [],
-                viewedClipIds.Contains(clipWithTagsRow.Id));
+            return new Clip(c.Id, c.OwnerId, c.VideoId, categoryEnum, c.CreatedAt, video,
+                c.TagNames?.Split(',', StringSplitOptions.RemoveEmptyEntries).ToList() ?? [],
+                viewedClipIds.Contains(c.Id));
         }).ToList();
 
-        PagedClipsResponse pagedClipsResponse = new(finalClips, allBunnyVideos.Count, totalPages);
+        PagedClipsResponse pagedClipsResponse = new(finalClips, clipsWithTags.Count, totalPages);
         return pagedClipsResponse;
     }
 

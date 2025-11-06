@@ -294,7 +294,7 @@ public class ClipService(
                 viewedClipIds.Contains(c.Id));
         }).ToList();
 
-        PagedClipsResponse pagedClipsResponse = new(finalClips, allBunnyVideos.Count, totalPages);
+        PagedClipsResponse pagedClipsResponse = new(finalClips, clipsWithTags.Count, totalPages);
         return pagedClipsResponse;
     }
 

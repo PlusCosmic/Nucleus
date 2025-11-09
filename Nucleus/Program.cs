@@ -55,12 +55,14 @@ if (environment != null && environment != "Testing")
 builder.Services.AddOpenApi();
 builder.Services.AddHttpClient();
 builder.Services.AddScoped<ClipsStatements>();
+builder.Services.AddScoped<ClipsBackfillStatements>();
 builder.Services.AddScoped<ApexStatements>();
 builder.Services.AddScoped<LinksStatements>();
 builder.Services.AddScoped<DiscordStatements>();
 builder.Services.AddScoped<MapService>();
 builder.Services.AddScoped<LinksService>();
 builder.Services.AddScoped<ClipService>();
+builder.Services.AddScoped<ClipsBackfillService>();
 builder.Services.AddScoped<BunnyService>();
 builder.Services.AddScoped<FFmpegService>();
 builder.Services.AddScoped<IApexMapCacheService, ApexMapCacheService>();

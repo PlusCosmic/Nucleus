@@ -306,6 +306,16 @@ public class ClipsStatements(NpgsqlConnection connection)
         await connection.ExecuteAsync(sql, new { clipId });
     }
 
+    public async Task UpdateClipTitle(Guid clipId, string title)
+    {
+        const string sql = """
+            UPDATE clip
+            SET title = @title
+            WHERE id = @clipId
+            """;
+        await connection.ExecuteAsync(sql, new { clipId, title });
+    }
+
     public async Task<TagRow?> GetTagByNameForClip(Guid clipId, string tagName)
     {
         const string sql = """

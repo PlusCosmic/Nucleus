@@ -29,7 +29,19 @@ public class ApexEndpointsTests : IClassFixture<WebApplicationFixture>, IAsyncLi
         var connection = _fixture.GetService<NpgsqlConnection>();
         await DatabaseHelper.ClearAllTablesAsync(connection);
 
-        // Seed Apex map rotation data in Redis for tests
+        // Seed Apex map rotation data in mock cache for tests
+        SeedTestMapRotation();
+    }
+
+    public async Task DisposeAsync()
+    {
+        // Clean up database to prevent test interference
+        var connection = _fixture.GetService<NpgsqlConnection>();
+        await DatabaseHelper.ClearAllTablesAsync(connection);
+    }
+
+    private void SeedTestMapRotation()
+    {
         var cacheService = _fixture.GetService<IApexMapCacheService>();
         var now = DateTimeOffset.UtcNow;
 
@@ -41,14 +53,7 @@ public class ApexEndpointsTests : IClassFixture<WebApplicationFixture>, IAsyncLi
             now
         );
 
-        await cacheService.SetMapRotationAsync(testRotation);
-    }
-
-    public async Task DisposeAsync()
-    {
-        // Clean up database to prevent test interference
-        var connection = _fixture.GetService<NpgsqlConnection>();
-        await DatabaseHelper.ClearAllTablesAsync(connection);
+        cacheService.SetMapRotationAsync(testRotation).Wait();
     }
 
     #region GetApexMapRotation Tests

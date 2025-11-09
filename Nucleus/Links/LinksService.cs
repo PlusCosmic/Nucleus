@@ -1,6 +1,7 @@
 using Nucleus.Discord;
 using Nucleus.Data.Discord;
 using Nucleus.Data.Links;
+using Nucleus.Exceptions;
 
 namespace Nucleus.Links;
 
@@ -21,7 +22,7 @@ public class LinksService(LinksStatements linksStatements, DiscordStatements dis
         }
 
         var activeUser = await discordStatements.GetUserByDiscordId(discordId)
-            ?? throw new InvalidOperationException("Discord user not found");
+            ?? throw new UnauthorizedException("User not found");
 
         if (meta != null)
         {
@@ -43,7 +44,7 @@ public class LinksService(LinksStatements linksStatements, DiscordStatements dis
     public async Task<List<LinksStatements.UserFrequentLinkRow>> GetLinksForUser(string discordId)
     {
         var activeUser = await discordStatements.GetUserByDiscordId(discordId)
-            ?? throw new InvalidOperationException("Discord user not found");
+            ?? throw new UnauthorizedException("User not found");
 
         var linkRows = await linksStatements.GetLinksByUserId(activeUser.Id);
 
@@ -53,7 +54,7 @@ public class LinksService(LinksStatements linksStatements, DiscordStatements dis
     public async Task<bool> DeleteLink(Guid id, string discordId)
     {
         var activeUser = await discordStatements.GetUserByDiscordId(discordId)
-            ?? throw new InvalidOperationException("Discord user not found");
+            ?? throw new UnauthorizedException("User not found");
 
         var link = await linksStatements.GetLinkById(id);
         if (link == null || link.UserId != activeUser.Id)

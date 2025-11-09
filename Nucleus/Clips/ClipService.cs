@@ -6,6 +6,7 @@ using Nucleus.Data.ApexLegends;
 using Nucleus.Data.ApexLegends.Models;
 using Nucleus.Data.Clips;
 using Nucleus.Data.Discord;
+using Nucleus.Exceptions;
 
 namespace Nucleus.Clips;
 
@@ -36,7 +37,7 @@ public class ClipService(
         string discordUserId, DateTimeOffset createdAt, string? md5Hash = null)
     {
         DiscordStatements.DiscordUserRow discordUser = await discordStatements.GetUserByDiscordId(discordUserId)
-                                                       ?? throw new InvalidOperationException("No Discord user");
+                                                       ?? throw new UnauthorizedException("User not found");
         Guid userId = discordUser.Id;
 
         // Check if a video with this MD5 hash already exists for this user and category
@@ -60,7 +61,19 @@ public class ClipService(
 
         BunnyVideo video = await bunnyService.CreateVideoAsync(clipCollection.CollectionId, videoTitle);
 
-        await clipsStatements.InsertClip(userId, video.Guid, (int)categoryEnum, md5Hash, createdAt);
+        await clipsStatements.InsertClip(
+            userId,
+            video.Guid,
+            (int)categoryEnum,
+            md5Hash,
+            createdAt,
+            video.Title,
+            video.Length,
+            video.ThumbnailFileName,
+            video.DateUploaded,
+            video.StorageSize,
+            video.Status,
+            video.EncodeProgress);
 
         long expiration = DateTimeOffset.Now.AddHours(1).ToUnixTimeSeconds();
         string libraryId = configuration["BunnyLibraryId"]
@@ -81,7 +94,7 @@ public class ClipService(
     public async Task<Clip?> GetClipById(Guid clipId, string discordUserId)
     {
         DiscordStatements.DiscordUserRow discordUser = await discordStatements.GetUserByDiscordId(discordUserId)
-                                                       ?? throw new InvalidOperationException("No Discord user");
+                                                       ?? throw new UnauthorizedException("User not found");
         Guid userId = discordUser.Id;
 
         ClipsStatements.ClipWithTagsRow? clipWithTags = await clipsStatements.GetClipWithTagsById(clipId);
@@ -90,11 +103,37 @@ public class ClipService(
             return null;
         }
 
-        BunnyVideo? video = await bunnyService.GetVideoByIdAsync(clipWithTags.VideoId);
-        if (video == null)
+        // Get clip collection to retrieve CollectionId
+        ClipsStatements.ClipCollectionRow? clipCollection =
+            await clipsStatements.GetCollectionByOwnerAndCategory(clipWithTags.OwnerId, clipWithTags.Category);
+        if (clipCollection == null)
         {
             return null;
         }
+
+        string libraryId = configuration["BunnyLibraryId"]
+                           ?? throw new InvalidOperationException("Bunny API library ID not configured");
+        int videoLibraryId = int.Parse(libraryId);
+
+        // Create BunnyVideo from database metadata (no need to fetch from Bunny CDN)
+        BunnyVideo video = new(
+            VideoLibraryId: videoLibraryId,
+            Guid: clipWithTags.VideoId,
+            Title: clipWithTags.Title ?? "Untitled",
+            DateUploaded: clipWithTags.DateUploaded ?? DateTimeOffset.UtcNow,
+            Length: clipWithTags.Length ?? 0,
+            Status: clipWithTags.VideoStatus ?? 0,
+            Framerate: 0,
+            ThumbnailCount: 0,
+            EncodeProgress: clipWithTags.EncodeProgress ?? 0,
+            StorageSize: clipWithTags.StorageSize ?? 0,
+            CollectionId: clipCollection.CollectionId,
+            ThumbnailFileName: clipWithTags.ThumbnailFileName ?? string.Empty,
+            ThumbnailBlurhash: string.Empty,
+            Category: ((ClipCategoryEnum)clipWithTags.Category).ToString(),
+            Moments: [],
+            MetaTags: []
+        );
 
         bool isViewed = await clipsStatements.IsClipViewed(userId, clipId);
 
@@ -112,7 +151,7 @@ public class ClipService(
     {
         if (string.IsNullOrWhiteSpace(tag))
         {
-            throw new ArgumentException("Tag cannot be empty", nameof(tag));
+            throw new BadRequestException("Tag cannot be empty");
         }
 
         tag = NormalizeTag(tag);
@@ -122,7 +161,7 @@ public class ClipService(
         }
 
         DiscordStatements.DiscordUserRow discordUser = await discordStatements.GetUserByDiscordId(discordUserId)
-                                                       ?? throw new InvalidOperationException("No Discord user");
+                                                       ?? throw new UnauthorizedException("User not found");
 
         ClipsStatements.ClipWithTagsRow? clipWithTags =
             await clipsStatements.GetClipWithTagsByIdAndOwner(clipId, discordUser.Id);
@@ -142,7 +181,7 @@ public class ClipService(
 
         if (existingTags.Count >= 5)
         {
-            throw new InvalidOperationException("A clip can have up to 5 tags");
+            throw new BadRequestException("A clip can have a maximum of 5 tags");
         }
 
         ClipsStatements.TagRow? tagEntity = await clipsStatements.GetTagByName(tag);
@@ -160,13 +199,13 @@ public class ClipService(
     {
         if (string.IsNullOrWhiteSpace(tag))
         {
-            throw new ArgumentException("Tag cannot be empty", nameof(tag));
+            throw new BadRequestException("Tag cannot be empty");
         }
 
         tag = NormalizeTag(tag);
 
         DiscordStatements.DiscordUserRow discordUser = await discordStatements.GetUserByDiscordId(discordUserId)
-                                                       ?? throw new InvalidOperationException("No Discord user");
+                                                       ?? throw new UnauthorizedException("User not found");
 
         ClipsStatements.ClipWithTagsRow? clipWithTags =
             await clipsStatements.GetClipWithTagsByIdAndOwner(clipId, discordUser.Id);
@@ -188,7 +227,7 @@ public class ClipService(
     {
         if (string.IsNullOrWhiteSpace(newTitle))
         {
-            throw new ArgumentException("Title cannot be empty", nameof(newTitle));
+            throw new BadRequestException("Title cannot be empty");
         }
 
         if (newTitle.Length > 200)
@@ -197,7 +236,7 @@ public class ClipService(
         }
 
         DiscordStatements.DiscordUserRow discordUser = await discordStatements.GetUserByDiscordId(discordUserId)
-                                                       ?? throw new InvalidOperationException("No Discord user");
+                                                       ?? throw new UnauthorizedException("User not found");
 
         ClipsStatements.ClipWithTagsRow? clip =
             await clipsStatements.GetClipWithTagsByIdAndOwner(clipId, discordUser.Id);
@@ -219,7 +258,7 @@ public class ClipService(
     public async Task<bool> MarkClipAsViewed(Guid clipId, string discordUserId)
     {
         DiscordStatements.DiscordUserRow discordUser = await discordStatements.GetUserByDiscordId(discordUserId)
-                                                       ?? throw new InvalidOperationException("No Discord user");
+                                                       ?? throw new UnauthorizedException("User not found");
         Guid userId = discordUser.Id;
 
         ClipsStatements.ClipRow? clip = await clipsStatements.GetClipById(clipId);
@@ -243,7 +282,7 @@ public class ClipService(
         bool unviewedOnly = false)
     {
         DiscordStatements.DiscordUserRow discordUser = await discordStatements.GetUserByDiscordId(discordUserId)
-                                                       ?? throw new InvalidOperationException("No Discord user");
+                                                       ?? throw new UnauthorizedException("User not found");
         Guid userId = discordUser.Id;
 
         ClipsStatements.ClipCollectionRow? clipCollection =
@@ -255,28 +294,18 @@ public class ClipService(
 
         // Normalize tags for filtering (same as when adding tags)
         List<string>? normalizedTags = tags?.Select(NormalizeTag).ToList();
-        List<BunnyVideo> allBunnyVideos = new();
-
-        //get initial response
-        PagedVideoResponse pagedResponse =
-            await bunnyService.GetVideosForCollectionAsync(clipCollection.CollectionId, 1, pageSize, titleSearch);
-        allBunnyVideos.AddRange(pagedResponse.Items);
-
-        //get all remaining pages
-        if (pagedResponse.TotalItems > pagedResponse.ItemsPerPage)
-        {
-            for (int i = 2;
-                 i <= (int)Math.Ceiling((double)pagedResponse.TotalItems / pagedResponse.ItemsPerPage);
-                 i++)
-            {
-                PagedVideoResponse remainingResponse =
-                    await bunnyService.GetVideosForCollectionAsync(clipCollection.CollectionId, i, pageSize, titleSearch);
-                allBunnyVideos.AddRange(remainingResponse.Items);
-            }
-        }
 
         List<ClipsStatements.ClipWithTagsRow> clipsWithTags =
             await clipsStatements.GetClipsWithTagsByOwnerAndCategory(userId, (int)categoryEnum, normalizedTags);
+
+        // Apply title search filter if provided
+        if (!string.IsNullOrWhiteSpace(titleSearch))
+        {
+            clipsWithTags = clipsWithTags
+                .Where(c => c.Title != null && c.Title.Contains(titleSearch, StringComparison.OrdinalIgnoreCase))
+                .ToList();
+        }
+
         List<Guid> clipIds = clipsWithTags.Select(c => c.Id).ToList();
         HashSet<Guid> viewedClipIds = await clipsStatements.GetViewedClipIds(userId, clipIds);
 
@@ -291,12 +320,36 @@ public class ClipService(
         List<ClipsStatements.ClipWithTagsRow> pagedClips = clipsWithTags.Skip((page - 1) * pageSize).Take(pageSize).ToList();
         int totalPages = (int)Math.Ceiling((double)clipsWithTags.Count / pageSize);
 
-        List<ApexStatements.ApexClipDetectionRow> allDetections = await apexStatements.GetAllApexClipDetections();
+        List<Guid> pagedClipIds = pagedClips.Select(c => c.Id).ToList();
+        List<ApexStatements.ApexClipDetectionRow> detections = await apexStatements.GetApexClipDetectionsByClipIds(pagedClipIds);
+
+        string libraryId = configuration["BunnyLibraryId"]
+                           ?? throw new InvalidOperationException("Bunny API library ID not configured");
+        int videoLibraryId = int.Parse(libraryId);
 
         List<Clip> finalClips = pagedClips.Select(c =>
         {
-            BunnyVideo video = allBunnyVideos.First(v => v.Guid == c.VideoId);
-            ApexStatements.ApexClipDetectionRow? detection = allDetections.FirstOrDefault(d => d.ClipId == c.Id);
+            // Create BunnyVideo from database metadata (no need to fetch from Bunny CDN)
+            BunnyVideo video = new(
+                VideoLibraryId: videoLibraryId,
+                Guid: c.VideoId,
+                Title: c.Title ?? "Untitled",
+                DateUploaded: c.DateUploaded ?? DateTimeOffset.UtcNow,
+                Length: c.Length ?? 0,
+                Status: c.VideoStatus ?? 0,
+                Framerate: 0, // Not stored in DB, not critical for display
+                ThumbnailCount: 0, // Not stored in DB, not critical for display
+                EncodeProgress: c.EncodeProgress ?? 0,
+                StorageSize: c.StorageSize ?? 0,
+                CollectionId: clipCollection.CollectionId,
+                ThumbnailFileName: c.ThumbnailFileName ?? string.Empty,
+                ThumbnailBlurhash: string.Empty, // Not stored in DB
+                Category: categoryEnum.ToString(),
+                Moments: [],
+                MetaTags: []
+            );
+
+            ApexStatements.ApexClipDetectionRow? detection = detections.FirstOrDefault(d => d.ClipId == c.Id);
 
             return new Clip(c.Id, c.OwnerId, c.VideoId, categoryEnum, c.CreatedAt, video,
                 c.TagNames?.Split(',', StringSplitOptions.RemoveEmptyEntries).ToList() ?? [],
@@ -309,7 +362,7 @@ public class ClipService(
 
     public async Task<bool> DeleteClip(Guid clipId, string discordUserId)
     {
-        DiscordStatements.DiscordUserRow discordUser = await discordStatements.GetUserByDiscordId(discordUserId) ?? throw new InvalidOperationException("No Discord user");
+        DiscordStatements.DiscordUserRow discordUser = await discordStatements.GetUserByDiscordId(discordUserId) ?? throw new UnauthorizedException("User not found");
 
         ClipsStatements.ClipWithTagsRow? clip =
             await clipsStatements.GetClipWithTagsByIdAndOwner(clipId, discordUser.Id);

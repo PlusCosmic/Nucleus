@@ -78,26 +78,16 @@ public static class ClipsEndpoints
         return TypedResults.Ok(clip);
     }
 
-    public static async Task<Results<UnauthorizedHttpResult, Ok<Clip>, NotFound, BadRequest<string>>> AddTagToClip(
+    public static async Task<Results<UnauthorizedHttpResult, Ok<Clip>, NotFound>> AddTagToClip(
         ClipService clipService, ClaimsPrincipal user, Guid clipId, AddTagRequest request)
     {
         var discordId = user.FindFirstValue(ClaimTypes.NameIdentifier);
         if (string.IsNullOrEmpty(discordId))
             return TypedResults.Unauthorized();
-        try
-        {
-            var updated = await clipService.AddTagToClip(clipId, discordId, request.Tag);
-            if (updated == null) return TypedResults.NotFound();
-            return TypedResults.Ok(updated);
-        }
-        catch (InvalidOperationException ex)
-        {
-            return TypedResults.BadRequest(ex.Message);
-        }
-        catch (ArgumentException ex)
-        {
-            return TypedResults.BadRequest(ex.Message);
-        }
+
+        var updated = await clipService.AddTagToClip(clipId, discordId, request.Tag);
+        if (updated == null) return TypedResults.NotFound();
+        return TypedResults.Ok(updated);
     }
 
     public static async Task<Results<UnauthorizedHttpResult, Ok<Clip>, NotFound>> RemoveTagFromClip(
@@ -111,26 +101,16 @@ public static class ClipsEndpoints
         return TypedResults.Ok(updated);
     }
 
-    public static async Task<Results<UnauthorizedHttpResult, Ok<Clip>, NotFound, BadRequest<string>>> UpdateClipTitle(
+    public static async Task<Results<UnauthorizedHttpResult, Ok<Clip>, NotFound>> UpdateClipTitle(
         ClipService clipService, ClaimsPrincipal user, Guid clipId, UpdateTitleRequest request)
     {
         var discordId = user.FindFirstValue(ClaimTypes.NameIdentifier);
         if (string.IsNullOrEmpty(discordId))
             return TypedResults.Unauthorized();
-        try
-        {
-            var updated = await clipService.UpdateClipTitle(clipId, discordId, request.Title);
-            if (updated == null) return TypedResults.NotFound();
-            return TypedResults.Ok(updated);
-        }
-        catch (ArgumentException ex)
-        {
-            return TypedResults.BadRequest(ex.Message);
-        }
-        catch (InvalidOperationException ex)
-        {
-            return TypedResults.BadRequest(ex.Message);
-        }
+
+        var updated = await clipService.UpdateClipTitle(clipId, discordId, request.Title);
+        if (updated == null) return TypedResults.NotFound();
+        return TypedResults.Ok(updated);
     }
 
     public static async Task<Ok<List<TopTag>>> GetTopTags(ClipService clipService)

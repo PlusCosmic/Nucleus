@@ -50,6 +50,10 @@ builder.Services.AddScoped<LinksService>();
 builder.Services.AddScoped<ClipService>();
 builder.Services.AddScoped<BunnyService>();
 builder.Services.AddScoped<FFmpegService>();
+
+// Add global exception handling
+builder.Services.AddExceptionHandler<Nucleus.Exceptions.GlobalExceptionHandler>();
+builder.Services.AddProblemDetails();
 builder.Services.Configure<JsonOptions>(options =>
 {
     options.SerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower;
@@ -124,6 +128,8 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+app.UseExceptionHandler(); // Global exception handling
+
 FileExtensionContentTypeProvider provider = new();
 // Add new mappings
 provider.Mappings[".avif"] = "image/avif";
@@ -155,3 +161,5 @@ app.MapHealthChecks("/health", new HealthCheckOptions
 });
 
 app.Run();
+
+public partial class Program { }

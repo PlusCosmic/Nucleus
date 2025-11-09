@@ -105,13 +105,11 @@ services:
     environment:
       - REDIS_URL=redis://redis:6379/0
       - LOG_LEVEL=INFO
-      - PORTRAIT_REGION=80,955,92,74
-      - MIN_CONFIDENCE=0.7
+      - PORTRAIT_REGION=90,955,77,66
+      - MIN_CONFIDENCE=0.64
     depends_on:
       redis:
         condition: service_healthy
-    volumes:
-      - apex_portraits:/app/portraits
 
   caddy:
     image: caddy:latest
@@ -153,6 +151,5 @@ volumes:
   caddy_config:
   postgres_data:
   redis_data:
-  apex_portraits:
   ffmpeg_data:
   ffmpeg_shared:

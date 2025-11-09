@@ -3,15 +3,15 @@ using Nucleus.Data.ApexLegends.Models;
 
 namespace Nucleus.Apex.CharacterDetection;
 
-public class ApexDetectionBackgroundService(IServiceProvider serviceProvider, ApexStatements apexStatements) : BackgroundService
+public class ApexDetectionBackgroundService(IServiceScopeFactory scopeFactory) : BackgroundService
 {
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         while (!stoppingToken.IsCancellationRequested)
         {
-            using IServiceScope scope = serviceProvider.CreateScope();
+            using IServiceScope scope = scopeFactory.CreateScope();
+            ApexStatements apexStatements = scope.ServiceProvider.GetRequiredService<ApexStatements>();
             IApexDetectionQueueService queueService = scope.ServiceProvider.GetRequiredService<IApexDetectionQueueService>();
-
             // Check in-progress tasks in your database
             List<ApexStatements.ApexClipDetectionRow> pendingTasks = await apexStatements.GetApexClipDetectionsByStatus((int)ClipDetectionStatus.InProgress);
 

@@ -249,6 +249,13 @@ public class ClipsStatements(NpgsqlConnection connection)
         return await connection.QuerySingleOrDefaultAsync<ClipRow>(sql, new { clipId });
     }
 
+    public async Task<ClipRow?> GetClipByVideoId(Guid videoId)
+    {
+        const string sql =
+            "SELECT id, owner_id, video_id, category, md5_hash, created_at FROM clip WHERE video_id = @videoId LIMIT 1";
+        return await connection.QuerySingleOrDefaultAsync<ClipRow>(sql, new { videoId });
+    }
+
     public async Task<ClipWithTagsRow?> GetClipWithTagsByIdAndOwner(Guid clipId, Guid ownerId)
     {
         const string sql = """
@@ -303,6 +310,12 @@ public class ClipsStatements(NpgsqlConnection connection)
                            """;
 
         return (await connection.QueryAsync<TagRow>(sql, new { clipId })).ToList();
+    }
+
+    public async Task<List<ClipRow>> GetAllClipsForCategory(int category)
+    {
+        const string sql = "SELECT id, owner_id, video_id, category, md5_hash, created_at FROM clip WHERE category = @category";
+        return (await connection.QueryAsync<ClipRow>(sql, new { category })).ToList();
     }
 
     public class ClipRow

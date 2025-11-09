@@ -1,8 +1,10 @@
 using Dapper;
 using Npgsql;
 using Nucleus.Apex;
+using Nucleus.Apex.BunnyVideo;
 using Nucleus.Apex.CharacterDetection;
 using Nucleus.Data.ApexLegends;
+using Nucleus.Data.Clips;
 using StackExchange.Redis;
 
 // Configure Dapper to match snake_case DB columns to PascalCase C# properties
@@ -25,6 +27,7 @@ builder.Services.AddScoped(_ =>
 builder.Services.AddSingleton<IConnectionMultiplexer>(_ =>
     ConnectionMultiplexer.Connect(redisConnectionString));
 builder.Services.AddScoped<ApexStatements>();
+builder.Services.AddScoped<ClipsStatements>();
 builder.Services.AddScoped<IApexDetectionQueueService, ApexDetectionQueueService>();
 builder.Services.AddHostedService<MapRefreshService>();
 builder.Services.AddHostedService<ApexDetectionBackgroundService>();
@@ -33,4 +36,5 @@ WebApplication app = builder.Build();
 
 app.UseHttpsRedirection();
 app.MapApexDetectionEndpoints();
+app.MapBunnyWebhookEndpoints();
 app.Run();

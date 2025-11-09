@@ -66,8 +66,8 @@ public class ApexStatements(NpgsqlConnection connection)
     {
         const string sql = """
 
-                                       INSERT INTO apex_clip_detection (clip_id, status)
-                                       VALUES (@clipId, @status)
+                                       INSERT INTO apex_clip_detection (clip_id, status, primary_detection, secondary_detection)
+                                       VALUES (@clipId, @status, 27, 27)
                            """;
         await connection.ExecuteAsync(sql, new { clipId, status });
     }
@@ -122,6 +122,15 @@ public class ApexStatements(NpgsqlConnection connection)
         return await connection.QuerySingleAsync<ApexClipDetectionRow>(sql, new { clipId });
     }
 
+    public async Task<List<ApexClipDetectionRow>> GetAllApexClipDetections()
+    {
+        const string sql = """
+                                       SELECT clip_id, task_id, status, primary_detection, secondary_detection
+                                       FROM apex_clip_detection
+                           """;
+        return (await connection.QueryAsync<ApexClipDetectionRow>(sql)).ToList();
+    }
+
     public async Task<List<ApexClipDetectionRow>> GetApexClipDetectionsByStatus(int status)
     {
         const string sql = """
@@ -130,6 +139,12 @@ public class ApexStatements(NpgsqlConnection connection)
                                        WHERE status = @status
                            """;
         return (await connection.QueryAsync<ApexClipDetectionRow>(sql, new { status })).ToList();
+    }
+
+    public async Task DeleteApexClipDetection(Guid clipId)
+    {
+        const string sql = "DELETE FROM apex_clip_detection WHERE clip_id = @clipId";
+        await connection.ExecuteAsync(sql, new { clipId });
     }
 
     // Database Models (PascalCase properties auto-mapped to snake_case via DefaultTypeMap.MatchNamesWithUnderscores)

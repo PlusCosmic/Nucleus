@@ -26,14 +26,15 @@ class CharacterMatch(BaseModel):
 class ApexDetector:
     def __init__(self):
         self.portrait_region = self._parse_region(
-            os.getenv('PORTRAIT_REGION', '80,955,92,74')
+            os.getenv('PORTRAIT_REGION', '90,955,77,66')
         )
-        self.min_confidence = float(os.getenv('MIN_CONFIDENCE', '0.7'))
+        self.min_confidence = float(os.getenv('MIN_CONFIDENCE', '0.44'))
+        logger.info(f"Minimum confidence: {self.min_confidence}")
         self.reference_portraits = {}
         self.load_reference_portraits()
 
     def _parse_region(self, region_str: str) -> tuple:
-        """Parse region string like '80,955,92,74' to tuple"""
+        """Parse region string like '90, 955, 77, 66' to tuple"""
         return tuple(map(int, region_str.split(',')))
 
     def load_reference_portraits(self):
@@ -52,6 +53,30 @@ class ApexDetector:
                 logger.info(f"Loaded portrait for {character_name}")
 
         logger.info(f"Loaded {len(self.reference_portraits)} character portraits")
+
+    def resize_to_1080p(self, image: np.ndarray) -> np.ndarray:
+        """Resize image to 1080p if it's larger, maintaining aspect ratio"""
+        target_height = 1080
+        target_width = 1920
+
+        height, width = image.shape[:2]
+
+        # If already 1080p or smaller, return as-is
+        if height <= target_height and width <= target_width:
+            return image
+
+        # Calculate scaling factor to fit within 1080p bounds
+        scale_h = target_height / height
+        scale_w = target_width / width
+        scale = min(scale_h, scale_w)
+
+        new_width = int(width * scale)
+        new_height = int(height * scale)
+
+        resized = cv2.resize(image, (new_width, new_height), interpolation=cv2.INTER_AREA)
+        logger.info(f"Resized image from {width}x{height} to {new_width}x{new_height}")
+
+        return resized
 
     def extract_portrait_from_image(self, image: np.ndarray) -> np.ndarray:
         """Extract the portrait region from a full screenshot"""
@@ -119,6 +144,9 @@ class ApexDetector:
             image = await self.download_image(session, url)
             if image is None:
                 return None
+
+            # Resize to 1080p if necessary
+            image = self.resize_to_1080p(image)
 
             portrait = self.extract_portrait_from_image(image)
 

@@ -1,5 +1,5 @@
-using Nucleus.ApexLegends.Models;
-using Nucleus.Repository;
+using Nucleus.Data.ApexLegends;
+using Nucleus.Data.ApexLegends.Models;
 
 namespace Nucleus.ApexLegends;
 

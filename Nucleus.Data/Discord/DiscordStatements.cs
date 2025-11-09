@@ -1,27 +1,17 @@
-using System.ComponentModel.DataAnnotations.Schema;
 using Dapper;
 using Npgsql;
 
-namespace Nucleus.Discord;
+namespace Nucleus.Data.Discord;
 
 public class DiscordStatements(NpgsqlConnection connection)
 {
-    // Database Models
+    // Database Models (PascalCase properties auto-mapped to snake_case via DefaultTypeMap.MatchNamesWithUnderscores)
     public class DiscordUserRow
     {
-        [Column("id")]
         public Guid Id { get; set; }
-
-        [Column("discord_id")]
         public string DiscordId { get; set; } = string.Empty;
-
-        [Column("username")]
         public string Username { get; set; } = string.Empty;
-
-        [Column("global_name")]
         public string? GlobalName { get; set; }
-
-        [Column("avatar")]
         public string? Avatar { get; set; }
     }
 

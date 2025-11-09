@@ -1,9 +1,9 @@
-﻿services:
+services:
   nucleus:
     image: nucleus:latest
     build:
       context: .
-      dockerfile: Dockerfile
+      dockerfile: Nucleus/Dockerfile
     container_name: nucleus
     restart: unless-stopped
     networks:
@@ -32,7 +32,31 @@
     depends_on:
       postgres:
         condition: service_healthy
-  
+
+  nucleus-apex:
+    image: nucleus-apex:latest
+    build:
+      context: .
+      dockerfile: Nucleus.Apex/Dockerfile
+    container_name: nucleus-apex
+    restart: unless-stopped
+    networks:
+      - app-network
+    environment:
+      - ASPNETCORE_URLS=http://+:8080
+      - ASPNETCORE_FORWARDEDHEADERS_ENABLED=true
+      - ASPNETCORE_ENVIRONMENT=Production
+      - DatabaseConnectionString=Host=postgres;Port=5432;Database=nucleus_db;Username=nucleus_user;Password=${POSTGRES_PASSWORD}
+      - RedisConnectionString=redis:6379
+      - ApexLegendsApiKey=${ApexLegendsApiKey}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      nucleus:
+        condition: service_started
+
   postgres:
     image: postgres:16
     container_name: postgres
@@ -53,6 +77,42 @@
       timeout: 5s
       retries: 5
 
+  redis:
+    image: redis:7-alpine
+    container_name: redis
+    restart: unless-stopped
+    networks:
+      - app-network
+    ports:
+      - "127.0.0.1:6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    volumes:
+      - redis_data:/data
+
+  apex-legend-detector:
+    image: apex-legend-detector:latest
+    build:
+      context: .
+      dockerfile: apex-legend-detector/Dockerfile
+    container_name: apex-legend-detector
+    restart: unless-stopped
+    networks:
+      - app-network
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+      - LOG_LEVEL=INFO
+      - PORTRAIT_REGION=80,955,92,74
+      - MIN_CONFIDENCE=0.7
+    depends_on:
+      redis:
+        condition: service_healthy
+    volumes:
+      - apex_portraits:/app/portraits
+
   caddy:
     image: caddy:latest
     container_name: caddy
@@ -62,7 +122,7 @@
       - "443:443"
       - "443:443/udp"
     volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile
+      - ./Nucleus/Caddyfile:/etc/caddy/Caddyfile
       - caddy_data:/data
       - caddy_config:/config
     networks:
@@ -92,5 +152,7 @@ volumes:
   caddy_data:
   caddy_config:
   postgres_data:
+  redis_data:
+  apex_portraits:
   ffmpeg_data:
   ffmpeg_shared:

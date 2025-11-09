@@ -29,11 +29,12 @@
     </ItemGroup>
 
     <ItemGroup>
-        <Using Include="Xunit"/>
+        <Using Include="Xunit" />
     </ItemGroup>
 
     <ItemGroup>
       <ProjectReference Include="..\Nucleus\Nucleus.csproj" />
+      <ProjectReference Include="..\Nucleus.Data\Nucleus.Data.csproj" />
     </ItemGroup>
 
     <ItemGroup>

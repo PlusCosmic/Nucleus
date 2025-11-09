@@ -22,8 +22,7 @@ jobs:
           script: |
             cd Nucleus
             git pull origin master
-            cd Nucleus
-            
+
             # Create .env file
             cat > .env << EOF
             ApexLegendsApiKey=${{ secrets.APEXLEGENDSAPIKEY }}
@@ -35,10 +34,10 @@ jobs:
             BunnyLibraryId=${{ secrets.BUNNYLIBRARYID }}
             BunnyAccessKey=${{ secrets.BUNNYACCESSKEY }}
             EOF
-            
+
             docker compose down
             docker compose build
             docker compose up -d
-            
+
             # Cleanup
             docker system prune -f

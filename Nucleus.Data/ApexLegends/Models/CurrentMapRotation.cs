@@ -1,3 +1,3 @@
-namespace Nucleus.ApexLegends.Models;
+namespace Nucleus.Data.ApexLegends.Models;
 
 public record CurrentMapRotation(MapInfo StandardMap, MapInfo StandardMapNext, MapInfo RankedMap, MapInfo RankedMapNext, DateTimeOffset CorrectAsOf);

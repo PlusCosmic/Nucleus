@@ -25,7 +25,7 @@ public static class DatabaseHelper
             "clip",
             "tag",
             "user_frequent_link",
-            "apex_map_rotation",
+            "apex_clip_detection",
             "discord_user"
         };
 
@@ -179,30 +179,6 @@ public static class DatabaseHelper
     }
 
     /// <summary>
-    /// Seeds an Apex Legends map rotation entry.
-    /// </summary>
-    public static async Task SeedApexMapRotationAsync(
-        NpgsqlConnection connection,
-        int gamemode = 0, // 0 = BattleRoyale
-        int map = 0,      // 0 = KingsCanyon
-        DateTimeOffset? startTime = null,
-        DateTimeOffset? endTime = null)
-    {
-        const string sql = """
-            INSERT INTO apex_map_rotation (id, gamemode, map, start_time, end_time)
-            VALUES (gen_random_uuid(), @Gamemode, @Map, @StartTime, @EndTime)
-            """;
-
-        await connection.ExecuteAsync(sql, new
-        {
-            Gamemode = gamemode,
-            Map = map,
-            StartTime = startTime ?? DateTimeOffset.UtcNow,
-            EndTime = endTime ?? DateTimeOffset.UtcNow.AddHours(1)
-        });
-    }
-
-    /// <summary>
     /// Gets a count of records in a table.
     /// </summary>
     public static async Task<int> GetTableCountAsync(NpgsqlConnection connection, string tableName)
@@ -255,9 +231,6 @@ public static class DatabaseHelper
             userId,
             "https://github.com",
             "GitHub");
-
-        await SeedApexMapRotationAsync(connection, 0, 0); // BattleRoyale - Kings Canyon
-        await SeedApexMapRotationAsync(connection, 1, 1); // Ranked - Worlds Edge
 
         return new TestDataContext
         {

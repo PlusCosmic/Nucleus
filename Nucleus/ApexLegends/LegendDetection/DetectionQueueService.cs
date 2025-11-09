@@ -1,9 +1,10 @@
 using Newtonsoft.Json;
+using Nucleus.Apex.CharacterDetection;
 using Nucleus.Data.ApexLegends;
 using Nucleus.Data.ApexLegends.Models;
 using StackExchange.Redis;
 
-namespace Nucleus.Apex.CharacterDetection;
+namespace Nucleus.ApexLegends.LegendDetection;
 
 public interface IApexDetectionQueueService
 {

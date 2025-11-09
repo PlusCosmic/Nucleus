@@ -25,4 +25,9 @@
         </Content>
     </ItemGroup>
 
+    <ItemGroup>
+        <Folder Include="BunnyVideo\"/>
+        <Folder Include="CharacterDetection\"/>
+    </ItemGroup>
+
 </Project>

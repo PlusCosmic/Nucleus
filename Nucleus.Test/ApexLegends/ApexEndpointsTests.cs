@@ -3,6 +3,7 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using FluentAssertions;
 using Npgsql;
+using Nucleus.ApexLegends;
 using Nucleus.Data.ApexLegends.Models;
 using Nucleus.Test.Helpers;
 using Nucleus.Test.TestFixtures;
@@ -28,20 +29,19 @@ public class ApexEndpointsTests : IClassFixture<WebApplicationFixture>, IAsyncLi
         var connection = _fixture.GetService<NpgsqlConnection>();
         await DatabaseHelper.ClearAllTablesAsync(connection);
 
-        // Seed Apex map rotation data for tests
+        // Seed Apex map rotation data in Redis for tests
+        var cacheService = _fixture.GetService<IApexMapCacheService>();
         var now = DateTimeOffset.UtcNow;
 
-        // Seed current and future map rotations
-        // gamemode: 0 = BattleRoyale, 1 = Ranked
-        // map: 0 = KingsCanyon, 1 = WorldsEdge, 2 = StormPoint, etc.
-        await DatabaseHelper.SeedApexMapRotationAsync(
-            connection, 0, 0, now.AddMinutes(-30), now.AddMinutes(30)); // BR - Kings Canyon (current)
-        await DatabaseHelper.SeedApexMapRotationAsync(
-            connection, 0, 1, now.AddMinutes(30), now.AddMinutes(90)); // BR - Worlds Edge (next)
-        await DatabaseHelper.SeedApexMapRotationAsync(
-            connection, 1, 2, now.AddMinutes(-30), now.AddMinutes(30)); // Ranked - Storm Point (current)
-        await DatabaseHelper.SeedApexMapRotationAsync(
-            connection, 1, 3, now.AddMinutes(30), now.AddMinutes(90)); // Ranked - Broken Moon (next)
+        var testRotation = new CurrentMapRotation(
+            new MapInfo("Kings Canyon", now.AddMinutes(-30), now.AddMinutes(30), new Uri("http://localhost/images/kings-canyon.avif")),
+            new MapInfo("Worlds Edge", now.AddMinutes(30), now.AddMinutes(90), new Uri("http://localhost/images/worlds-edge.avif")),
+            new MapInfo("Storm Point", now.AddMinutes(-30), now.AddMinutes(30), new Uri("http://localhost/images/storm-point.avif")),
+            new MapInfo("Broken Moon", now.AddMinutes(30), now.AddMinutes(90), new Uri("http://localhost/images/broken-moon.avif")),
+            now
+        );
+
+        await cacheService.SetMapRotationAsync(testRotation);
     }
 
     public async Task DisposeAsync()

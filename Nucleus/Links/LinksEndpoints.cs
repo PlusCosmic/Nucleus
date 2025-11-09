@@ -1,6 +1,6 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Http.HttpResults;
-using Nucleus.Repository;
+using Nucleus.Data.Links;
 
 namespace Nucleus.Links;
 

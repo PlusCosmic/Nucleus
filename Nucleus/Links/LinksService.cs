@@ -1,4 +1,6 @@
 using Nucleus.Discord;
+using Nucleus.Data.Discord;
+using Nucleus.Data.Links;
 
 namespace Nucleus.Links;
 

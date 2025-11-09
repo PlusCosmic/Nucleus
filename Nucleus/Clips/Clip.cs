@@ -1,4 +1,5 @@
 using Nucleus.Clips.Bunny.Models;
+using Nucleus.Data.ApexLegends.Models;
 
 namespace Nucleus.Clips;
 
@@ -10,7 +11,9 @@ public record Clip(
     DateTimeOffset CreatedAt,
     BunnyVideo Video,
     IReadOnlyList<string> Tags,
-    bool IsViewed)
+    bool IsViewed,
+    ApexLegend DetectedLegend,
+    string DetectedLegendCard)
 {
 }
 

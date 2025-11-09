@@ -2,7 +2,10 @@ using System.Security.Cryptography;
 using System.Text;
 using Nucleus.Clips.Bunny;
 using Nucleus.Clips.Bunny.Models;
-using Nucleus.Discord;
+using Nucleus.Data.ApexLegends;
+using Nucleus.Data.ApexLegends.Models;
+using Nucleus.Data.Clips;
+using Nucleus.Data.Discord;
 
 namespace Nucleus.Clips;
 
@@ -10,6 +13,7 @@ public class ClipService(
     BunnyService bunnyService,
     ClipsStatements clipsStatements,
     DiscordStatements discordStatements,
+    ApexStatements apexStatements,
     IConfiguration configuration)
 {
     private static string NormalizeTag(string tag)
@@ -98,8 +102,10 @@ public class ClipService(
             ? clipWithTags.TagNames.Split(',', StringSplitOptions.RemoveEmptyEntries).ToList()
             : new List<string>();
 
+        ApexStatements.ApexClipDetectionRow clipDetection = await apexStatements.GetApexClipDetection(clipWithTags.Id);
+
         return new Clip(clipWithTags.Id, clipWithTags.OwnerId, clipWithTags.VideoId,
-            (ClipCategoryEnum)clipWithTags.Category, clipWithTags.CreatedAt, video, tags, isViewed);
+            (ClipCategoryEnum)clipWithTags.Category, clipWithTags.CreatedAt, video, tags, isViewed, clipDetection.GetPrimaryDetection(), GetLegendCard(clipDetection.GetPrimaryDetection()));
     }
 
     public async Task<Clip?> AddTagToClip(Guid clipId, string discordUserId, string tag)
@@ -285,13 +291,16 @@ public class ClipService(
         List<ClipsStatements.ClipWithTagsRow> pagedClips = clipsWithTags.Skip((page - 1) * pageSize).Take(pageSize).ToList();
         int totalPages = (int)Math.Ceiling((double)clipsWithTags.Count / pageSize);
 
+        List<ApexStatements.ApexClipDetectionRow> allDetections = await apexStatements.GetAllApexClipDetections();
+
         List<Clip> finalClips = pagedClips.Select(c =>
         {
             BunnyVideo video = allBunnyVideos.First(v => v.Guid == c.VideoId);
+            ApexStatements.ApexClipDetectionRow? detection = allDetections.FirstOrDefault(d => d.ClipId == c.Id);
 
             return new Clip(c.Id, c.OwnerId, c.VideoId, categoryEnum, c.CreatedAt, video,
                 c.TagNames?.Split(',', StringSplitOptions.RemoveEmptyEntries).ToList() ?? [],
-                viewedClipIds.Contains(c.Id));
+                viewedClipIds.Contains(c.Id), detection?.GetPrimaryDetection() ?? ApexLegend.None, GetLegendCard(detection?.GetPrimaryDetection() ?? ApexLegend.None));
         }).ToList();
 
         PagedClipsResponse pagedClipsResponse = new(finalClips, clipsWithTags.Count, totalPages);
@@ -312,5 +321,15 @@ public class ClipService(
         await bunnyService.DeleteVideoAsync(clip.VideoId);
         await clipsStatements.DeleteClip(clipId);
         return true;
+    }
+
+    private string GetLegendCard(ApexLegend legend)
+    {
+        if (legend == ApexLegend.MadMaggie)
+        {
+            return "/images/Mad_Maggie_Legend_Card.webp";
+        }
+
+        return $"/images/{legend.ToString()}_Legend_Card.webp";
     }
 }

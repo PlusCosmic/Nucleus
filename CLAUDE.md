@@ -115,8 +115,8 @@ Results<Ok<T>, NotFound, BadRequest<string>, UnauthorizedHttpResult>
 
 **Dapper with Raw SQL**: All database access uses hand-written SQL with Dapper
 - `*Statements` classes contain SQL queries
-- Column mapping via `[Column("snake_case")]` attributes
-- `DefaultTypeMap.MatchNamesWithUnderscores = true` in [Program.cs](Nucleus/Program.cs#L18)
+- Column mapping handled automatically via `DefaultTypeMap.MatchNamesWithUnderscores = true` in [Program.cs](Nucleus/Program.cs#L22)
+- This auto-maps PascalCase C# properties to snake_case database columns
 
 **Authentication Flow**:
 1. User initiates OAuth at `/auth/discord/login`
@@ -289,13 +289,13 @@ CREATE TABLE my_table (
 );
 ```
 
-2. Create model with column attributes:
+2. Create model (PascalCase properties auto-map to snake_case columns):
 ```csharp
 public record MyRow
 {
-    [Column("id")] public Guid Id { get; init; }
-    [Column("user_id")] public Guid UserId { get; init; }
-    [Column("created_at")] public DateTimeOffset CreatedAt { get; init; }
+    public Guid Id { get; init; }
+    public Guid UserId { get; init; }
+    public DateTimeOffset CreatedAt { get; init; }
 }
 ```
 
@@ -343,3 +343,4 @@ The `WhitelistMiddleware` ensures this claim exists and is whitelisted.
 **Database connection errors**: Verify PostgreSQL is healthy: `docker compose ps postgres`. Connection string is configured in compose.yaml.
 
 **CORS errors**: Check that the frontend origin matches one of the allowed patterns in [Program.cs](Nucleus/Program.cs#L55-81). Localhost is allowed on any port during development.
+- Use comments sparingly, only comment when the logic is sufficiently complex or non-obvious

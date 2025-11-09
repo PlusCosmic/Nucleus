@@ -1,5 +1,4 @@
-using Nucleus.Data.ApexLegends;
-using Nucleus.Data.ApexLegends.Models;
+using Nucleus.ApexLegends.Models;
 using Nucleus.Exceptions;
 
 namespace Nucleus.ApexLegends;
@@ -8,20 +7,21 @@ public class MapService(IApexMapCacheService cacheService, IConfiguration config
 {
     public async Task<CurrentMapRotation> GetMapRotation()
     {
-        var rotation = await cacheService.GetMapRotationAsync();
+        CurrentMapRotation? rotation = await cacheService.GetMapRotationAsync();
         if (rotation == null)
         {
             throw new ServiceUnavailableException("Apex Legends Status Unavailable");
         }
+
         return rotation;
     }
 
     public CurrentMapRotation ProcessApiResponse(MapRotationResponse response)
     {
-        var standardCurrent = MapRotationInfoToMapInfo(response.BattleRoyale.Current);
-        var standardNext = MapRotationInfoToMapInfo(response.BattleRoyale.Next);
-        var rankedCurrent = MapRotationInfoToMapInfo(response.Ranked.Current);
-        var rankedNext = MapRotationInfoToMapInfo(response.Ranked.Next);
+        MapInfo standardCurrent = MapRotationInfoToMapInfo(response.BattleRoyale.Current);
+        MapInfo standardNext = MapRotationInfoToMapInfo(response.BattleRoyale.Next);
+        MapInfo rankedCurrent = MapRotationInfoToMapInfo(response.Ranked.Current);
+        MapInfo rankedNext = MapRotationInfoToMapInfo(response.Ranked.Next);
 
         return new CurrentMapRotation(
             standardCurrent,
@@ -49,8 +49,11 @@ public class MapService(IApexMapCacheService cacheService, IConfiguration config
     {
         string? start = configuration["BackendAddress"];
         if (start == null)
+        {
             throw new InvalidOperationException("Backend address not configured");
-        var filename = map switch
+        }
+
+        string filename = map switch
         {
             ApexMap.KingsCanyon => "kings-canyon.avif",
             ApexMap.WorldsEdge => "worlds-edge.avif",
@@ -65,7 +68,7 @@ public class MapService(IApexMapCacheService cacheService, IConfiguration config
 
     private MapInfo MapRotationInfoToMapInfo(MapRotationInfo info)
     {
-        var map = MapCodeToEnum(info.Code);
+        ApexMap map = MapCodeToEnum(info.Code);
         return new MapInfo(GetFriendlyNameForMap(map), info.StartTime, info.EndTime, GetAssetUriForMap(map));
     }
 

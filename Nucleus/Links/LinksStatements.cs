@@ -1,20 +1,10 @@
 using Dapper;
 using Npgsql;
 
-namespace Nucleus.Data.Links;
+namespace Nucleus.Links;
 
 public class LinksStatements(NpgsqlConnection connection)
 {
-    // Database Models (PascalCase properties auto-mapped to snake_case via DefaultTypeMap.MatchNamesWithUnderscores)
-    public class UserFrequentLinkRow
-    {
-        public Guid Id { get; set; }
-        public Guid UserId { get; set; }
-        public string Title { get; set; } = string.Empty;
-        public string Url { get; set; } = string.Empty;
-        public string? ThumbnailUrl { get; set; }
-    }
-
     // Queries
     public async Task<UserFrequentLinkRow> InsertLink(Guid userId, string title, string url, string? thumbnailUrl)
     {
@@ -52,5 +42,15 @@ public class LinksStatements(NpgsqlConnection connection)
     {
         const string sql = "DELETE FROM user_frequent_link WHERE id = @id";
         await connection.ExecuteAsync(sql, new { id });
+    }
+
+    // Database Models (PascalCase properties auto-mapped to snake_case via DefaultTypeMap.MatchNamesWithUnderscores)
+    public class UserFrequentLinkRow
+    {
+        public Guid Id { get; set; }
+        public Guid UserId { get; set; }
+        public string Title { get; set; } = string.Empty;
+        public string Url { get; set; } = string.Empty;
+        public string? ThumbnailUrl { get; set; }
     }
 }

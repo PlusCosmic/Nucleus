@@ -11,4 +11,11 @@
     <PackageReference Include="Npgsql" Version="9.0.4" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Folder Include="ApexLegends\Models\" />
+    <Folder Include="Clips\" />
+    <Folder Include="Discord\" />
+    <Folder Include="Links\" />
+  </ItemGroup>
+
 </Project>

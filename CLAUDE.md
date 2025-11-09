@@ -4,11 +4,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Nucleus is a personal media and content management dashboard built with ASP.NET Core. It provides a backend API for managing video clips (primarily gaming footage), bookmarks, and tracking Apex Legends map rotations. The application is designed for a small whitelisted user base using Discord OAuth authentication.
+Nucleus is a personal media and content management dashboard built with ASP.NET Core. It provides a backend API for
+managing video clips (primarily gaming footage), bookmarks, and tracking Apex Legends map rotations. The application is
+designed for a small whitelisted user base using Discord OAuth authentication.
 
 ## Technology Stack
 
-- **.NET 10.0** (RC) with C# 14
+- **.NET 9.0** with C# 13
 - **ASP.NET Core** with Minimal APIs (no MVC controllers)
 - **PostgreSQL 16** database
 - **Dapper** for data access (micro-ORM with raw SQL)
@@ -42,9 +44,11 @@ dotnet test --filter "FullyQualifiedName~NamespaceOrClassName.TestMethodName"
 
 ### Database Management
 
-Database migrations run automatically on startup when `ASPNETCORE_ENVIRONMENT` is set. Migrations are located in `Nucleus/db/migrations/` and follow Evolve versioning (e.g., `V1__baseline_schema.sql`).
+Database migrations run automatically on startup when `ASPNETCORE_ENVIRONMENT` is set. Migrations are located in
+`Nucleus/db/migrations/` and follow Evolve versioning (e.g., `V1__baseline_schema.sql`).
 
 To create a new migration:
+
 1. Add a new SQL file: `Nucleus/db/migrations/V{number}__{description}.sql`
 2. Write raw SQL DDL statements
 3. Restart the application to apply migrations
@@ -101,35 +105,41 @@ The codebase follows a consistent pattern across all modules:
 1. **Auth/** - Discord OAuth authentication and whitelist-based authorization
 2. **Discord/** - User identity management and profile data
 3. **Clips/** - Video clip management with Bunny CDN integration
-   - **Clips/Bunny/** - CDN API client for video operations
-   - **Clips/FFmpeg/** - Docker-based video transcoding and download
+    - **Clips/Bunny/** - CDN API client for video operations
+    - **Clips/FFmpeg/** - Docker-based video transcoding and download
 4. **Links/** - Bookmark management with metadata extraction
 5. **ApexLegends/** - Map rotation tracking with background refresh service
 
 ### Key Architectural Patterns
 
 **Minimal APIs**: Endpoints defined as extension methods returning typed results
+
 ```csharp
 Results<Ok<T>, NotFound, BadRequest<string>, UnauthorizedHttpResult>
 ```
 
 **Dapper with Raw SQL**: All database access uses hand-written SQL with Dapper
+
 - `*Statements` classes contain SQL queries
-- Column mapping handled automatically via `DefaultTypeMap.MatchNamesWithUnderscores = true` in [Program.cs](Nucleus/Program.cs#L22)
+- Column mapping handled automatically via `DefaultTypeMap.MatchNamesWithUnderscores = true`
+  in [Program.cs](Nucleus/Program.cs#L22)
 - This auto-maps PascalCase C# properties to snake_case database columns
 
 **Authentication Flow**:
+
 1. User initiates OAuth at `/auth/discord/login`
 2. Discord redirects to callback with code
 3. Cookie set with Discord user info (7-day expiration)
 4. `WhitelistMiddleware` checks Discord ID against `whitelist.json`
 5. Request proceeds if user is whitelisted
 
-**Background Services**: `MapRefreshService` is an `IHostedService` that polls external APIs every 5 minutes to update Apex Legends map rotations
+**Background Services**: `MapRefreshService` is an `IHostedService` that polls external APIs every 5 minutes to update
+Apex Legends map rotations
 
 ### Database Schema
 
 Database uses snake_case naming convention:
+
 - `discord_user` - User identities from Discord OAuth
 - `clip`, `clip_collection`, `clip_tag`, `clip_view` - Video clip management
 - `tag` - Normalized tag names (max 5 per clip)
@@ -143,6 +153,7 @@ Primary keys are UUIDs generated with `gen_random_uuid()`. Timestamps use `times
 ### Environment Variables (Docker Compose)
 
 Required for production deployment:
+
 - `POSTGRES_PASSWORD` - Database password
 - `ApexLegendsApiKey` - API key for mozambiquehe.re
 - `DiscordClientId` / `DiscordClientSecret` - Discord OAuth credentials
@@ -154,6 +165,7 @@ Required for production deployment:
 ### whitelist.json
 
 Must exist in the application root directory. Contains an array of whitelisted Discord user IDs:
+
 ```json
 ["123456789012345678", "987654321098765432"]
 ```
@@ -172,13 +184,16 @@ Missing or empty whitelist will deny all authenticated requests.
 ### Service Registration
 
 Services are registered in [Program.cs](Nucleus/Program.cs):
-- Scoped services: `MapService`, `LinksService`, `ClipService`, `BunnyService`, `FFmpegService`, all `*Statements` classes
+
+- Scoped services: `MapService`, `LinksService`, `ClipService`, `BunnyService`, `FFmpegService`, all `*Statements`
+  classes
 - Hosted service: `MapRefreshService`
 - Singleton: `NpgsqlConnection` per request scope
 
 ### Endpoint Mapping
 
 All endpoint groups are mapped in [Program.cs](Nucleus/Program.cs#L126-131):
+
 ```csharp
 app.MapUserEndpoints();
 app.MapApexEndpoints();
@@ -191,6 +206,7 @@ app.MapFFmpegEndpoints();
 ### CORS Configuration
 
 CORS allows:
+
 - `localhost` on any port
 - `*.pluscosmic.dev` domains
 - `*.pluscosmicdashboard.pages.dev` (Cloudflare previews)
@@ -200,6 +216,7 @@ Configured with `AllowCredentials()` for cookie-based auth.
 ### JSON Serialization
 
 Configured with strict number handling to prevent security issues:
+
 ```csharp
 JsonNumberHandling.Strict  // Rejects malformed numbers
 ```
@@ -207,11 +224,13 @@ JsonNumberHandling.Strict  // Rejects malformed numbers
 ### FFmpeg Integration
 
 The FFmpeg service requires:
+
 1. A running `linuxserver/ffmpeg` container
 2. Shared volume mount between nucleus and ffmpeg containers
 3. Coordinated path mapping via `FFmpegSharedPath` environment variable
 
 Video downloads work by:
+
 1. Executing `docker exec ffmpeg` commands from the nucleus container
 2. FFmpeg downloads HLS playlists (`.m3u8`) and transcodes to MP4
 3. Output files written to shared volume
@@ -220,6 +239,7 @@ Video downloads work by:
 ### Clip Management
 
 Clips have these key features:
+
 - **MD5 deduplication**: Optional MD5 hash prevents duplicate uploads
 - **Tag limit**: Maximum 5 tags per clip (enforced in `ClipService`)
 - **View tracking**: Per-user view status for each clip
@@ -237,11 +257,13 @@ Clips have these key features:
 Test project: `Nucleus.Test/` using xUnit framework. Currently minimal test coverage.
 
 Run all tests:
+
 ```bash
 dotnet test
 ```
 
 Run specific test:
+
 ```bash
 dotnet test --filter "FullyQualifiedName~Namespace.Class.Method"
 ```
@@ -251,6 +273,7 @@ dotnet test --filter "FullyQualifiedName~Namespace.Class.Method"
 ### Adding a New Endpoint
 
 1. Create endpoint handler in `*Endpoints.cs`:
+
 ```csharp
 public static class MyEndpoints
 {
@@ -274,6 +297,7 @@ public static class MyEndpoints
 ```
 
 2. Register in [Program.cs](Nucleus/Program.cs):
+
 ```csharp
 app.MapMyEndpoints();
 ```
@@ -281,6 +305,7 @@ app.MapMyEndpoints();
 ### Adding a Database Table
 
 1. Create migration in `Nucleus/db/migrations/V{N}__{description}.sql`:
+
 ```sql
 CREATE TABLE my_table (
     id UUID PRIMARY KEY DEFAULT (gen_random_uuid()),
@@ -290,6 +315,7 @@ CREATE TABLE my_table (
 ```
 
 2. Create model (PascalCase properties auto-map to snake_case columns):
+
 ```csharp
 public record MyRow
 {
@@ -300,6 +326,7 @@ public record MyRow
 ```
 
 3. Create `*Statements` class with Dapper queries:
+
 ```csharp
 public class MyStatements(NpgsqlConnection connection)
 {
@@ -318,6 +345,7 @@ public class MyStatements(NpgsqlConnection connection)
 ```
 
 4. Register in [Program.cs](Nucleus/Program.cs):
+
 ```csharp
 builder.Services.AddScoped<MyStatements>();
 ```
@@ -325,6 +353,7 @@ builder.Services.AddScoped<MyStatements>();
 ### Extracting Discord User ID
 
 All authenticated endpoints should extract the Discord user ID from claims:
+
 ```csharp
 var discordId = user.FindFirstValue(ClaimTypes.NameIdentifier);
 if (discordId is null) return TypedResults.Unauthorized();
@@ -334,13 +363,19 @@ The `WhitelistMiddleware` ensures this claim exists and is whitelisted.
 
 ## Troubleshooting
 
-**Migrations not running**: Ensure `ASPNETCORE_ENVIRONMENT` is set. Migrations only run when this environment variable exists.
+**Migrations not running**: Ensure `ASPNETCORE_ENVIRONMENT` is set. Migrations only run when this environment variable
+exists.
 
-**Whitelist not working**: Verify `whitelist.json` exists in the application root and contains valid Discord user IDs (numeric strings).
+**Whitelist not working**: Verify `whitelist.json` exists in the application root and contains valid Discord user IDs (
+numeric strings).
 
-**FFmpeg errors**: Ensure the `ffmpeg` container is running and the shared volume is properly mounted. Check container logs: `docker compose logs ffmpeg`
+**FFmpeg errors**: Ensure the `ffmpeg` container is running and the shared volume is properly mounted. Check container
+logs: `docker compose logs ffmpeg`
 
-**Database connection errors**: Verify PostgreSQL is healthy: `docker compose ps postgres`. Connection string is configured in compose.yaml.
+**Database connection errors**: Verify PostgreSQL is healthy: `docker compose ps postgres`. Connection string is
+configured in compose.yaml.
 
-**CORS errors**: Check that the frontend origin matches one of the allowed patterns in [Program.cs](Nucleus/Program.cs#L55-81). Localhost is allowed on any port during development.
+**CORS errors**: Check that the frontend origin matches one of the allowed patterns
+in [Program.cs](Nucleus/Program.cs#L55-81). Localhost is allowed on any port during development.
+
 - Use comments sparingly, only comment when the logic is sufficiently complex or non-obvious

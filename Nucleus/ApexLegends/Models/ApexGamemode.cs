@@ -1,4 +1,4 @@
-namespace Nucleus.Data.ApexLegends.Models;
+namespace Nucleus.ApexLegends.Models;
 
 public enum ApexGamemode
 {

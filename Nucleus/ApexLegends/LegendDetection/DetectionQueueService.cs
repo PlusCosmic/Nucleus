@@ -1,7 +1,6 @@
 using Newtonsoft.Json;
 using Nucleus.Apex.CharacterDetection;
-using Nucleus.Data.ApexLegends;
-using Nucleus.Data.ApexLegends.Models;
+using Nucleus.ApexLegends.Models;
 using StackExchange.Redis;
 
 namespace Nucleus.ApexLegends.LegendDetection;

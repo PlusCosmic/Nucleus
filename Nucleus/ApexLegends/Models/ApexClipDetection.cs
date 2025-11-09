@@ -1,4 +1,4 @@
-namespace Nucleus.Data.ApexLegends.Models;
+namespace Nucleus.ApexLegends.Models;
 
 public record ApexClipDetection(Guid ClipId, ClipDetectionStatus Status, ApexLegend PrimaryDetection, ApexLegend SecondaryDetection)
 {

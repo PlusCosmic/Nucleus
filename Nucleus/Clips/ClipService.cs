@@ -245,7 +245,7 @@ public class ClipService(
             return null;
         }
 
-        await bunnyService.UpdateVideoTitleAsync(clip.VideoId, newTitle);
+        await clipsStatements.UpdateClipTitle(clipId, newTitle);
         return await GetClipById(clipId, discordUserId);
     }
 

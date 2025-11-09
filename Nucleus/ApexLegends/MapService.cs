@@ -4,53 +4,31 @@ using Nucleus.Exceptions;
 
 namespace Nucleus.ApexLegends;
 
-public class MapService(ApexStatements apexStatements, IConfiguration configuration)
+public class MapService(IApexMapCacheService cacheService, IConfiguration configuration)
 {
     public async Task<CurrentMapRotation> GetMapRotation()
     {
-        var recentRotationRows = await apexStatements.GetRecentRotations(DateTimeOffset.UtcNow.AddDays(-2));
-
-        DateTimeOffset now = DateTimeOffset.UtcNow;
-
-        var currentStandardRow = recentRotationRows.Find(r =>
-            r.StartTime <= now && r.EndTime > now && r.Gamemode == (int)ApexGamemode.Standard);
-        if (currentStandardRow == null)
+        var rotation = await cacheService.GetMapRotationAsync();
+        if (rotation == null)
         {
-            throw new ServiceUnavailableException("No current standard map rotation data available");
+            throw new ServiceUnavailableException("Apex Legends Status Unavailable");
         }
+        return rotation;
+    }
 
-        DateTimeOffset nextTime = currentStandardRow.EndTime.AddMinutes(1);
+    public CurrentMapRotation ProcessApiResponse(MapRotationResponse response)
+    {
+        var standardCurrent = MapRotationInfoToMapInfo(response.BattleRoyale.Current);
+        var standardNext = MapRotationInfoToMapInfo(response.BattleRoyale.Next);
+        var rankedCurrent = MapRotationInfoToMapInfo(response.Ranked.Current);
+        var rankedNext = MapRotationInfoToMapInfo(response.Ranked.Next);
 
-        var nextStandardRow = recentRotationRows.Find(r =>
-            r.StartTime <= nextTime && r.EndTime > nextTime && r.Gamemode == (int)ApexGamemode.Standard);
-        if (nextStandardRow == null)
-        {
-            throw new ServiceUnavailableException("No next standard map rotation data available");
-        }
-
-        var currentRankedRow = recentRotationRows.Find(r =>
-            r.StartTime <= now && r.EndTime > now && r.Gamemode == (int)ApexGamemode.Ranked);
-        if (currentRankedRow == null)
-        {
-            throw new ServiceUnavailableException("No current ranked map rotation data available");
-        }
-
-        DateTimeOffset nextRankedTime = currentRankedRow.EndTime.AddMinutes(1);
-
-        var nextRankedRow = recentRotationRows.Find(r =>
-            r.StartTime <= nextRankedTime && r.EndTime > nextRankedTime && r.Gamemode == (int)ApexGamemode.Ranked);
-        if (nextRankedRow == null)
-        {
-            throw new ServiceUnavailableException("No next ranked map rotation data available");
-        }
-
-        return new CurrentMapRotation
-        (
-            RowToMapInfo(currentStandardRow),
-            RowToMapInfo(nextStandardRow),
-            RowToMapInfo(currentRankedRow),
-            RowToMapInfo(nextRankedRow),
-            now);
+        return new CurrentMapRotation(
+            standardCurrent,
+            standardNext,
+            rankedCurrent,
+            rankedNext,
+            DateTimeOffset.UtcNow);
     }
 
     private string GetFriendlyNameForMap(ApexMap map)
@@ -85,9 +63,23 @@ public class MapService(ApexStatements apexStatements, IConfiguration configurat
         return new Uri($"{start}/images/{filename}");
     }
 
-    private MapInfo RowToMapInfo(ApexStatements.ApexMapRotationRow row)
+    private MapInfo MapRotationInfoToMapInfo(MapRotationInfo info)
     {
-        var map = row.GetMap();
-        return new MapInfo(GetFriendlyNameForMap(map), row.StartTime, row.EndTime, GetAssetUriForMap(map));
+        var map = MapCodeToEnum(info.Code);
+        return new MapInfo(GetFriendlyNameForMap(map), info.StartTime, info.EndTime, GetAssetUriForMap(map));
+    }
+
+    private static ApexMap MapCodeToEnum(string mapCode)
+    {
+        return mapCode switch
+        {
+            "kings_canyon_rotation" => ApexMap.KingsCanyon,
+            "edistrict_rotation" => ApexMap.EDistrict,
+            "olympus_rotation" => ApexMap.Olympus,
+            "worlds_edge_rotation" => ApexMap.WorldsEdge,
+            "storm_point_rotation" => ApexMap.StormPoint,
+            "broken_moon_rotation" => ApexMap.BrokenMoon,
+            _ => throw new InvalidOperationException($"Unknown map code: {mapCode}")
+        };
     }
 }

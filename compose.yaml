@@ -19,6 +19,7 @@ services:
       - DiscordClientSecret=${DiscordClientSecret}
       - FrontendOrigin=${FrontendOrigin}
       - DatabaseConnectionString=Host=postgres;Port=5432;Database=nucleus_db;Username=nucleus_user;Password=${POSTGRES_PASSWORD}
+      - RedisConnectionString=redis:6379
       - BunnyAccessKey=${BunnyAccessKey}
       - BunnyLibraryId=${BunnyLibraryId}
       - BackendAddress=${BackendAddress}
@@ -32,30 +33,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-
-  nucleus-apex:
-    image: nucleus-apex:latest
-    build:
-      context: .
-      dockerfile: Nucleus.Apex/Dockerfile
-    container_name: nucleus-apex
-    restart: unless-stopped
-    networks:
-      - app-network
-    environment:
-      - ASPNETCORE_URLS=http://+:8080
-      - ASPNETCORE_FORWARDEDHEADERS_ENABLED=true
-      - ASPNETCORE_ENVIRONMENT=Production
-      - DatabaseConnectionString=Host=postgres;Port=5432;Database=nucleus_db;Username=nucleus_user;Password=${POSTGRES_PASSWORD}
-      - RedisConnectionString=redis:6379
-      - ApexLegendsApiKey=${ApexLegendsApiKey}
-    depends_on:
-      postgres:
-        condition: service_healthy
       redis:
         condition: service_healthy
-      nucleus:
-        condition: service_started
 
   postgres:
     image: postgres:16

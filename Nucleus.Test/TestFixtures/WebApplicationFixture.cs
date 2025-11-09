@@ -12,6 +12,7 @@ using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Primitives;
 using Microsoft.VisualStudio.TestPlatform.TestHost;
 using Npgsql;
+using Nucleus.ApexLegends;
 using Nucleus.Clips.Bunny;
 using Testcontainers.PostgreSql;
 
@@ -134,6 +135,7 @@ public class WebApplicationFixture : WebApplicationFactory<Program>, IAsyncLifet
         builder.UseSetting("BackendAddress", "http://localhost:5000");
         builder.UseSetting("BunnyAccessKey", "test_bunny_access_key");
         builder.UseSetting("BunnyLibraryId", "12345");
+        builder.UseSetting("RedisConnectionString", "localhost:6379");
 
         builder.ConfigureTestServices(services =>
         {
@@ -161,6 +163,16 @@ public class WebApplicationFixture : WebApplicationFactory<Program>, IAsyncLifet
             }
 
             services.AddScoped<BunnyService, MockBunnyService>();
+
+            // Replace IApexMapCacheService with mock implementation
+            ServiceDescriptor? apexCacheDescriptor = services.SingleOrDefault(d => d.ServiceType == typeof(IApexMapCacheService));
+
+            if (apexCacheDescriptor != null)
+            {
+                services.Remove(apexCacheDescriptor);
+            }
+
+            services.AddSingleton<IApexMapCacheService, MockApexMapCacheService>();
 
             // Override authentication to use TestScheme
             // Configure test authentication to be the default scheme

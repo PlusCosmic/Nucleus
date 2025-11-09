@@ -1,5 +1,5 @@
 using Microsoft.AspNetCore.Http.HttpResults;
-using Nucleus.Apex.CharacterDetection;
+using Nucleus.ApexLegends.LegendDetection;
 using Nucleus.Data.ApexLegends;
 using Nucleus.Data.Clips;
 

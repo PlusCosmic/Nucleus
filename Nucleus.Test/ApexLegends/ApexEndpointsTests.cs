@@ -4,7 +4,7 @@ using System.Text.Json;
 using FluentAssertions;
 using Npgsql;
 using Nucleus.ApexLegends;
-using Nucleus.Data.ApexLegends.Models;
+using Nucleus.ApexLegends.Models;
 using Nucleus.Test.Helpers;
 using Nucleus.Test.TestFixtures;
 
@@ -26,7 +26,7 @@ public class ApexEndpointsTests : IClassFixture<WebApplicationFixture>, IAsyncLi
     public async Task InitializeAsync()
     {
         // Clean database first to ensure isolation between test runs
-        var connection = _fixture.GetService<NpgsqlConnection>();
+        NpgsqlConnection connection = _fixture.GetService<NpgsqlConnection>();
         await DatabaseHelper.ClearAllTablesAsync(connection);
 
         // Seed Apex map rotation data in mock cache for tests
@@ -36,16 +36,16 @@ public class ApexEndpointsTests : IClassFixture<WebApplicationFixture>, IAsyncLi
     public async Task DisposeAsync()
     {
         // Clean up database to prevent test interference
-        var connection = _fixture.GetService<NpgsqlConnection>();
+        NpgsqlConnection connection = _fixture.GetService<NpgsqlConnection>();
         await DatabaseHelper.ClearAllTablesAsync(connection);
     }
 
     private void SeedTestMapRotation()
     {
-        var cacheService = _fixture.GetService<IApexMapCacheService>();
-        var now = DateTimeOffset.UtcNow;
+        IApexMapCacheService cacheService = _fixture.GetService<IApexMapCacheService>();
+        DateTimeOffset now = DateTimeOffset.UtcNow;
 
-        var testRotation = new CurrentMapRotation(
+        CurrentMapRotation testRotation = new(
             new MapInfo("Kings Canyon", now.AddMinutes(-30), now.AddMinutes(30), new Uri("http://localhost/images/kings-canyon.avif")),
             new MapInfo("Worlds Edge", now.AddMinutes(30), now.AddMinutes(90), new Uri("http://localhost/images/worlds-edge.avif")),
             new MapInfo("Storm Point", now.AddMinutes(-30), now.AddMinutes(30), new Uri("http://localhost/images/storm-point.avif")),
@@ -64,10 +64,10 @@ public class ApexEndpointsTests : IClassFixture<WebApplicationFixture>, IAsyncLi
     {
         // Note: This endpoint does NOT require authentication (no RequireAuthorization)
         // Arrange
-        var client = _fixture.CreateUnauthenticatedClient();
+        HttpClient client = _fixture.CreateUnauthenticatedClient();
 
         // Act
-        var response = await client.GetAsync("/apex-legends/map-rotation");
+        HttpResponseMessage response = await client.GetAsync("/apex-legends/map-rotation");
 
         // Assert
         // The endpoint either returns data (200) or API is unavailable (503)
@@ -79,10 +79,10 @@ public class ApexEndpointsTests : IClassFixture<WebApplicationFixture>, IAsyncLi
     public async Task GetApexMapRotation_WithAuthentication_ReturnsOkOrServiceUnavailable()
     {
         // Arrange
-        var client = _fixture.CreateAuthenticatedClient(_testDiscordId);
+        HttpClient client = _fixture.CreateAuthenticatedClient(_testDiscordId);
 
         // Act
-        var response = await client.GetAsync("/apex-legends/map-rotation");
+        HttpResponseMessage response = await client.GetAsync("/apex-legends/map-rotation");
 
         // Assert
         // The endpoint either returns data (200) or API is unavailable (503)
@@ -94,21 +94,21 @@ public class ApexEndpointsTests : IClassFixture<WebApplicationFixture>, IAsyncLi
     public async Task GetApexMapRotation_OnSuccess_ReturnsCurrentMapRotation()
     {
         // Arrange
-        var client = _fixture.CreateUnauthenticatedClient();
+        HttpClient client = _fixture.CreateUnauthenticatedClient();
 
         // Act
-        var response = await client.GetAsync("/apex-legends/map-rotation");
+        HttpResponseMessage response = await client.GetAsync("/apex-legends/map-rotation");
 
         // Assert
         if (response.StatusCode == HttpStatusCode.OK)
         {
             // Configure deserializer to match API's snake_case naming policy
-            var options = new JsonSerializerOptions
+            JsonSerializerOptions options = new()
             {
                 PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower
             };
 
-            var mapRotation = await response.Content.ReadFromJsonAsync<CurrentMapRotation>(options);
+            CurrentMapRotation? mapRotation = await response.Content.ReadFromJsonAsync<CurrentMapRotation>(options);
             mapRotation.Should().NotBeNull();
             mapRotation!.StandardMap.Should().NotBeNull();
             mapRotation.StandardMapNext.Should().NotBeNull();
@@ -125,15 +125,15 @@ public class ApexEndpointsTests : IClassFixture<WebApplicationFixture>, IAsyncLi
         // This test verifies error handling when the external API is down
         // In real scenarios, the MapService would fail to fetch from the external API
         // Arrange
-        var client = _fixture.CreateUnauthenticatedClient();
+        HttpClient client = _fixture.CreateUnauthenticatedClient();
 
         // Act
-        var response = await client.GetAsync("/apex-legends/map-rotation");
+        HttpResponseMessage response = await client.GetAsync("/apex-legends/map-rotation");
 
         // Assert
         if (response.StatusCode == HttpStatusCode.ServiceUnavailable)
         {
-            var content = await response.Content.ReadAsStringAsync();
+            string content = await response.Content.ReadAsStringAsync();
             content.Should().Contain("Apex Legends Status Unavailable");
         }
     }
@@ -144,10 +144,10 @@ public class ApexEndpointsTests : IClassFixture<WebApplicationFixture>, IAsyncLi
     {
         // This test verifies that the endpoint is accessible without authentication
         // Arrange
-        var client = _fixture.CreateUnauthenticatedClient();
+        HttpClient client = _fixture.CreateUnauthenticatedClient();
 
         // Act
-        var response = await client.GetAsync("/apex-legends/map-rotation");
+        HttpResponseMessage response = await client.GetAsync("/apex-legends/map-rotation");
 
         // Assert
         // Should NOT be Unauthorized - this is a public endpoint
@@ -159,15 +159,15 @@ public class ApexEndpointsTests : IClassFixture<WebApplicationFixture>, IAsyncLi
     public async Task GetApexMapRotation_ReturnsExpectedJsonStructure()
     {
         // Arrange
-        var client = _fixture.CreateUnauthenticatedClient();
+        HttpClient client = _fixture.CreateUnauthenticatedClient();
 
         // Act
-        var response = await client.GetAsync("/apex-legends/map-rotation");
+        HttpResponseMessage response = await client.GetAsync("/apex-legends/map-rotation");
 
         // Assert
         if (response.StatusCode == HttpStatusCode.OK)
         {
-            var content = await response.Content.ReadAsStringAsync();
+            string content = await response.Content.ReadAsStringAsync();
 
             // Verify snake_case serialization
             content.Should().Contain("standard_map");
@@ -187,19 +187,19 @@ public class ApexEndpointsTests : IClassFixture<WebApplicationFixture>, IAsyncLi
         // This test verifies that multiple requests return consistent data
         // (assuming caching is working in MapService)
         // Arrange
-        var client = _fixture.CreateUnauthenticatedClient();
+        HttpClient client = _fixture.CreateUnauthenticatedClient();
 
         // Act
-        var response1 = await client.GetAsync("/apex-legends/map-rotation");
-        var response2 = await client.GetAsync("/apex-legends/map-rotation");
+        HttpResponseMessage response1 = await client.GetAsync("/apex-legends/map-rotation");
+        HttpResponseMessage response2 = await client.GetAsync("/apex-legends/map-rotation");
 
         // Assert
         response1.StatusCode.Should().Be(response2.StatusCode);
 
         if (response1.StatusCode == HttpStatusCode.OK)
         {
-            var content1 = await response1.Content.ReadAsStringAsync();
-            var content2 = await response2.Content.ReadAsStringAsync();
+            string content1 = await response1.Content.ReadAsStringAsync();
+            string content2 = await response2.Content.ReadAsStringAsync();
 
             // Data should be consistent across requests (within reasonable time)
             content1.Should().NotBeEmpty();

@@ -1,6 +1,4 @@
 using Nucleus.Discord;
-using Nucleus.Data.Discord;
-using Nucleus.Data.Links;
 using Nucleus.Exceptions;
 
 namespace Nucleus.Links;
@@ -21,15 +19,15 @@ public class LinksService(LinksStatements linksStatements, DiscordStatements dis
             meta = null;
         }
 
-        var activeUser = await discordStatements.GetUserByDiscordId(discordId)
-            ?? throw new UnauthorizedException("User not found");
+        DiscordStatements.DiscordUserRow activeUser = await discordStatements.GetUserByDiscordId(discordId)
+                                                      ?? throw new UnauthorizedException("User not found");
 
         if (meta != null)
         {
-            var link = new Link(
-                Title: meta.Title ?? meta.PageUri.Host,
-                Url: meta.PageUri.ToString(),
-                ThumbnailUrl: meta.FaviconUri?.ToString() ?? string.Empty
+            Link link = new(
+                meta.Title ?? meta.PageUri.Host,
+                meta.PageUri.ToString(),
+                meta.FaviconUri?.ToString() ?? string.Empty
             );
 
             await linksStatements.InsertLink(activeUser.Id, link.Title, link.Url, link.ThumbnailUrl);
@@ -43,20 +41,20 @@ public class LinksService(LinksStatements linksStatements, DiscordStatements dis
 
     public async Task<List<LinksStatements.UserFrequentLinkRow>> GetLinksForUser(string discordId)
     {
-        var activeUser = await discordStatements.GetUserByDiscordId(discordId)
-            ?? throw new UnauthorizedException("User not found");
+        DiscordStatements.DiscordUserRow activeUser = await discordStatements.GetUserByDiscordId(discordId)
+                                                      ?? throw new UnauthorizedException("User not found");
 
-        var linkRows = await linksStatements.GetLinksByUserId(activeUser.Id);
+        List<LinksStatements.UserFrequentLinkRow> linkRows = await linksStatements.GetLinksByUserId(activeUser.Id);
 
         return linkRows;
     }
 
     public async Task<bool> DeleteLink(Guid id, string discordId)
     {
-        var activeUser = await discordStatements.GetUserByDiscordId(discordId)
-            ?? throw new UnauthorizedException("User not found");
+        DiscordStatements.DiscordUserRow activeUser = await discordStatements.GetUserByDiscordId(discordId)
+                                                      ?? throw new UnauthorizedException("User not found");
 
-        var link = await linksStatements.GetLinkById(id);
+        LinksStatements.UserFrequentLinkRow? link = await linksStatements.GetLinkById(id);
         if (link == null || link.UserId != activeUser.Id)
         {
             return false;

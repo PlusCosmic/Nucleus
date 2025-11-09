@@ -1,11 +1,11 @@
 using Nucleus.ApexLegends;
-using Nucleus.Data.ApexLegends.Models;
+using Nucleus.ApexLegends.Models;
 
 namespace Nucleus.Test.TestFixtures;
 
 /// <summary>
-/// Mock implementation of IApexMapCacheService for testing.
-/// Stores map rotation data in memory instead of Redis.
+///     Mock implementation of IApexMapCacheService for testing.
+///     Stores map rotation data in memory instead of Redis.
 /// </summary>
 public class MockApexMapCacheService : IApexMapCacheService
 {

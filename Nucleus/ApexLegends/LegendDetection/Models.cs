@@ -1,4 +1,4 @@
-using Nucleus.Data.ApexLegends.Models;
+using Nucleus.ApexLegends.Models;
 
 namespace Nucleus.Apex.CharacterDetection;
 

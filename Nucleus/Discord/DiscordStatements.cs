@@ -1,20 +1,10 @@
 using Dapper;
 using Npgsql;
 
-namespace Nucleus.Data.Discord;
+namespace Nucleus.Discord;
 
 public class DiscordStatements(NpgsqlConnection connection)
 {
-    // Database Models (PascalCase properties auto-mapped to snake_case via DefaultTypeMap.MatchNamesWithUnderscores)
-    public class DiscordUserRow
-    {
-        public Guid Id { get; set; }
-        public string DiscordId { get; set; } = string.Empty;
-        public string Username { get; set; } = string.Empty;
-        public string? GlobalName { get; set; }
-        public string? Avatar { get; set; }
-    }
-
     // Queries
     public async Task<DiscordUserRow?> GetUserByDiscordId(string discordId)
     {
@@ -71,5 +61,15 @@ public class DiscordStatements(NpgsqlConnection connection)
             RETURNING id, discord_id, username, global_name, avatar";
 
         return await connection.QuerySingleAsync<DiscordUserRow>(sql, new { discordId, username, globalName, avatar });
+    }
+
+    // Database Models (PascalCase properties auto-mapped to snake_case via DefaultTypeMap.MatchNamesWithUnderscores)
+    public class DiscordUserRow
+    {
+        public Guid Id { get; set; }
+        public string DiscordId { get; set; } = string.Empty;
+        public string Username { get; set; } = string.Empty;
+        public string? GlobalName { get; set; }
+        public string? Avatar { get; set; }
     }
 }

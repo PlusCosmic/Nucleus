@@ -1,8 +1,8 @@
 using Dapper;
 using Npgsql;
-using Nucleus.Data.ApexLegends.Models;
+using Nucleus.ApexLegends.Models;
 
-namespace Nucleus.Data.ApexLegends;
+namespace Nucleus.ApexLegends;
 
 public class ApexStatements(NpgsqlConnection connection)
 {

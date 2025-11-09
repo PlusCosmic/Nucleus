@@ -1,5 +1,6 @@
 using Nucleus.Clips;
 using Nucleus.Clips.Bunny.Models;
+using Nucleus.Data.ApexLegends.Models;
 
 namespace Nucleus.Test.Builders;
 
@@ -16,6 +17,8 @@ public class ClipBuilder
     private BunnyVideo? _video = null;
     private List<string> _tags = new();
     private bool _isViewed = false;
+    private ApexLegend _detectedLegend = ApexLegend.None;
+    private string _detectedLegendCard = "/images/None_Legend_Card.webp";
 
     public ClipBuilder WithClipId(Guid clipId)
     {
@@ -74,6 +77,21 @@ public class ClipBuilder
     public ClipBuilder AsViewed(bool isViewed = true)
     {
         _isViewed = isViewed;
+        return this;
+    }
+
+    public ClipBuilder WithDetectedLegend(ApexLegend legend)
+    {
+        _detectedLegend = legend;
+        _detectedLegendCard = legend == ApexLegend.MadMaggie
+            ? "/images/Mad_Maggie_Legend_Card.webp"
+            : $"/images/{legend}_Legend_Card.webp";
+        return this;
+    }
+
+    public ClipBuilder WithDetectedLegendCard(string card)
+    {
+        _detectedLegendCard = card;
         return this;
     }
 
@@ -139,7 +157,9 @@ public class ClipBuilder
             CreatedAt: _createdAt,
             Video: video,
             Tags: _tags,
-            IsViewed: _isViewed
+            IsViewed: _isViewed,
+            DetectedLegend: _detectedLegend,
+            DetectedLegendCard: _detectedLegendCard
         );
     }
 

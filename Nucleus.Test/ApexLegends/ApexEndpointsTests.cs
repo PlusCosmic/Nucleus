@@ -3,7 +3,7 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using FluentAssertions;
 using Npgsql;
-using Nucleus.ApexLegends.Models;
+using Nucleus.Data.ApexLegends.Models;
 using Nucleus.Test.Helpers;
 using Nucleus.Test.TestFixtures;
 

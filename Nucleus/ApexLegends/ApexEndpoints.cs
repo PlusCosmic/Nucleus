@@ -1,5 +1,5 @@
 using Microsoft.AspNetCore.Http.HttpResults;
-using Nucleus.ApexLegends.Models;
+using Nucleus.Data.ApexLegends.Models;
 
 namespace Nucleus.ApexLegends;
 

@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Json;
 using FluentAssertions;
 using Nucleus.Links;
+using Nucleus.Data.Links;
 using Nucleus.Test.Helpers;
 using Nucleus.Test.TestFixtures;
 

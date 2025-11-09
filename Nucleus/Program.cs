@@ -7,7 +7,10 @@ using Microsoft.AspNetCore.Http.Json;
 using Microsoft.AspNetCore.StaticFiles;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Npgsql;
+using Nucleus.Apex;
+using Nucleus.Apex.BunnyVideo;
 using Nucleus.ApexLegends;
+using Nucleus.ApexLegends.LegendDetection;
 using Nucleus.Auth;
 using Nucleus.Clips;
 using Nucleus.Clips.Bunny;
@@ -17,13 +20,19 @@ using Nucleus.Data.Clips;
 using Nucleus.Data.Discord;
 using Nucleus.Data.Links;
 using Nucleus.Discord;
+using Nucleus.Exceptions;
 using Nucleus.Links;
+using StackExchange.Redis;
 
 DefaultTypeMap.MatchNamesWithUnderscores = true;
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 
 string? connectionString = builder.Configuration.GetConnectionString("DatabaseConnectionString")
                            ?? builder.Configuration["DatabaseConnectionString"];
+
+string? redisConnectionString = builder.Configuration.GetConnectionString("RedisConnectionString")
+                                ?? builder.Configuration["RedisConnectionString"]
+                                ?? "localhost:6379";
 
 // Run migrations automatically, but skip in Testing environment (tests handle migrations)
 string? environment = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT");
@@ -45,14 +54,25 @@ if (environment != null && environment != "Testing")
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();
 builder.Services.AddHttpClient();
+builder.Services.AddScoped<ClipsStatements>();
+builder.Services.AddScoped<ApexStatements>();
+builder.Services.AddScoped<LinksStatements>();
+builder.Services.AddScoped<DiscordStatements>();
 builder.Services.AddScoped<MapService>();
 builder.Services.AddScoped<LinksService>();
 builder.Services.AddScoped<ClipService>();
 builder.Services.AddScoped<BunnyService>();
 builder.Services.AddScoped<FFmpegService>();
+builder.Services.AddScoped<IApexMapCacheService, ApexMapCacheService>();
+builder.Services.AddScoped<IApexDetectionQueueService, ApexDetectionQueueService>();
+builder.Services.AddHostedService<MapRefreshService>();
+builder.Services.AddHostedService<ApexDetectionBackgroundService>();
+
+builder.Services.AddSingleton<IConnectionMultiplexer>(_ =>
+    ConnectionMultiplexer.Connect(redisConnectionString));
 
 // Add global exception handling
-builder.Services.AddExceptionHandler<Nucleus.Exceptions.GlobalExceptionHandler>();
+builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
 builder.Services.AddProblemDetails();
 builder.Services.Configure<JsonOptions>(options =>
 {
@@ -104,11 +124,6 @@ builder.Services.AddScoped(sp =>
     new NpgsqlConnection(connectionString ??
                          "Host=localhost;Database=nucleus_db;Username=nucleus_user;Password=dummy"));
 
-builder.Services.AddScoped<ClipsStatements>();
-builder.Services.AddScoped<ApexStatements>();
-builder.Services.AddScoped<LinksStatements>();
-builder.Services.AddScoped<DiscordStatements>();
-
 IHealthChecksBuilder healthChecksBuilder = builder.Services.AddHealthChecks();
 
 if (!string.IsNullOrEmpty(connectionString))
@@ -148,6 +163,8 @@ app.MapAuthEndpoints();
 app.MapLinksEndpoints();
 app.MapClipsEndpoints();
 app.MapFFmpegEndpoints();
+app.MapBunnyWebhookEndpoints();
+app.MapApexDetectionEndpoints();
 app.MapHealthChecks("/health", new HealthCheckOptions
 {
     Predicate = _ => true,
@@ -162,4 +179,6 @@ app.MapHealthChecks("/health", new HealthCheckOptions
 
 app.Run();
 
-public partial class Program { }
+public partial class Program
+{
+}

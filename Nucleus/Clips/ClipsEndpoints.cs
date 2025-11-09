@@ -20,6 +20,7 @@ public static class ClipsEndpoints
         group.MapGet("tags/top", GetTopTags).WithName("GetTopTags");
         group.MapPatch("videos/{clipId}/title", UpdateClipTitle).WithName("UpdateClipTitle");
         group.MapDelete("videos/{clipId}", DeleteClip).WithName("DeleteClip");
+        group.MapPost("backfill-metadata", BackfillClipMetadata).WithName("BackfillClipMetadata");
     }
 
     public static Ok<List<ClipCategory>> GetCategories(ClipService clipService)
@@ -161,6 +162,19 @@ public static class ClipsEndpoints
         var success = await clipService.DeleteClip(clipId, discordId);
         if (!success) return TypedResults.NotFound();
         return TypedResults.Ok();
+    }
+
+    public static async Task<Results<UnauthorizedHttpResult, Ok<BackfillResult>>> BackfillClipMetadata(
+        ClipsBackfillService backfillService,
+        ClaimsPrincipal user,
+        int batchSize = 100)
+    {
+        var discordId = user.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (string.IsNullOrEmpty(discordId))
+            return TypedResults.Unauthorized();
+
+        var result = await backfillService.BackfillClipMetadataAsync(batchSize);
+        return TypedResults.Ok(result);
     }
 
     public sealed record AddTagRequest(string Tag);

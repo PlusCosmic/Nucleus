@@ -9,6 +9,8 @@ using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Microsoft.Extensions.Primitives;
+using Microsoft.VisualStudio.TestPlatform.TestHost;
 using Npgsql;
 using Nucleus.Clips.Bunny;
 using Testcontainers.PostgreSql;
@@ -51,10 +53,10 @@ public class WebApplicationFixture : WebApplicationFactory<Program>, IAsyncLifet
         Environment.SetEnvironmentVariable("ASPNETCORE_ENVIRONMENT", "Testing");
 
         // Run migrations manually with the test container's connection string
-        await using var connection = new NpgsqlConnection(_connectionString);
+        await using NpgsqlConnection connection = new(_connectionString);
         await connection.OpenAsync();
 
-        var evolve = new Evolve(connection, msg => Console.WriteLine($"[Evolve Test] {msg}"))
+        Evolve evolve = new(connection, msg => Console.WriteLine($"[Evolve Test] {msg}"))
         {
             Locations = ["db/migrations"],
             IsEraseDisabled = true
@@ -66,7 +68,7 @@ public class WebApplicationFixture : WebApplicationFactory<Program>, IAsyncLifet
         // Include all test user IDs that any test might use
         CreateTestWhitelist(
             "123456789012345678", // AuthHelper.DefaultTestDiscordId
-            "987654321098765432"  // AuthHelper.SecondaryTestDiscordId
+            "987654321098765432" // AuthHelper.SecondaryTestDiscordId
         );
     }
 
@@ -114,7 +116,7 @@ public class WebApplicationFixture : WebApplicationFactory<Program>, IAsyncLifet
     /// </summary>
     public T GetService<T>() where T : notnull
     {
-        var scope = Services.CreateScope();
+        IServiceScope scope = Services.CreateScope();
         return scope.ServiceProvider.GetRequiredService<T>();
     }
 
@@ -136,21 +138,27 @@ public class WebApplicationFixture : WebApplicationFactory<Program>, IAsyncLifet
         builder.ConfigureTestServices(services =>
         {
             // Replace the database connection with test container
-            var descriptor = services.SingleOrDefault(d => d.ServiceType == typeof(NpgsqlConnection));
+            ServiceDescriptor? descriptor = services.SingleOrDefault(d => d.ServiceType == typeof(NpgsqlConnection));
 
-            if (descriptor != null) services.Remove(descriptor);
+            if (descriptor != null)
+            {
+                services.Remove(descriptor);
+            }
 
             services.AddScoped(_ =>
             {
-                var connection = new NpgsqlConnection(_connectionString);
+                NpgsqlConnection connection = new(_connectionString);
                 connection.Open();
                 return connection;
             });
 
             // Replace BunnyService with mock implementation
-            var bunnyServiceDescriptor = services.SingleOrDefault(d => d.ServiceType == typeof(BunnyService));
+            ServiceDescriptor? bunnyServiceDescriptor = services.SingleOrDefault(d => d.ServiceType == typeof(BunnyService));
 
-            if (bunnyServiceDescriptor != null) services.Remove(bunnyServiceDescriptor);
+            if (bunnyServiceDescriptor != null)
+            {
+                services.Remove(bunnyServiceDescriptor);
+            }
 
             services.AddScoped<BunnyService, MockBunnyService>();
 
@@ -175,10 +183,10 @@ public class WebApplicationFixture : WebApplicationFactory<Program>, IAsyncLifet
     public static void CreateTestWhitelist(params string[] discordIds)
     {
         var whitelistConfig = new { WhitelistedDiscordUserIds = discordIds };
-        var json = JsonSerializer.Serialize(whitelistConfig, new JsonSerializerOptions { WriteIndented = true });
+        string json = JsonSerializer.Serialize(whitelistConfig, new JsonSerializerOptions { WriteIndented = true });
 
         // Write to AppContext.BaseDirectory so WhitelistMiddleware can find it
-        var whitelistPath = Path.Combine(AppContext.BaseDirectory, "whitelist.json");
+        string whitelistPath = Path.Combine(AppContext.BaseDirectory, "whitelist.json");
         File.WriteAllText(whitelistPath, json);
     }
 
@@ -187,8 +195,11 @@ public class WebApplicationFixture : WebApplicationFactory<Program>, IAsyncLifet
     /// </summary>
     public static void CleanupTestWhitelist()
     {
-        var whitelistPath = Path.Combine(AppContext.BaseDirectory, "whitelist.json");
-        if (File.Exists(whitelistPath)) File.Delete(whitelistPath);
+        string whitelistPath = Path.Combine(AppContext.BaseDirectory, "whitelist.json");
+        if (File.Exists(whitelistPath))
+        {
+            File.Delete(whitelistPath);
+        }
     }
 }
 
@@ -208,25 +219,30 @@ public class TestAuthHandler : AuthenticationHandler<AuthenticationSchemeOptions
     protected override Task<AuthenticateResult> HandleAuthenticateAsync()
     {
         // Check for test authentication header
-        if (!Request.Headers.TryGetValue("X-Test-Auth", out var authHeaderValue))
+        if (!Request.Headers.TryGetValue("X-Test-Auth", out StringValues authHeaderValue))
+        {
             return Task.FromResult(AuthenticateResult.NoResult());
+        }
 
         try
         {
             // Parse the auth header: "discordId:username:globalName"
-            var parts = authHeaderValue.ToString().Split(':', 3);
-            if (parts.Length != 3) return Task.FromResult(AuthenticateResult.Fail("Invalid test auth header"));
+            string[] parts = authHeaderValue.ToString().Split(':', 3);
+            if (parts.Length != 3)
+            {
+                return Task.FromResult(AuthenticateResult.Fail("Invalid test auth header"));
+            }
 
-            var claims = new[]
+            Claim[] claims = new[]
             {
                 new Claim(ClaimTypes.NameIdentifier, parts[0]), // Discord ID
                 new Claim(ClaimTypes.Name, parts[1]), // Username
                 new Claim("global_name", parts[2]) // Global name
             };
 
-            var identity = new ClaimsIdentity(claims, "TestScheme");
-            var principal = new ClaimsPrincipal(identity);
-            var ticket = new AuthenticationTicket(principal, "TestScheme");
+            ClaimsIdentity identity = new(claims, "TestScheme");
+            ClaimsPrincipal principal = new(identity);
+            AuthenticationTicket ticket = new(principal, "TestScheme");
 
             return Task.FromResult(AuthenticateResult.Success(ticket));
         }

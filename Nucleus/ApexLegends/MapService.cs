@@ -1,5 +1,6 @@
 using Nucleus.Data.ApexLegends;
 using Nucleus.Data.ApexLegends.Models;
+using Nucleus.Exceptions;
 
 namespace Nucleus.ApexLegends;
 
@@ -15,7 +16,7 @@ public class MapService(ApexStatements apexStatements, IConfiguration configurat
             r.StartTime <= now && r.EndTime > now && r.Gamemode == (int)ApexGamemode.Standard);
         if (currentStandardRow == null)
         {
-            throw new InvalidOperationException("No current standard map rotation found");
+            throw new ServiceUnavailableException("No current standard map rotation data available");
         }
 
         DateTimeOffset nextTime = currentStandardRow.EndTime.AddMinutes(1);
@@ -24,14 +25,14 @@ public class MapService(ApexStatements apexStatements, IConfiguration configurat
             r.StartTime <= nextTime && r.EndTime > nextTime && r.Gamemode == (int)ApexGamemode.Standard);
         if (nextStandardRow == null)
         {
-            throw new InvalidOperationException("No next standard map rotation found");
+            throw new ServiceUnavailableException("No next standard map rotation data available");
         }
 
         var currentRankedRow = recentRotationRows.Find(r =>
             r.StartTime <= now && r.EndTime > now && r.Gamemode == (int)ApexGamemode.Ranked);
         if (currentRankedRow == null)
         {
-            throw new InvalidOperationException("No current ranked map rotation found");
+            throw new ServiceUnavailableException("No current ranked map rotation data available");
         }
 
         DateTimeOffset nextRankedTime = currentRankedRow.EndTime.AddMinutes(1);
@@ -40,7 +41,7 @@ public class MapService(ApexStatements apexStatements, IConfiguration configurat
             r.StartTime <= nextRankedTime && r.EndTime > nextRankedTime && r.Gamemode == (int)ApexGamemode.Ranked);
         if (nextRankedRow == null)
         {
-            throw new InvalidOperationException("No next ranked map rotation found");
+            throw new ServiceUnavailableException("No next ranked map rotation data available");
         }
 
         return new CurrentMapRotation

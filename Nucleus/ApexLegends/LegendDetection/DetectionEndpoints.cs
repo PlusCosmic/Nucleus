@@ -3,7 +3,7 @@ using Nucleus.Data.ApexLegends;
 using Nucleus.Data.ApexLegends.Models;
 using Nucleus.Data.Clips;
 
-namespace Nucleus.Apex.CharacterDetection;
+namespace Nucleus.ApexLegends.LegendDetection;
 
 public static class ApexDetectionEndpoints
 {

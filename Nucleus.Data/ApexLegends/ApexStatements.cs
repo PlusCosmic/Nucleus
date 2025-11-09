@@ -6,62 +6,6 @@ namespace Nucleus.Data.ApexLegends;
 
 public class ApexStatements(NpgsqlConnection connection)
 {
-    // Queries
-    public async Task<List<ApexMapRotationRow>> GetRecentRotations(DateTimeOffset since)
-    {
-        const string sql = """
-
-                                       SELECT id, map, start_time, end_time, gamemode
-                                       FROM apex_map_rotation
-                                       WHERE start_time >= @since
-                           """;
-
-        return (await connection.QueryAsync<ApexMapRotationRow>(sql, new { since })).ToList();
-    }
-
-    public async Task<ApexMapRotationRow?> GetCurrentRotation(DateTimeOffset now, int gamemode)
-    {
-        const string sql = """
-
-                                       SELECT id, map, start_time, end_time, gamemode
-                                       FROM apex_map_rotation
-                                       WHERE start_time <= @now AND end_time > @now AND gamemode = @gamemode
-                                       LIMIT 1
-                           """;
-
-        return await connection.QuerySingleOrDefaultAsync<ApexMapRotationRow>(sql, new { now, gamemode });
-    }
-
-    public async Task InsertRotation(ApexMap map, DateTimeOffset startTime, DateTimeOffset endTime, ApexGamemode gamemode)
-    {
-        const string sql = """
-
-                                       INSERT INTO apex_map_rotation (map, start_time, end_time, gamemode)
-                                       VALUES (@map, @startTime, @endTime, @gamemode)
-                           """;
-
-        await connection.ExecuteAsync(sql, new { map = (int)map, startTime, endTime, gamemode = (int)gamemode });
-    }
-
-    public async Task DeleteOldRotations(DateTimeOffset before)
-    {
-        const string sql = "DELETE FROM apex_map_rotation WHERE end_time < @before";
-        await connection.ExecuteAsync(sql, new { before });
-    }
-
-    public async Task<bool> RotationExists(DateTimeOffset startTime, DateTimeOffset endTime, int gamemode, int map)
-    {
-        const string sql = """
-
-                                       SELECT EXISTS(
-                                           SELECT 1 FROM apex_map_rotation
-                                           WHERE start_time = @startTime AND end_time = @endTime AND gamemode = @gamemode AND map = @map
-                                       )
-                           """;
-
-        return await connection.QuerySingleAsync<bool>(sql, new { startTime, endTime, gamemode, map });
-    }
-
     public async Task InsertApexClipDetection(Guid clipId, int status)
     {
         const string sql = """
@@ -163,26 +107,6 @@ public class ApexStatements(NpgsqlConnection connection)
     }
 
     // Database Models (PascalCase properties auto-mapped to snake_case via DefaultTypeMap.MatchNamesWithUnderscores)
-    public class ApexMapRotationRow
-    {
-        public Guid Id { get; set; }
-        public int Map { get; set; } // stored as int in DB
-        public DateTimeOffset StartTime { get; set; }
-        public DateTimeOffset EndTime { get; set; }
-        public int Gamemode { get; set; } // stored as int in DB
-
-        // Helper methods to convert to/from enums
-        public ApexMap GetMap()
-        {
-            return (ApexMap)Map;
-        }
-
-        public ApexGamemode GetGamemode()
-        {
-            return (ApexGamemode)Gamemode;
-        }
-    }
-
     public class ApexClipDetectionRow
     {
         public Guid ClipId { get; set; }

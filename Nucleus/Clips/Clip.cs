@@ -1,5 +1,5 @@
+using Nucleus.ApexLegends.Models;
 using Nucleus.Clips.Bunny.Models;
-using Nucleus.Data.ApexLegends.Models;
 
 namespace Nucleus.Clips;
 

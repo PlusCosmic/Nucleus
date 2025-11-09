@@ -2,7 +2,7 @@ using System.Text;
 using Dapper;
 using Npgsql;
 
-namespace Nucleus.Data.Clips;
+namespace Nucleus.Clips;
 
 public class ClipsStatements(NpgsqlConnection connection)
 {

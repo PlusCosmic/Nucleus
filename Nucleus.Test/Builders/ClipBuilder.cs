@@ -1,24 +1,24 @@
+using Nucleus.ApexLegends.Models;
 using Nucleus.Clips;
 using Nucleus.Clips.Bunny.Models;
-using Nucleus.Data.ApexLegends.Models;
 
 namespace Nucleus.Test.Builders;
 
 /// <summary>
-/// Fluent builder for creating test Clip instances.
+///     Fluent builder for creating test Clip instances.
 /// </summary>
 public class ClipBuilder
 {
-    private Guid _clipId = Guid.NewGuid();
-    private Guid _ownerId = Guid.NewGuid();
-    private Guid _videoId = Guid.NewGuid();
     private ClipCategoryEnum _categoryEnum = ClipCategoryEnum.ApexLegends;
+    private Guid _clipId = Guid.NewGuid();
     private DateTimeOffset _createdAt = DateTimeOffset.UtcNow;
-    private BunnyVideo? _video = null;
-    private List<string> _tags = new();
-    private bool _isViewed = false;
     private ApexLegend _detectedLegend = ApexLegend.None;
     private string _detectedLegendCard = "/images/None_Legend_Card.webp";
+    private bool _isViewed;
+    private Guid _ownerId = Guid.NewGuid();
+    private List<string> _tags = new();
+    private BunnyVideo? _video;
+    private Guid _videoId = Guid.NewGuid();
 
     public ClipBuilder WithClipId(Guid clipId)
     {
@@ -96,7 +96,7 @@ public class ClipBuilder
     }
 
     /// <summary>
-    /// Creates a clip for the Apex Legends category with ranked tags.
+    ///     Creates a clip for the Apex Legends category with ranked tags.
     /// </summary>
     public ClipBuilder AsApexRanked()
     {
@@ -106,7 +106,7 @@ public class ClipBuilder
     }
 
     /// <summary>
-    /// Creates a clip for the Call of Duty Warzone category.
+    ///     Creates a clip for the Call of Duty Warzone category.
     /// </summary>
     public ClipBuilder AsWarzone()
     {
@@ -116,7 +116,7 @@ public class ClipBuilder
     }
 
     /// <summary>
-    /// Creates a clip with many tags (useful for testing tag limits).
+    ///     Creates a clip with many tags (useful for testing tag limits).
     /// </summary>
     public ClipBuilder WithManyTags(int count = 6)
     {
@@ -125,55 +125,59 @@ public class ClipBuilder
         {
             _tags.Add($"tag{i + 1}");
         }
+
         return this;
     }
 
     public Clip Build()
     {
-        var video = _video ?? new BunnyVideo(
-            VideoLibraryId: 12345,
-            Guid: _videoId,
-            Title: "Test Video",
-            DateUploaded: _createdAt,
-            Length: 30,
-            Status: 4,
-            Framerate: 60.0,
-            ThumbnailCount: 1,
-            EncodeProgress: 100,
-            StorageSize: 1024000,
-            CollectionId: Guid.NewGuid(),
-            ThumbnailFileName: "thumbnail.jpg",
-            ThumbnailBlurhash: "blurhash",
-            Category: _categoryEnum.ToString(),
-            Moments: new List<Moment>(),
-            MetaTags: new List<MetaTag>()
+        BunnyVideo video = _video ?? new BunnyVideo(
+            12345,
+            _videoId,
+            "Test Video",
+            _createdAt,
+            30,
+            4,
+            60.0,
+            1,
+            100,
+            1024000,
+            Guid.NewGuid(),
+            "thumbnail.jpg",
+            "blurhash",
+            _categoryEnum.ToString(),
+            new List<Moment>(),
+            new List<MetaTag>()
         );
 
         return new Clip(
-            ClipId: _clipId,
-            OwnerId: _ownerId,
-            VideoId: _videoId,
-            CategoryEnum: _categoryEnum,
-            CreatedAt: _createdAt,
-            Video: video,
-            Tags: _tags,
-            IsViewed: _isViewed,
-            DetectedLegend: _detectedLegend,
-            DetectedLegendCard: _detectedLegendCard
+            _clipId,
+            _ownerId,
+            _videoId,
+            _categoryEnum,
+            _createdAt,
+            video,
+            _tags,
+            _isViewed,
+            _detectedLegend,
+            _detectedLegendCard
         );
     }
 
     /// <summary>
-    /// Creates a default test clip with common values.
+    ///     Creates a default test clip with common values.
     /// </summary>
-    public static Clip CreateDefault() => new ClipBuilder().Build();
+    public static Clip CreateDefault()
+    {
+        return new ClipBuilder().Build();
+    }
 
     /// <summary>
-    /// Creates multiple clips with sequential titles.
+    ///     Creates multiple clips with sequential titles.
     /// </summary>
     public static IEnumerable<Clip> CreateMany(int count, Guid? ownerId = null)
     {
-        var actualOwnerId = ownerId ?? Guid.NewGuid();
+        Guid actualOwnerId = ownerId ?? Guid.NewGuid();
         for (int i = 0; i < count; i++)
         {
             yield return new ClipBuilder()

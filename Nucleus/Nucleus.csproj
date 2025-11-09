@@ -47,10 +47,6 @@
         </Content>
     </ItemGroup>
 
-    <ItemGroup>
-        <ProjectReference Include="..\Nucleus.Data\Nucleus.Data.csproj"/>
-    </ItemGroup>
-
     <!--
         <Target Name="CopyOpenApiSpec" AfterTargets="Build" Condition="'$(CI)' == '' And '$(SolutionDir)' != ''">
             <Copy SourceFiles="$(BaseIntermediateOutputPath)Nucleus.json" DestinationFolder="$(SolutionDir)..\plus-cosmic-dev\packages\nucleus-api-client" />

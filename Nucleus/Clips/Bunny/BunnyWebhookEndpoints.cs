@@ -1,7 +1,7 @@
 using Microsoft.AspNetCore.Http.HttpResults;
+using Nucleus.ApexLegends;
 using Nucleus.ApexLegends.LegendDetection;
-using Nucleus.Data.ApexLegends;
-using Nucleus.Data.Clips;
+using Nucleus.Clips;
 
 namespace Nucleus.Apex.BunnyVideo;
 

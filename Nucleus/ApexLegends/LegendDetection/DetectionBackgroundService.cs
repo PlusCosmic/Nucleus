@@ -1,6 +1,5 @@
 using Nucleus.Apex.CharacterDetection;
-using Nucleus.Data.ApexLegends;
-using Nucleus.Data.ApexLegends.Models;
+using Nucleus.ApexLegends.Models;
 
 namespace Nucleus.ApexLegends.LegendDetection;
 

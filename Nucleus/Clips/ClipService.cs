@@ -1,11 +1,10 @@
 using System.Security.Cryptography;
 using System.Text;
+using Nucleus.ApexLegends;
+using Nucleus.ApexLegends.Models;
 using Nucleus.Clips.Bunny;
 using Nucleus.Clips.Bunny.Models;
-using Nucleus.Data.ApexLegends;
-using Nucleus.Data.ApexLegends.Models;
-using Nucleus.Data.Clips;
-using Nucleus.Data.Discord;
+using Nucleus.Discord;
 using Nucleus.Exceptions;
 
 namespace Nucleus.Clips;
@@ -117,22 +116,22 @@ public class ClipService(
 
         // Create BunnyVideo from database metadata (no need to fetch from Bunny CDN)
         BunnyVideo video = new(
-            VideoLibraryId: videoLibraryId,
-            Guid: clipWithTags.VideoId,
-            Title: clipWithTags.Title ?? "Untitled",
-            DateUploaded: clipWithTags.DateUploaded ?? DateTimeOffset.UtcNow,
-            Length: clipWithTags.Length ?? 0,
-            Status: clipWithTags.VideoStatus ?? 0,
-            Framerate: 0,
-            ThumbnailCount: 0,
-            EncodeProgress: clipWithTags.EncodeProgress ?? 0,
-            StorageSize: clipWithTags.StorageSize ?? 0,
-            CollectionId: clipCollection.CollectionId,
-            ThumbnailFileName: clipWithTags.ThumbnailFileName ?? string.Empty,
-            ThumbnailBlurhash: string.Empty,
-            Category: ((ClipCategoryEnum)clipWithTags.Category).ToString(),
-            Moments: [],
-            MetaTags: []
+            videoLibraryId,
+            clipWithTags.VideoId,
+            clipWithTags.Title ?? "Untitled",
+            clipWithTags.DateUploaded ?? DateTimeOffset.UtcNow,
+            clipWithTags.Length ?? 0,
+            clipWithTags.VideoStatus ?? 0,
+            0,
+            0,
+            clipWithTags.EncodeProgress ?? 0,
+            clipWithTags.StorageSize ?? 0,
+            clipCollection.CollectionId,
+            clipWithTags.ThumbnailFileName ?? string.Empty,
+            string.Empty,
+            ((ClipCategoryEnum)clipWithTags.Category).ToString(),
+            [],
+            []
         );
 
         bool isViewed = await clipsStatements.IsClipViewed(userId, clipId);
@@ -331,22 +330,22 @@ public class ClipService(
         {
             // Create BunnyVideo from database metadata (no need to fetch from Bunny CDN)
             BunnyVideo video = new(
-                VideoLibraryId: videoLibraryId,
-                Guid: c.VideoId,
-                Title: c.Title ?? "Untitled",
-                DateUploaded: c.DateUploaded ?? DateTimeOffset.UtcNow,
-                Length: c.Length ?? 0,
-                Status: c.VideoStatus ?? 0,
-                Framerate: 0, // Not stored in DB, not critical for display
-                ThumbnailCount: 0, // Not stored in DB, not critical for display
-                EncodeProgress: c.EncodeProgress ?? 0,
-                StorageSize: c.StorageSize ?? 0,
-                CollectionId: clipCollection.CollectionId,
-                ThumbnailFileName: c.ThumbnailFileName ?? string.Empty,
-                ThumbnailBlurhash: string.Empty, // Not stored in DB
-                Category: categoryEnum.ToString(),
-                Moments: [],
-                MetaTags: []
+                videoLibraryId,
+                c.VideoId,
+                c.Title ?? "Untitled",
+                c.DateUploaded ?? DateTimeOffset.UtcNow,
+                c.Length ?? 0,
+                c.VideoStatus ?? 0,
+                0, // Not stored in DB, not critical for display
+                0, // Not stored in DB, not critical for display
+                c.EncodeProgress ?? 0,
+                c.StorageSize ?? 0,
+                clipCollection.CollectionId,
+                c.ThumbnailFileName ?? string.Empty,
+                string.Empty, // Not stored in DB
+                categoryEnum.ToString(),
+                [],
+                []
             );
 
             ApexStatements.ApexClipDetectionRow? detection = detections.FirstOrDefault(d => d.ClipId == c.Id);

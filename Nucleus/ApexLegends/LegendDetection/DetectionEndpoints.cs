@@ -1,7 +1,6 @@
 using Microsoft.AspNetCore.Http.HttpResults;
-using Nucleus.Data.ApexLegends;
-using Nucleus.Data.ApexLegends.Models;
-using Nucleus.Data.Clips;
+using Nucleus.ApexLegends.Models;
+using Nucleus.Clips;
 
 namespace Nucleus.ApexLegends.LegendDetection;
 

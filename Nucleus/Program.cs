@@ -69,7 +69,7 @@ builder.Services.AddHostedService<MapRefreshService>();
 builder.Services.AddHostedService<ApexDetectionBackgroundService>();
 
 builder.Services.AddSingleton<IConnectionMultiplexer>(_ =>
-    ConnectionMultiplexer.Connect(redisConnectionString));
+    ConnectionMultiplexer.Connect($"{redisConnectionString},abortConnect=false"));
 
 // Add global exception handling
 builder.Services.AddExceptionHandler<GlobalExceptionHandler>();

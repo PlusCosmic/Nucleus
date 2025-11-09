@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Nucleus.Discord;
+using Nucleus.Data.Discord;
 
 namespace Nucleus.Auth;
 

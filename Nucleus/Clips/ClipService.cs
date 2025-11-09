@@ -3,6 +3,8 @@ using System.Text;
 using Nucleus.Clips.Bunny;
 using Nucleus.Clips.Bunny.Models;
 using Nucleus.Discord;
+using Nucleus.Data.Clips;
+using Nucleus.Data.Discord;
 
 namespace Nucleus.Clips;
 

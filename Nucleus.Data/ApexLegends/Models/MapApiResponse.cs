@@ -1,6 +1,6 @@
 using System.Text.Json.Serialization;
 
-namespace Nucleus.ApexLegends.Models;
+namespace Nucleus.Data.ApexLegends.Models;
 
 public record MapRotationResponse(
     [property: JsonPropertyName("battle_royale")] GameModeRotation BattleRoyale,

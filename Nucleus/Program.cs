@@ -1,37 +1,41 @@
-using System.ComponentModel.DataAnnotations.Schema;
-using System.Reflection;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Dapper;
 using EvolveDb;
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.Http.Json;
 using Microsoft.AspNetCore.StaticFiles;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Npgsql;
 using Nucleus.ApexLegends;
 using Nucleus.Auth;
 using Nucleus.Clips;
 using Nucleus.Clips.Bunny;
 using Nucleus.Clips.FFmpeg;
+using Nucleus.Data.ApexLegends;
+using Nucleus.Data.Clips;
+using Nucleus.Data.Discord;
+using Nucleus.Data.Links;
 using Nucleus.Discord;
 using Nucleus.Links;
 
 DefaultTypeMap.MatchNamesWithUnderscores = true;
-var builder = WebApplication.CreateBuilder(args);
+WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 
-var connectionString = builder.Configuration.GetConnectionString("DatabaseConnectionString")
-                       ?? builder.Configuration["DatabaseConnectionString"];
+string? connectionString = builder.Configuration.GetConnectionString("DatabaseConnectionString")
+                           ?? builder.Configuration["DatabaseConnectionString"];
 
 // Run migrations automatically, but skip in Testing environment (tests handle migrations)
-var environment = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT");
+string? environment = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT");
 if (environment != null && environment != "Testing")
 {
-    using var connection =
-        new NpgsqlConnection(connectionString ??
-                             "Host=localhost;Database=nucleus_db;Username=nucleus_user;Password=dummy");
-    var evolve = new Evolve(connection, Console.WriteLine)
+    using NpgsqlConnection connection =
+        new(connectionString ??
+            "Host=localhost;Database=nucleus_db;Username=nucleus_user;Password=dummy");
+    Evolve evolve = new(connection, Console.WriteLine)
     {
         Locations = ["db/migrations"],
-        IsEraseDisabled = true,
+        IsEraseDisabled = true
     };
 
     evolve.Migrate();
@@ -46,7 +50,6 @@ builder.Services.AddScoped<LinksService>();
 builder.Services.AddScoped<ClipService>();
 builder.Services.AddScoped<BunnyService>();
 builder.Services.AddScoped<FFmpegService>();
-builder.Services.AddHostedService<MapRefreshService>();
 builder.Services.Configure<JsonOptions>(options =>
 {
     options.SerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower;
@@ -60,20 +63,28 @@ builder.Services.AddCors(options =>
         policy
             .SetIsOriginAllowed(origin =>
             {
-                if (!Uri.TryCreate(origin, UriKind.Absolute, out var uri))
+                if (!Uri.TryCreate(origin, UriKind.Absolute, out Uri? uri))
+                {
                     return false;
+                }
 
                 // Allow localhost on any port
                 if (uri.Host == "localhost" || uri.Host == "127.0.0.1")
+                {
                     return true;
+                }
 
                 // Allow *.pluscosmic.dev
                 if (uri.Host == "pluscosmic.dev" || uri.Host.EndsWith(".pluscosmic.dev"))
+                {
                     return true;
+                }
 
                 // Allow previews from cloudflare
                 if (uri.Host.EndsWith("pluscosmicdashboard.pages.dev"))
+                {
                     return true;
+                }
 
                 return false;
             })
@@ -87,14 +98,14 @@ builder.ConfigureDiscordAuth();
 // Register Dapper Statements classes
 builder.Services.AddScoped(sp =>
     new NpgsqlConnection(connectionString ??
-                        "Host=localhost;Database=nucleus_db;Username=nucleus_user;Password=dummy"));
+                         "Host=localhost;Database=nucleus_db;Username=nucleus_user;Password=dummy"));
 
 builder.Services.AddScoped<ClipsStatements>();
 builder.Services.AddScoped<ApexStatements>();
 builder.Services.AddScoped<LinksStatements>();
 builder.Services.AddScoped<DiscordStatements>();
 
-var healthChecksBuilder = builder.Services.AddHealthChecks();
+IHealthChecksBuilder healthChecksBuilder = builder.Services.AddHealthChecks();
 
 if (!string.IsNullOrEmpty(connectionString))
 {
@@ -105,7 +116,7 @@ if (!string.IsNullOrEmpty(connectionString))
         tags: new[] { "ready" });
 }
 
-var app = builder.Build();
+WebApplication app = builder.Build();
 
 if (app.Environment.IsDevelopment())
 {
@@ -113,7 +124,7 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
-var provider = new FileExtensionContentTypeProvider();
+FileExtensionContentTypeProvider provider = new();
 // Add new mappings
 provider.Mappings[".avif"] = "image/avif";
 
@@ -131,15 +142,15 @@ app.MapAuthEndpoints();
 app.MapLinksEndpoints();
 app.MapClipsEndpoints();
 app.MapFFmpegEndpoints();
-app.MapHealthChecks("/health", new Microsoft.AspNetCore.Diagnostics.HealthChecks.HealthCheckOptions
+app.MapHealthChecks("/health", new HealthCheckOptions
 {
     Predicate = _ => true,
     AllowCachingResponses = false,
     ResultStatusCodes =
     {
-        [Microsoft.Extensions.Diagnostics.HealthChecks.HealthStatus.Healthy] = StatusCodes.Status200OK,
-        [Microsoft.Extensions.Diagnostics.HealthChecks.HealthStatus.Degraded] = StatusCodes.Status200OK,
-        [Microsoft.Extensions.Diagnostics.HealthChecks.HealthStatus.Unhealthy] = StatusCodes.Status503ServiceUnavailable
+        [HealthStatus.Healthy] = StatusCodes.Status200OK,
+        [HealthStatus.Degraded] = StatusCodes.Status200OK,
+        [HealthStatus.Unhealthy] = StatusCodes.Status503ServiceUnavailable
     }
 });
 

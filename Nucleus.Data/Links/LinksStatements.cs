@@ -1,27 +1,17 @@
-using System.ComponentModel.DataAnnotations.Schema;
 using Dapper;
 using Npgsql;
 
-namespace Nucleus.Links;
+namespace Nucleus.Data.Links;
 
 public class LinksStatements(NpgsqlConnection connection)
 {
-    // Database Models
+    // Database Models (PascalCase properties auto-mapped to snake_case via DefaultTypeMap.MatchNamesWithUnderscores)
     public class UserFrequentLinkRow
     {
-        [Column("id")]
         public Guid Id { get; set; }
-
-        [Column("user_id")]
         public Guid UserId { get; set; }
-
-        [Column("title")]
         public string Title { get; set; } = string.Empty;
-
-        [Column("url")]
         public string Url { get; set; } = string.Empty;
-
-        [Column("thumbnail_url")]
         public string? ThumbnailUrl { get; set; }
     }
 

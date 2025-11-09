@@ -131,6 +131,21 @@ public class ApexStatements(NpgsqlConnection connection)
         return (await connection.QueryAsync<ApexClipDetectionRow>(sql)).ToList();
     }
 
+    public async Task<List<ApexClipDetectionRow>> GetApexClipDetectionsByClipIds(List<Guid> clipIds)
+    {
+        if (clipIds == null || clipIds.Count == 0)
+        {
+            return [];
+        }
+
+        const string sql = """
+                                       SELECT clip_id, task_id, status, primary_detection, secondary_detection
+                                       FROM apex_clip_detection
+                                       WHERE clip_id = ANY(@clipIds)
+                           """;
+        return (await connection.QueryAsync<ApexClipDetectionRow>(sql, new { clipIds })).ToList();
+    }
+
     public async Task<List<ApexClipDetectionRow>> GetApexClipDetectionsByStatus(int status)
     {
         const string sql = """

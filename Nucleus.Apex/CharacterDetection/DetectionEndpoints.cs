@@ -1,4 +1,7 @@
 using Microsoft.AspNetCore.Http.HttpResults;
+using Nucleus.Data.ApexLegends;
+using Nucleus.Data.ApexLegends.Models;
+using Nucleus.Data.Clips;
 
 namespace Nucleus.Apex.CharacterDetection;
 
@@ -9,6 +12,7 @@ public static class ApexDetectionEndpoints
         RouteGroupBuilder group = app.MapGroup("api/apexdetection");
 
         group.MapPost("enqueue", QueueDetection).WithName("QueueDetection");
+        group.MapPost("enqueue-all", QueueAllUnprocessedItems).WithName("QueueAllUnprocessedItems");
     }
 
     public static async Task<Results<Ok, BadRequest<string>>> QueueDetection(
@@ -30,6 +34,51 @@ public static class ApexDetectionEndpoints
             request.ScreenshotUrls);
 
         return TypedResults.Ok();
+    }
+
+    public static async Task<Results<Ok, BadRequest<string>>> QueueAllUnprocessedItems(
+        IApexDetectionQueueService queueService, ApexStatements apexStatements, ClipsStatements clipsStatements)
+    {
+        List<ApexStatements.ApexClipDetectionRow> allDetections = await apexStatements.GetAllApexClipDetections();
+        List<ClipsStatements.ClipRow> allClips = await clipsStatements.GetAllClipsForCategory(0);
+        List<Guid> allClipIds = allClips.Select(c => c.Id).ToList();
+        List<Guid> allDetectionIds = allDetections.Select(d => d.ClipId).ToList();
+        List<Guid> unprocessedClipIds = allClipIds.Except(allDetectionIds).ToList();
+
+        List<Guid> noneDetectionClipIds = allDetections
+            .Where(d => d.PrimaryDetection == 27)
+            .Where(d => d.Status == (int)ClipDetectionStatus.Completed)
+            .Select(d => d.ClipId)
+            .ToList();
+
+        foreach (Guid clipId in noneDetectionClipIds)
+        {
+            await apexStatements.DeleteApexClipDetection(clipId);
+        }
+
+        List<Guid> clipsToProcess = unprocessedClipIds.Concat(noneDetectionClipIds).ToList();
+
+        foreach (Guid clipId in clipsToProcess)
+        {
+            ClipsStatements.ClipRow clipRow = allClips.First(c => c.Id == clipId);
+            await apexStatements.InsertApexClipDetection(clipId, 0);
+            await queueService.QueueDetectionAsync(clipId, GetScreenshotUrlsForVideo(clipRow.VideoId));
+        }
+
+        return TypedResults.Ok();
+    }
+
+    private static List<string> GetScreenshotUrlsForVideo(Guid videoId)
+    {
+        return
+        [
+            $"https://vz-cd8f9809-39a.b-cdn.net/{videoId.ToString()}/thumbnail.jpg",
+            $"https://vz-cd8f9809-39a.b-cdn.net/{videoId.ToString()}/thumbnail_1.jpg",
+            $"https://vz-cd8f9809-39a.b-cdn.net/{videoId.ToString()}/thumbnail_2.jpg",
+            $"https://vz-cd8f9809-39a.b-cdn.net/{videoId.ToString()}/thumbnail_3.jpg",
+            $"https://vz-cd8f9809-39a.b-cdn.net/{videoId.ToString()}/thumbnail_4.jpg",
+            $"https://vz-cd8f9809-39a.b-cdn.net/{videoId.ToString()}/thumbnail_5.jpg"
+        ];
     }
 }
 

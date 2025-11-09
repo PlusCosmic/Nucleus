@@ -47,6 +47,7 @@
 
     <ItemGroup>
       <ProjectReference Include="..\Nucleus.Data\Nucleus.Data.csproj" />
+      <ProjectReference Include="..\Nucleus.Apex\Nucleus.Apex.csproj" />
     </ItemGroup>
     
 <!--

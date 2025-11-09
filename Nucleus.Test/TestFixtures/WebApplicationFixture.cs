@@ -75,8 +75,9 @@ public class WebApplicationFixture : WebApplicationFactory<Program>, IAsyncLifet
 
     public new async Task DisposeAsync()
     {
-        // Clean up whitelist file at the very end
-        CleanupTestWhitelist();
+        // Don't clean up whitelist file here - multiple test class fixtures share the same file
+        // and may dispose at different times when running in parallel. The file will be cleaned
+        // up automatically when the test process exits.
 
         await _container.DisposeAsync();
         await base.DisposeAsync();

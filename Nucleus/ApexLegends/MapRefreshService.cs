@@ -1,5 +1,5 @@
 using Nucleus.ApexLegends;
-using Nucleus.Data.ApexLegends.Models;
+using Nucleus.ApexLegends.Models;
 
 namespace Nucleus.Apex;
 
@@ -15,7 +15,7 @@ public class MapRefreshService(
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        using var timer = new PeriodicTimer(TimeSpan.FromMinutes(5));
+        using PeriodicTimer timer = new(TimeSpan.FromMinutes(5));
         await RefreshMapsAsync();
         while (await timer.WaitForNextTickAsync(stoppingToken))
         {
@@ -29,7 +29,7 @@ public class MapRefreshService(
 
         try
         {
-            var mapRotation = await httpClient.GetAsync(_mapUrl);
+            HttpResponseMessage mapRotation = await httpClient.GetAsync(_mapUrl);
             if (!mapRotation.IsSuccessStatusCode)
             {
                 logger.LogError("Failed to refresh map rotation: HTTP {StatusCode}", mapRotation.StatusCode);
@@ -43,11 +43,11 @@ public class MapRefreshService(
                 return;
             }
 
-            using var scope = scopeFactory.CreateScope();
-            var mapService = scope.ServiceProvider.GetRequiredService<MapService>();
-            var cacheService = scope.ServiceProvider.GetRequiredService<IApexMapCacheService>();
+            using IServiceScope scope = scopeFactory.CreateScope();
+            MapService mapService = scope.ServiceProvider.GetRequiredService<MapService>();
+            IApexMapCacheService cacheService = scope.ServiceProvider.GetRequiredService<IApexMapCacheService>();
 
-            var processedRotation = mapService.ProcessApiResponse(response);
+            CurrentMapRotation processedRotation = mapService.ProcessApiResponse(response);
             await cacheService.SetMapRotationAsync(processedRotation);
 
             logger.LogInformation("Successfully cached map rotation data");

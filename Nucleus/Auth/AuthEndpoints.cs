@@ -5,7 +5,6 @@ using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Nucleus.Discord;
-using Nucleus.Data.Discord;
 
 namespace Nucleus.Auth;
 
@@ -15,10 +14,13 @@ public static class AuthEndpoints
 
     public static void MapAuthEndpoints(this WebApplication app)
     {
-        var frontendOrigin = app.Configuration["FrontendOrigin"];
-        if (frontendOrigin != null) _frontendOrigin = frontendOrigin;
+        string? frontendOrigin = app.Configuration["FrontendOrigin"];
+        if (frontendOrigin != null)
+        {
+            _frontendOrigin = frontendOrigin;
+        }
 
-        var group = app.MapGroup("auth");
+        RouteGroupBuilder group = app.MapGroup("auth");
 
         group.MapGet("discord/login", Login).WithName("Login");
         group.MapGet("post-login-redirect", PostLoginRedirect).WithName("PostLoginRedirect");
@@ -29,12 +31,15 @@ public static class AuthEndpoints
     public static IResult Login(HttpContext ctx, string? returnUrl)
     {
         // Validate the return URL to prevent open redirect vulnerabilities
-        if (!string.IsNullOrEmpty(returnUrl) && !IsValidReturnUrl(returnUrl)) returnUrl = null;
+        if (!string.IsNullOrEmpty(returnUrl) && !IsValidReturnUrl(returnUrl))
+        {
+            returnUrl = null;
+        }
 
         // Generate CSRF state parameter
-        var state = GenerateSecureRandomState();
+        string state = GenerateSecureRandomState();
 
-        var props = new AuthenticationProperties
+        AuthenticationProperties props = new()
         {
             RedirectUri = "/auth/post-login-redirect" +
                           (returnUrl != null ? $"?returnUrl={Uri.EscapeDataString(returnUrl)}" : "")
@@ -52,19 +57,27 @@ public static class AuthEndpoints
         ClaimsPrincipal user, DiscordStatements discordStatements)
     {
         // Upsert user to database on each login to keep profile updated
-        var discordId = user.FindFirstValue(ClaimTypes.NameIdentifier) ?? "";
-        var username = user.FindFirstValue(ClaimTypes.Name) ?? "";
-        if (string.IsNullOrEmpty(discordId) || string.IsNullOrEmpty(username)) return TypedResults.Unauthorized();
-        var globalName = user.FindFirstValue("urn:discord:global_name");
-        var avatar = user.FindFirstValue("urn:discord:avatar");
+        string discordId = user.FindFirstValue(ClaimTypes.NameIdentifier) ?? "";
+        string username = user.FindFirstValue(ClaimTypes.Name) ?? "";
+        if (string.IsNullOrEmpty(discordId) || string.IsNullOrEmpty(username))
+        {
+            return TypedResults.Unauthorized();
+        }
+
+        string? globalName = user.FindFirstValue("urn:discord:global_name");
+        string? avatar = user.FindFirstValue("urn:discord:avatar");
 
         await discordStatements.UpsertUser(discordId, username, globalName, avatar);
         // Validate return URL again for safety
         string redirect;
         if (!string.IsNullOrEmpty(returnUrl) && IsValidReturnUrl(returnUrl))
+        {
             redirect = returnUrl;
+        }
         else
+        {
             redirect = _frontendOrigin;
+        }
 
         ctx.Response.Redirect(redirect);
         return TypedResults.Redirect(redirect);
@@ -79,22 +92,30 @@ public static class AuthEndpoints
         DiscordStatements discordStatements)
     {
         // Get the current authentication result
-        var authenticateResult = await ctx.AuthenticateAsync(CookieAuthenticationDefaults.AuthenticationScheme);
-        if (!authenticateResult.Succeeded) return Results.Unauthorized();
+        AuthenticateResult authenticateResult = await ctx.AuthenticateAsync(CookieAuthenticationDefaults.AuthenticationScheme);
+        if (!authenticateResult.Succeeded)
+        {
+            return Results.Unauthorized();
+        }
 
         // Get the stored refresh token
-        var refreshToken = await ctx.GetTokenAsync("refresh_token");
-        if (string.IsNullOrEmpty(refreshToken)) return Results.BadRequest(new { error = "No refresh token available" });
+        string? refreshToken = await ctx.GetTokenAsync("refresh_token");
+        if (string.IsNullOrEmpty(refreshToken))
+        {
+            return Results.BadRequest(new { error = "No refresh token available" });
+        }
 
-        var discordClientId = config["DiscordClientId"];
-        var discordClientSecret = config["DiscordClientSecret"];
+        string? discordClientId = config["DiscordClientId"];
+        string? discordClientSecret = config["DiscordClientSecret"];
 
         if (string.IsNullOrWhiteSpace(discordClientId) || string.IsNullOrWhiteSpace(discordClientSecret))
+        {
             return Results.Problem("Discord OAuth not configured");
+        }
 
         // Exchange refresh token for new access token
-        using var httpClient = new HttpClient();
-        var tokenRequest = new FormUrlEncodedContent(new Dictionary<string, string>
+        using HttpClient httpClient = new();
+        FormUrlEncodedContent tokenRequest = new(new Dictionary<string, string>
         {
             ["client_id"] = discordClientId,
             ["client_secret"] = discordClientSecret,
@@ -102,28 +123,34 @@ public static class AuthEndpoints
             ["refresh_token"] = refreshToken
         });
 
-        var tokenResponse = await httpClient.PostAsync("https://discord.com/api/oauth2/token", tokenRequest);
-        if (!tokenResponse.IsSuccessStatusCode) return Results.Problem("Failed to refresh token");
+        HttpResponseMessage tokenResponse = await httpClient.PostAsync("https://discord.com/api/oauth2/token", tokenRequest);
+        if (!tokenResponse.IsSuccessStatusCode)
+        {
+            return Results.Problem("Failed to refresh token");
+        }
 
-        var tokenData = await tokenResponse.Content.ReadFromJsonAsync<JsonElement>();
-        var newAccessToken = tokenData.GetProperty("access_token").GetString();
-        var newRefreshToken = tokenData.GetProperty("refresh_token").GetString();
-        var expiresIn = tokenData.GetProperty("expires_in").GetInt32();
+        JsonElement tokenData = await tokenResponse.Content.ReadFromJsonAsync<JsonElement>();
+        string? newAccessToken = tokenData.GetProperty("access_token").GetString();
+        string? newRefreshToken = tokenData.GetProperty("refresh_token").GetString();
+        int expiresIn = tokenData.GetProperty("expires_in").GetInt32();
 
         // Fetch updated user info from Discord
-        using var userRequest = new HttpRequestMessage(HttpMethod.Get, "https://discord.com/api/users/@me");
+        using HttpRequestMessage userRequest = new(HttpMethod.Get, "https://discord.com/api/users/@me");
         userRequest.Headers.Add("Authorization", $"Bearer {newAccessToken}");
-        var userResponse = await httpClient.SendAsync(userRequest);
+        HttpResponseMessage userResponse = await httpClient.SendAsync(userRequest);
 
-        if (!userResponse.IsSuccessStatusCode) return Results.Problem("Failed to fetch user info");
+        if (!userResponse.IsSuccessStatusCode)
+        {
+            return Results.Problem("Failed to fetch user info");
+        }
 
-        var userData = await userResponse.Content.ReadFromJsonAsync<JsonElement>();
-        var discordId = userData.GetProperty("id").GetString()!;
-        var username = userData.GetProperty("username").GetString()!;
-        var globalName = userData.TryGetProperty("global_name", out var gn) && gn.ValueKind != JsonValueKind.Null
+        JsonElement userData = await userResponse.Content.ReadFromJsonAsync<JsonElement>();
+        string discordId = userData.GetProperty("id").GetString()!;
+        string username = userData.GetProperty("username").GetString()!;
+        string? globalName = userData.TryGetProperty("global_name", out JsonElement gn) && gn.ValueKind != JsonValueKind.Null
             ? gn.GetString()
             : null;
-        var avatar = userData.TryGetProperty("avatar", out var av) && av.ValueKind != JsonValueKind.Null
+        string? avatar = userData.TryGetProperty("avatar", out JsonElement av) && av.ValueKind != JsonValueKind.Null
             ? av.GetString()
             : null;
 
@@ -131,22 +158,27 @@ public static class AuthEndpoints
         await discordStatements.UpsertUser(discordId, username, globalName, avatar);
 
         // Create new claims identity
-        var claims = new List<Claim>
+        List<Claim> claims = new()
         {
-            new(ClaimTypes.NameIdentifier, discordId),
-            new(ClaimTypes.Name, username)
+            new Claim(ClaimTypes.NameIdentifier, discordId),
+            new Claim(ClaimTypes.Name, username)
         };
 
         if (globalName != null)
+        {
             claims.Add(new Claim("urn:discord:global_name", globalName));
-        if (avatar != null)
-            claims.Add(new Claim("urn:discord:avatar", avatar));
+        }
 
-        var identity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
-        var principal = new ClaimsPrincipal(identity);
+        if (avatar != null)
+        {
+            claims.Add(new Claim("urn:discord:avatar", avatar));
+        }
+
+        ClaimsIdentity identity = new(claims, CookieAuthenticationDefaults.AuthenticationScheme);
+        ClaimsPrincipal principal = new(identity);
 
         // Create new authentication properties with updated tokens
-        var authProps = new AuthenticationProperties
+        AuthenticationProperties authProps = new()
         {
             IsPersistent = true,
             ExpiresUtc = DateTimeOffset.UtcNow.AddSeconds(expiresIn)
@@ -165,18 +197,26 @@ public static class AuthEndpoints
 
     private static bool IsValidReturnUrl(string url)
     {
-        if (!Uri.TryCreate(url, UriKind.Absolute, out var uri))
+        if (!Uri.TryCreate(url, UriKind.Absolute, out Uri? uri))
+        {
             return false;
+        }
 
         // Only allow redirect to trusted domains
         if (uri.Host == "localhost" || uri.Host == "127.0.0.1")
+        {
             return true;
+        }
 
         if (uri.Host == "pluscosmic.dev" || uri.Host.EndsWith(".pluscosmic.dev"))
+        {
             return true;
+        }
 
         if (uri.Host.EndsWith("pluscosmicdashboard.pages.dev"))
+        {
             return true;
+        }
 
         return false;
     }
@@ -184,7 +224,7 @@ public static class AuthEndpoints
     private static string GenerateSecureRandomState()
     {
         // Generate a cryptographically secure random state value (32 bytes = 64 hex chars)
-        var randomBytes = RandomNumberGenerator.GetBytes(32);
+        byte[] randomBytes = RandomNumberGenerator.GetBytes(32);
         return Convert.ToHexString(randomBytes).ToLowerInvariant();
     }
 }

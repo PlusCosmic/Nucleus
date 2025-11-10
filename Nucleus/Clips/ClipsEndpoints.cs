@@ -7,7 +7,7 @@ public static class ClipsEndpoints
 {
     public static void MapClipsEndpoints(this WebApplication app)
     {
-        var group = app.MapGroup("clips").RequireAuthorization();
+        RouteGroupBuilder group = app.MapGroup("clips").RequireAuthorization();
         group.MapGet("categories", GetCategories).WithName("GetCategories");
         group.MapGet("categories/{category}/videos", GetVideosByCategory).WithName("GetVideosByCategory");
         group.MapGet("categories/{category}/videos/unviewed", GetUnviewedVideosByCategory)
@@ -37,14 +37,18 @@ public static class ClipsEndpoints
         string? tags = null,
         string? titleSearch = null)
     {
-        var discordId = user.FindFirstValue(ClaimTypes.NameIdentifier);
+        string? discordId = user.FindFirstValue(ClaimTypes.NameIdentifier);
         if (string.IsNullOrEmpty(discordId))
+        {
             return TypedResults.Unauthorized();
+        }
 
         // Parse tags from comma-separated string to list
         List<string>? tagList = null;
         if (!string.IsNullOrWhiteSpace(tags))
+        {
             tagList = tags.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).ToList();
+        }
 
         return TypedResults.Ok(
             await clipService.GetClipsForCategory(category, discordId, page, pageSize, tagList, titleSearch));
@@ -55,14 +59,18 @@ public static class ClipsEndpoints
         ClipCategoryEnum category, ClaimsPrincipal user, string videoTitle, DateTimeOffset? createdAt = null,
         string? md5Hash = null)
     {
-        var discordId = user.FindFirstValue(ClaimTypes.NameIdentifier);
+        string? discordId = user.FindFirstValue(ClaimTypes.NameIdentifier);
         if (string.IsNullOrEmpty(discordId))
+        {
             return TypedResults.Unauthorized();
+        }
 
-        var result = await clipService.CreateClip(category, videoTitle, discordId, createdAt ?? DateTimeOffset.UtcNow,
+        CreateClipResponse? result = await clipService.CreateClip(category, videoTitle, discordId, createdAt ?? DateTimeOffset.UtcNow,
             md5Hash);
         if (result == null)
+        {
             return TypedResults.Conflict("A video with this MD5 hash already exists");
+        }
 
         return TypedResults.Ok(result);
     }
@@ -70,47 +78,72 @@ public static class ClipsEndpoints
     public static async Task<Results<UnauthorizedHttpResult, Ok<Clip>, NotFound>> GetVideoById(ClipService clipService,
         ClaimsPrincipal user, Guid clipId)
     {
-        var discordId = user.FindFirstValue(ClaimTypes.NameIdentifier);
+        string? discordId = user.FindFirstValue(ClaimTypes.NameIdentifier);
         if (string.IsNullOrEmpty(discordId))
+        {
             return TypedResults.Unauthorized();
-        var clip = await clipService.GetClipById(clipId, discordId);
+        }
+
+        Clip? clip = await clipService.GetClipById(clipId, discordId);
         if (clip == null)
+        {
             return TypedResults.NotFound();
+        }
+
         return TypedResults.Ok(clip);
     }
 
     public static async Task<Results<UnauthorizedHttpResult, Ok<Clip>, NotFound>> AddTagToClip(
         ClipService clipService, ClaimsPrincipal user, Guid clipId, AddTagRequest request)
     {
-        var discordId = user.FindFirstValue(ClaimTypes.NameIdentifier);
+        string? discordId = user.FindFirstValue(ClaimTypes.NameIdentifier);
         if (string.IsNullOrEmpty(discordId))
+        {
             return TypedResults.Unauthorized();
+        }
 
-        var updated = await clipService.AddTagToClip(clipId, discordId, request.Tag);
-        if (updated == null) return TypedResults.NotFound();
+        Clip? updated = await clipService.AddTagToClip(clipId, discordId, request.Tag);
+        if (updated == null)
+        {
+            return TypedResults.NotFound();
+        }
+
         return TypedResults.Ok(updated);
     }
 
     public static async Task<Results<UnauthorizedHttpResult, Ok<Clip>, NotFound>> RemoveTagFromClip(
         ClipService clipService, ClaimsPrincipal user, Guid clipId, string tag)
     {
-        var discordId = user.FindFirstValue(ClaimTypes.NameIdentifier);
+        string? discordId = user.FindFirstValue(ClaimTypes.NameIdentifier);
         if (string.IsNullOrEmpty(discordId))
+        {
             return TypedResults.Unauthorized();
-        var updated = await clipService.RemoveTagFromClip(clipId, discordId, tag);
-        if (updated == null) return TypedResults.NotFound();
+        }
+
+        Clip? updated = await clipService.RemoveTagFromClip(clipId, discordId, tag);
+        if (updated == null)
+        {
+            return TypedResults.NotFound();
+        }
+
         return TypedResults.Ok(updated);
     }
 
     public static async Task<Results<UnauthorizedHttpResult, Ok<Clip>, NotFound>> UpdateClipTitle(
         ClipService clipService, ClaimsPrincipal user, Guid clipId, UpdateTitleRequest request)
     {
-        var discordId = user.FindFirstValue(ClaimTypes.NameIdentifier);
+        string? discordId = user.FindFirstValue(ClaimTypes.NameIdentifier);
         if (string.IsNullOrEmpty(discordId))
+        {
             return TypedResults.Unauthorized();
+        }
 
-        var updated = await clipService.UpdateClipTitle(clipId, discordId, request.Title);
-        if (updated == null) return TypedResults.NotFound();
+        Clip? updated = await clipService.UpdateClipTitle(clipId, discordId, request.Title);
+        if (updated == null)
+        {
+            return TypedResults.NotFound();
+        }
+
         return TypedResults.Ok(updated);
     }
 
@@ -122,11 +155,18 @@ public static class ClipsEndpoints
     public static async Task<Results<UnauthorizedHttpResult, Ok, NotFound>> MarkVideoAsViewed(ClipService clipService,
         ClaimsPrincipal user, Guid clipId)
     {
-        var discordId = user.FindFirstValue(ClaimTypes.NameIdentifier);
+        string? discordId = user.FindFirstValue(ClaimTypes.NameIdentifier);
         if (string.IsNullOrEmpty(discordId))
+        {
             return TypedResults.Unauthorized();
-        var success = await clipService.MarkClipAsViewed(clipId, discordId);
-        if (!success) return TypedResults.NotFound();
+        }
+
+        bool success = await clipService.MarkClipAsViewed(clipId, discordId);
+        if (!success)
+        {
+            return TypedResults.NotFound();
+        }
+
         return TypedResults.Ok();
     }
 
@@ -139,14 +179,18 @@ public static class ClipsEndpoints
         string? tags = null,
         string? titleSearch = null)
     {
-        var discordId = user.FindFirstValue(ClaimTypes.NameIdentifier);
+        string? discordId = user.FindFirstValue(ClaimTypes.NameIdentifier);
         if (string.IsNullOrEmpty(discordId))
+        {
             return TypedResults.Unauthorized();
+        }
 
         // Parse tags from comma-separated string to list
         List<string>? tagList = null;
         if (!string.IsNullOrWhiteSpace(tags))
+        {
             tagList = tags.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).ToList();
+        }
 
         return TypedResults.Ok(await clipService.GetClipsForCategory(category, discordId, page, pageSize, tagList,
             titleSearch, true));
@@ -156,24 +200,32 @@ public static class ClipsEndpoints
     public static async Task<Results<UnauthorizedHttpResult, Ok, NotFound>> DeleteClip(ClipService clipService,
         ClaimsPrincipal user, Guid clipId)
     {
-        var discordId = user.FindFirstValue(ClaimTypes.NameIdentifier);
+        string? discordId = user.FindFirstValue(ClaimTypes.NameIdentifier);
         if (string.IsNullOrEmpty(discordId))
+        {
             return TypedResults.Unauthorized();
-        var success = await clipService.DeleteClip(clipId, discordId);
-        if (!success) return TypedResults.NotFound();
+        }
+
+        bool success = await clipService.DeleteClip(clipId, discordId);
+        if (!success)
+        {
+            return TypedResults.NotFound();
+        }
+
         return TypedResults.Ok();
     }
 
     public static async Task<Results<UnauthorizedHttpResult, Ok<BackfillResult>>> BackfillClipMetadata(
         ClipsBackfillService backfillService,
-        ClaimsPrincipal user,
-        int batchSize = 100)
+        ClaimsPrincipal user)
     {
-        var discordId = user.FindFirstValue(ClaimTypes.NameIdentifier);
+        string? discordId = user.FindFirstValue(ClaimTypes.NameIdentifier);
         if (string.IsNullOrEmpty(discordId))
+        {
             return TypedResults.Unauthorized();
+        }
 
-        var result = await backfillService.BackfillClipMetadataAsync(batchSize);
+        BackfillResult result = await backfillService.BackfillClipMetadataAsync();
         return TypedResults.Ok(result);
     }
 

@@ -1,32 +1,34 @@
 using Nucleus.Clips.Bunny;
+using Nucleus.Clips.Bunny.Models;
 
 namespace Nucleus.Clips;
 
 public class ClipsBackfillService(
     ClipsBackfillStatements backfillStatements,
+    ClipsStatements clipsStatements,
     BunnyService bunnyService,
     ILogger<ClipsBackfillService> logger)
 {
-    public async Task<BackfillResult> BackfillClipMetadataAsync(int batchSize = 100)
+    public async Task<BackfillResult> BackfillClipMetadataAsync()
     {
-        var clipsNeedingBackfill = await backfillStatements.GetClipsNeedingBackfillAsync(batchSize);
+        List<ClipsStatements.ClipRow> allClips = await clipsStatements.GetAllClipsForCategory(0);
 
-        if (clipsNeedingBackfill.Count == 0)
+        if (allClips.Count == 0)
         {
             logger.LogInformation("No clips need backfilling");
             return new BackfillResult(0, 0, 0);
         }
 
-        logger.LogInformation("Found {Count} clips needing backfill", clipsNeedingBackfill.Count);
+        logger.LogInformation("Found {Count} clips needing backfill", allClips.Count);
 
-        var successCount = 0;
-        var failureCount = 0;
+        int successCount = 0;
+        int failureCount = 0;
 
-        foreach (var clip in clipsNeedingBackfill)
+        foreach (ClipsStatements.ClipRow clip in allClips)
         {
             try
             {
-                var bunnyVideo = await bunnyService.GetVideoByIdAsync(clip.VideoId);
+                BunnyVideo? bunnyVideo = await bunnyService.GetVideoByIdAsync(clip.VideoId);
 
                 if (bunnyVideo is null)
                 {
@@ -62,7 +64,7 @@ public class ClipsBackfillService(
         logger.LogInformation("Backfill completed: {SuccessCount} succeeded, {FailureCount} failed",
             successCount, failureCount);
 
-        return new BackfillResult(clipsNeedingBackfill.Count, successCount, failureCount);
+        return new BackfillResult(allClips.Count, successCount, failureCount);
     }
 }
 

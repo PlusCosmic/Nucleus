@@ -56,14 +56,14 @@ public class ApexStatements(NpgsqlConnection connection)
         await connection.ExecuteAsync(sql, new { clipId, status });
     }
 
-    public async Task<ApexClipDetectionRow> GetApexClipDetection(Guid clipId)
+    public async Task<ApexClipDetectionRow?> GetApexClipDetection(Guid clipId)
     {
         const string sql = """
                                        SELECT clip_id, task_id, status, primary_detection, secondary_detection
                                        FROM apex_clip_detection
                                        WHERE clip_id = @clipId
                            """;
-        return await connection.QuerySingleAsync<ApexClipDetectionRow>(sql, new { clipId });
+        return await connection.QuerySingleOrDefaultAsync<ApexClipDetectionRow>(sql, new { clipId });
     }
 
     public async Task<List<ApexClipDetectionRow>> GetAllApexClipDetections()

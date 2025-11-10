@@ -140,10 +140,11 @@ public class ClipService(
             ? clipWithTags.TagNames.Split(',', StringSplitOptions.RemoveEmptyEntries).ToList()
             : new List<string>();
 
-        ApexStatements.ApexClipDetectionRow clipDetection = await apexStatements.GetApexClipDetection(clipWithTags.Id);
+        ApexStatements.ApexClipDetectionRow? clipDetection = await apexStatements.GetApexClipDetection(clipWithTags.Id);
 
         return new Clip(clipWithTags.Id, clipWithTags.OwnerId, clipWithTags.VideoId,
-            (ClipCategoryEnum)clipWithTags.Category, clipWithTags.CreatedAt, video, tags, isViewed, clipDetection.GetPrimaryDetection(), GetLegendCard(clipDetection.GetPrimaryDetection()));
+            (ClipCategoryEnum)clipWithTags.Category, clipWithTags.CreatedAt, video, tags, isViewed, clipDetection?.GetPrimaryDetection() ?? ApexLegend.None,
+            GetLegendCard(clipDetection?.GetPrimaryDetection() ?? ApexLegend.None));
     }
 
     public async Task<Clip?> AddTagToClip(Guid clipId, string discordUserId, string tag)

@@ -379,9 +379,9 @@ public class ClipService(
     {
         if (legend == ApexLegend.MadMaggie)
         {
-            return "/images/Mad_Maggie_Legend_Card.webp";
+            return "/images/apex-MadMaggie.webp";
         }
 
-        return $"/images/{legend.ToString()}_Legend_Card.webp";
+        return $"/images/apex-{legend.ToString()}.webp";
     }
 }

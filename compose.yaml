@@ -56,6 +56,6 @@ networks:
     name: web-network
 
 volumes:
-  ffmpeg_ffmpeg_shared:
+  ffmpeg_shared:
     external: true
-    name: ffmpeg_shared
+    name: ffmpeg_ffmpeg_shared

@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Http.HttpResults;
 using Nucleus.ApexLegends;
 using Nucleus.ApexLegends.LegendDetection;
 using Nucleus.Clips;
+using Nucleus.Clips.Bunny;
 
 namespace Nucleus.Apex.BunnyVideo;
 
@@ -13,22 +14,33 @@ public static class BunnyWebhookEndpoints
         group.MapPost("video-progress", ReceiveVideoProgress).WithName("ReceiveVideoProgress");
     }
 
-    public static async Task<Ok> ReceiveVideoProgress(VideoProgressUpdate update, ClipsStatements clipsStatements, ApexStatements apexStatements, IApexDetectionQueueService queueService)
+    public static async Task<Ok> ReceiveVideoProgress(VideoProgressUpdate update, ClipsStatements clipsStatements, ApexStatements apexStatements, IApexDetectionQueueService queueService,
+        BunnyService bunnyService, ClipsBackfillStatements backfillStatements)
     {
+        ClipsStatements.ClipRow? clip = await clipsStatements.GetClipByVideoId(update.VideoGuid);
+        if (clip == null)
+        {
+            return TypedResults.Ok();
+        }
+
         if (update.Status == 3)
         {
-            ClipsStatements.ClipRow? clip = await clipsStatements.GetClipByVideoId(update.VideoGuid);
-            if (clip == null)
-            {
-                return TypedResults.Ok();
-            }
-
             await apexStatements.InsertApexClipDetection(clip.Id, 0);
 
             await queueService.QueueDetectionAsync(
                 clip.Id,
                 GetScreenshotUrlsForVideo(clip.VideoId));
         }
+
+        // fetch clip from bunny and update our model in the db
+        Clips.Bunny.Models.BunnyVideo? video = await bunnyService.GetVideoByIdAsync(update.VideoGuid);
+        if (video == null)
+        {
+            return TypedResults.Ok();
+        }
+
+        await backfillStatements.UpdateClipMetadataAsync(clip.Id, clip?.Title ?? video.Title, video.Length, video.ThumbnailFileName, video.DateUploaded, video.StorageSize, video.Status,
+            video.EncodeProgress);
 
 
         return TypedResults.Ok();

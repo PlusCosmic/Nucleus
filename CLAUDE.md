@@ -18,7 +18,7 @@ designed for a small whitelisted user base using Discord OAuth authentication.
 - **xUnit** for testing
 - **Docker & Docker Compose** for deployment
 - **Bunny CDN** for video hosting
-- **FFmpeg** (via linuxserver/ffmpeg container) for video transcoding
+- **FFMpegCore** for video transcoding and HLS downloads
 - **Discord OAuth** for authentication
 
 ## Development Commands
@@ -106,7 +106,7 @@ The codebase follows a consistent pattern across all modules:
 2. **Discord/** - User identity management and profile data
 3. **Clips/** - Video clip management with Bunny CDN integration
     - **Clips/Bunny/** - CDN API client for video operations
-    - **Clips/FFmpeg/** - Docker-based video transcoding and download
+    - **Clips/FFmpeg/** - Video transcoding and HLS download using FFMpegCore library
 4. **Links/** - Bookmark management with metadata extraction
 5. **ApexLegends/** - Map rotation tracking with background refresh service
 
@@ -160,7 +160,7 @@ Required for production deployment:
 - `BunnyAccessKey` / `BunnyLibraryId` - Bunny CDN credentials
 - `FrontendOrigin` - CORS-allowed frontend URL
 - `BackendAddress` - Backend URL for asset URIs
-- `FFmpegSharedPath` - Path for FFmpeg outputs (default: `/tmp/ffmpeg-downloads`)
+- `FFmpegOutputPath` - Path for FFmpeg video downloads (default: system temp directory + "ffmpeg-downloads")
 
 ### whitelist.json
 
@@ -223,18 +223,15 @@ JsonNumberHandling.Strict  // Rejects malformed numbers
 
 ### FFmpeg Integration
 
-The FFmpeg service requires:
+The FFmpeg service uses the FFMpegCore library to handle video operations directly within the application:
 
-1. A running `linuxserver/ffmpeg` container
-2. Shared volume mount between nucleus and ffmpeg containers
-3. Coordinated path mapping via `FFmpegSharedPath` environment variable
+1. FFMpegCore wraps FFmpeg binaries (must be installed on the host system)
+2. Downloads HLS playlists (`.m3u8`) and converts to MP4 format
+3. Uses stream copying (`-c copy`) to avoid re-encoding when possible
+4. Output files are written to the configured `FFmpegOutputPath` directory
+5. Nucleus streams the file with `FileOptions.DeleteOnClose` for cleanup
 
-Video downloads work by:
-
-1. Executing `docker exec ffmpeg` commands from the nucleus container
-2. FFmpeg downloads HLS playlists (`.m3u8`) and transcodes to MP4
-3. Output files written to shared volume
-4. Nucleus streams the file with `FileOptions.DeleteOnClose`
+**FFmpeg Binary Requirements**: Ensure `ffmpeg` is installed and available in the system PATH. For Docker deployments, include FFmpeg in the container image.
 
 ### Clip Management
 
@@ -369,11 +366,10 @@ exists.
 **Whitelist not working**: Verify `whitelist.json` exists in the application root and contains valid Discord user IDs (
 numeric strings).
 
-**FFmpeg errors**: Ensure the `ffmpeg` container is running and the shared volume is properly mounted. Check container
-logs: `docker compose logs ffmpeg`
+**FFmpeg errors**: Ensure FFmpeg is installed on the host system and available in the PATH. You can verify this by running `ffmpeg -version`. For detailed error information, check the application logs.
 
 **Database connection errors**: Verify PostgreSQL is healthy: `docker compose ps postgres`. Connection string is
-configured in compose.yaml.
+configured in compose.yaml or appsettings.
 
 **CORS errors**: Check that the frontend origin matches one of the allowed patterns
 in [Program.cs](Nucleus/Program.cs#L55-81). Localhost is allowed on any port during development.

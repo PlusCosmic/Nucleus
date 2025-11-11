@@ -19,8 +19,8 @@ services:
       - DiscordClientId=${DiscordClientId}
       - DiscordClientSecret=${DiscordClientSecret}
       - FrontendOrigin=${FrontendOrigin}
-      - DatabaseConnectionString=Host=postgres;Port=5432;Database=nucleus_db;Username=nucleus_user;Password=${POSTGRES_PASSWORD}
-      - RedisConnectionString=redis:6379
+      - DatabaseConnectionString=${PostgresConnectionString}
+      - RedisConnectionString=${RedisConnectionString}
       - BunnyAccessKey=${BunnyAccessKey}
       - BunnyLibraryId=${BunnyLibraryId}
       - BackendAddress=${BackendAddress}
@@ -42,7 +42,7 @@ services:
     networks:
       - nucleus-network
     environment:
-      - REDIS_URL=redis://redis:6379/0
+      - REDIS_URL=${PythonRedisConnectionString}
       - LOG_LEVEL=INFO
       - PORTRAIT_REGION=90,955,77,66
       - MIN_CONFIDENCE=0.64

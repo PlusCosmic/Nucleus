@@ -21,6 +21,12 @@ ARG BUILD_CONFIGURATION=Release
 RUN dotnet publish "Nucleus.csproj" -c $BUILD_CONFIGURATION -o /app/publish /p:UseAppHost=false
 
 FROM base AS final
+USER root
+RUN apt-get update && \
+    apt-get install -y ffmpeg && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+USER $APP_UID
 WORKDIR /app
 COPY --from=publish /app/publish .
 ENTRYPOINT ["dotnet", "Nucleus.dll"]

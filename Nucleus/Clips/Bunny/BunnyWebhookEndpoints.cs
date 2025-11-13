@@ -1,10 +1,9 @@
 using Microsoft.AspNetCore.Http.HttpResults;
+using Nucleus.Apex.BunnyVideo;
 using Nucleus.ApexLegends;
 using Nucleus.ApexLegends.LegendDetection;
-using Nucleus.Clips;
-using Nucleus.Clips.Bunny;
 
-namespace Nucleus.Apex.BunnyVideo;
+namespace Nucleus.Clips.Bunny;
 
 public static class BunnyWebhookEndpoints
 {
@@ -14,9 +13,26 @@ public static class BunnyWebhookEndpoints
         group.MapPost("video-progress", ReceiveVideoProgress).WithName("ReceiveVideoProgress");
     }
 
-    public static async Task<Ok> ReceiveVideoProgress(VideoProgressUpdate update, ClipsStatements clipsStatements, ApexStatements apexStatements, IApexDetectionQueueService queueService,
-        BunnyService bunnyService, ClipsBackfillStatements backfillStatements)
+    public static async Task<Results<Ok, UnauthorizedHttpResult>> ReceiveVideoProgress(
+        VideoProgressUpdate update,
+        ClipsStatements clipsStatements,
+        ApexStatements apexStatements,
+        IApexDetectionQueueService queueService,
+        BunnyService bunnyService,
+        ClipsBackfillStatements backfillStatements,
+        IConfiguration configuration,
+        HttpContext context)
     {
+        // Validate webhook secret for security
+        var expectedSecret = configuration["BunnyWebhookSecret"];
+        var providedSecret = context.Request.Headers["X-Webhook-Secret"].FirstOrDefault()
+                           ?? context.Request.Query["secret"].FirstOrDefault();
+
+        if (!string.IsNullOrEmpty(expectedSecret) && expectedSecret != providedSecret)
+        {
+            return TypedResults.Unauthorized();
+        }
+
         ClipsStatements.ClipRow? clip = await clipsStatements.GetClipByVideoId(update.VideoGuid);
         if (clip == null)
         {

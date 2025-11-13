@@ -1,7 +1,6 @@
-using Nucleus.ApexLegends;
 using Nucleus.ApexLegends.Models;
 
-namespace Nucleus.Apex;
+namespace Nucleus.ApexLegends;
 
 public class MapRefreshService(
     ILogger<MapRefreshService> logger,

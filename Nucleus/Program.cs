@@ -65,6 +65,7 @@ builder.Services.AddScoped<IApexMapCacheService, ApexMapCacheService>();
 builder.Services.AddScoped<IApexDetectionQueueService, ApexDetectionQueueService>();
 builder.Services.AddHostedService<MapRefreshService>();
 builder.Services.AddHostedService<ApexDetectionBackgroundService>();
+builder.Services.AddHostedService<ClipStatusRefreshService>();
 
 builder.Services.AddSingleton<IConnectionMultiplexer>(_ =>
     ConnectionMultiplexer.Connect($"{redisConnectionString},abortConnect=false"));

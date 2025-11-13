@@ -62,6 +62,13 @@ public class WhitelistMiddleware
             return;
         }
 
+        // Skip whitelist check for webhooks (external service callbacks)
+        if (context.Request.Path.StartsWithSegments("/webhooks"))
+        {
+            await _next(context);
+            return;
+        }
+
         // Check if user is authenticated
         if (!context.User.Identity?.IsAuthenticated ?? true)
         {

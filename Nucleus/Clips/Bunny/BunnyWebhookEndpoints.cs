@@ -40,8 +40,8 @@ public static class BunnyWebhookEndpoints
         ILogger logger = loggerFactory.CreateLogger("Nucleus.Clips.Bunny.BunnyWebhookEndpoints");
 
         logger.LogInformation(
-            "[WEBHOOK] Received Bunny webhook - VideoLibraryId: {LibraryId}, VideoGuid: {VideoGuid}, Status: {Status}, IP: {RemoteIp}",
-            update.VideoLibraryId, update.VideoGuid, update.Status, context.Connection.RemoteIpAddress);
+            "[WEBHOOK] Received Bunny webhook - VideoLibraryId: {LibraryId}, VideoGuid: {VideoGuid}, Status: {Status}, IP: {RemoteIp}, ContentType: {ContentType}",
+            update.VideoLibraryId, update.VideoGuid, update.Status, context.Connection.RemoteIpAddress, context.Request.ContentType);
 
         // Validate webhook secret for security
         string? expectedSecret = configuration["BunnyWebhookSecret"];

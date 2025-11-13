@@ -65,6 +65,8 @@ public class WhitelistMiddleware
         // Skip whitelist check for webhooks (external service callbacks)
         if (context.Request.Path.StartsWithSegments("/webhooks"))
         {
+            _logger.LogInformation("[WHITELIST] Bypassing whitelist check for webhook path: {Path}, IP: {RemoteIp}",
+                context.Request.Path, context.Connection.RemoteIpAddress);
             await _next(context);
             return;
         }

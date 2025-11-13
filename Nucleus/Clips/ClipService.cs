@@ -279,7 +279,8 @@ public class ClipService(
 
     public async Task<PagedClipsResponse> GetClipsForCategory(ClipCategoryEnum categoryEnum,
         string discordUserId, int page, int pageSize, List<string>? tags = null, string? titleSearch = null,
-        bool unviewedOnly = false)
+        bool unviewedOnly = false, ClipSortOrder sortOrder = ClipSortOrder.DateDescending,
+        DateTimeOffset? startDate = null, DateTimeOffset? endDate = null)
     {
         DiscordStatements.DiscordUserRow discordUser = await discordStatements.GetUserByDiscordId(discordUserId)
                                                        ?? throw new UnauthorizedException("User not found");
@@ -306,6 +307,17 @@ public class ClipService(
                 .ToList();
         }
 
+        // Apply date range filter if provided
+        if (startDate.HasValue)
+        {
+            clipsWithTags = clipsWithTags.Where(c => c.CreatedAt >= startDate.Value).ToList();
+        }
+
+        if (endDate.HasValue)
+        {
+            clipsWithTags = clipsWithTags.Where(c => c.CreatedAt <= endDate.Value).ToList();
+        }
+
         List<Guid> clipIds = clipsWithTags.Select(c => c.Id).ToList();
         HashSet<Guid> viewedClipIds = await clipsStatements.GetViewedClipIds(userId, clipIds);
 
@@ -314,7 +326,12 @@ public class ClipService(
             clipsWithTags.RemoveAll(c => viewedClipIds.Contains(c.Id));
         }
 
-        clipsWithTags = clipsWithTags.OrderByDescending(c => c.CreatedAt).ToList();
+        clipsWithTags = sortOrder switch
+        {
+            ClipSortOrder.DateAscending => clipsWithTags.OrderBy(c => c.CreatedAt).ToList(),
+            ClipSortOrder.DateDescending => clipsWithTags.OrderByDescending(c => c.CreatedAt).ToList(),
+            _ => clipsWithTags.OrderByDescending(c => c.CreatedAt).ToList()
+        };
 
         // get correct page from filtered list
         List<ClipsStatements.ClipWithTagsRow> pagedClips = clipsWithTags.Skip((page - 1) * pageSize).Take(pageSize).ToList();

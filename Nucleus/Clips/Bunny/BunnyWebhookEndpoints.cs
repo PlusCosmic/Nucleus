@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Http.HttpResults;
 using Nucleus.Apex.BunnyVideo;
 using Nucleus.ApexLegends;
 using Nucleus.ApexLegends.LegendDetection;
+using Nucleus.Clips.Bunny.Models;
 
 namespace Nucleus.Clips.Bunny;
 
@@ -9,8 +10,8 @@ public static class BunnyWebhookEndpoints
 {
     public static void MapBunnyWebhookEndpoints(this WebApplication app)
     {
-        var loggerFactory = app.Services.GetRequiredService<ILoggerFactory>();
-        var logger = loggerFactory.CreateLogger("Nucleus.Clips.Bunny.BunnyWebhookEndpoints");
+        ILoggerFactory loggerFactory = app.Services.GetRequiredService<ILoggerFactory>();
+        ILogger logger = loggerFactory.CreateLogger("Nucleus.Clips.Bunny.BunnyWebhookEndpoints");
         logger.LogInformation("[WEBHOOK] Mapping Bunny webhook endpoints at /webhooks/bunny/video-progress");
 
         RouteGroupBuilder group = app.MapGroup("webhooks/bunny");
@@ -20,7 +21,7 @@ public static class BunnyWebhookEndpoints
 
     private static IResult TestWebhook(ILoggerFactory loggerFactory)
     {
-        var logger = loggerFactory.CreateLogger("Nucleus.Clips.Bunny.BunnyWebhookEndpoints");
+        ILogger logger = loggerFactory.CreateLogger("Nucleus.Clips.Bunny.BunnyWebhookEndpoints");
         logger.LogInformation("[WEBHOOK] Test endpoint hit - webhook routing is working");
         return TypedResults.Ok(new { message = "Webhook endpoint is reachable", timestamp = DateTimeOffset.UtcNow });
     }
@@ -36,16 +37,16 @@ public static class BunnyWebhookEndpoints
         HttpContext context,
         ILoggerFactory loggerFactory)
     {
-        var logger = loggerFactory.CreateLogger("Nucleus.Clips.Bunny.BunnyWebhookEndpoints");
+        ILogger logger = loggerFactory.CreateLogger("Nucleus.Clips.Bunny.BunnyWebhookEndpoints");
 
         logger.LogInformation(
             "[WEBHOOK] Received Bunny webhook - VideoLibraryId: {LibraryId}, VideoGuid: {VideoGuid}, Status: {Status}, IP: {RemoteIp}",
             update.VideoLibraryId, update.VideoGuid, update.Status, context.Connection.RemoteIpAddress);
 
         // Validate webhook secret for security
-        var expectedSecret = configuration["BunnyWebhookSecret"];
-        var providedSecret = context.Request.Headers["X-Webhook-Secret"].FirstOrDefault()
-                           ?? context.Request.Query["secret"].FirstOrDefault();
+        string? expectedSecret = configuration["BunnyWebhookSecret"];
+        string? providedSecret = context.Request.Headers["X-Webhook-Secret"].FirstOrDefault()
+                                 ?? context.Request.Query["secret"].FirstOrDefault();
 
         logger.LogDebug("[WEBHOOK] Security check - Expected secret configured: {HasSecret}, Secret provided: {ProvidedSecret}",
             !string.IsNullOrEmpty(expectedSecret), !string.IsNullOrEmpty(providedSecret));
@@ -64,8 +65,8 @@ public static class BunnyWebhookEndpoints
             return TypedResults.Ok();
         }
 
-        logger.LogInformation("[WEBHOOK] Found clip - ClipId: {ClipId}, Title: {Title}, CurrentStatus: {CurrentStatus}",
-            clip.Id, clip.Title, clip.Status);
+        logger.LogInformation("[WEBHOOK] Found clip - ClipId: {ClipId}, Title: {Title}",
+            clip.Id, clip.Title);
 
         if (update.Status == 3)
         {
@@ -76,7 +77,7 @@ public static class BunnyWebhookEndpoints
                 await apexStatements.InsertApexClipDetection(clip.Id, 0);
                 logger.LogInformation("[WEBHOOK] Inserted Apex clip detection record for ClipId: {ClipId}", clip.Id);
 
-                var screenshotUrls = GetScreenshotUrlsForVideo(clip.VideoId);
+                List<string> screenshotUrls = GetScreenshotUrlsForVideo(clip.VideoId);
                 logger.LogInformation("[WEBHOOK] Queueing detection for ClipId: {ClipId} with {Count} screenshot URLs",
                     clip.Id, screenshotUrls.Count);
 
@@ -95,7 +96,7 @@ public static class BunnyWebhookEndpoints
 
         // fetch clip from bunny and update our model in the db
         logger.LogInformation("[WEBHOOK] Fetching video metadata from Bunny for VideoGuid: {VideoGuid}", update.VideoGuid);
-        Clips.Bunny.Models.BunnyVideo? video = await bunnyService.GetVideoByIdAsync(update.VideoGuid);
+        BunnyVideo? video = await bunnyService.GetVideoByIdAsync(update.VideoGuid);
         if (video == null)
         {
             logger.LogWarning("[WEBHOOK] Failed to fetch video from Bunny API for VideoGuid: {VideoGuid}", update.VideoGuid);

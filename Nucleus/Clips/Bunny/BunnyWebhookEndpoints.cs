@@ -9,8 +9,20 @@ public static class BunnyWebhookEndpoints
 {
     public static void MapBunnyWebhookEndpoints(this WebApplication app)
     {
+        var loggerFactory = app.Services.GetRequiredService<ILoggerFactory>();
+        var logger = loggerFactory.CreateLogger("Nucleus.Clips.Bunny.BunnyWebhookEndpoints");
+        logger.LogInformation("[WEBHOOK] Mapping Bunny webhook endpoints at /webhooks/bunny/video-progress");
+
         RouteGroupBuilder group = app.MapGroup("webhooks/bunny");
         group.MapPost("video-progress", ReceiveVideoProgress).WithName("ReceiveVideoProgress");
+        group.MapGet("test", TestWebhook).WithName("TestWebhook");
+    }
+
+    private static IResult TestWebhook(ILoggerFactory loggerFactory)
+    {
+        var logger = loggerFactory.CreateLogger("Nucleus.Clips.Bunny.BunnyWebhookEndpoints");
+        logger.LogInformation("[WEBHOOK] Test endpoint hit - webhook routing is working");
+        return TypedResults.Ok(new { message = "Webhook endpoint is reachable", timestamp = DateTimeOffset.UtcNow });
     }
 
     public static async Task<Results<Ok, UnauthorizedHttpResult>> ReceiveVideoProgress(
@@ -21,44 +33,99 @@ public static class BunnyWebhookEndpoints
         BunnyService bunnyService,
         ClipsBackfillStatements backfillStatements,
         IConfiguration configuration,
-        HttpContext context)
+        HttpContext context,
+        ILoggerFactory loggerFactory)
     {
+        var logger = loggerFactory.CreateLogger("Nucleus.Clips.Bunny.BunnyWebhookEndpoints");
+
+        logger.LogInformation(
+            "[WEBHOOK] Received Bunny webhook - VideoLibraryId: {LibraryId}, VideoGuid: {VideoGuid}, Status: {Status}, IP: {RemoteIp}",
+            update.VideoLibraryId, update.VideoGuid, update.Status, context.Connection.RemoteIpAddress);
+
         // Validate webhook secret for security
         var expectedSecret = configuration["BunnyWebhookSecret"];
         var providedSecret = context.Request.Headers["X-Webhook-Secret"].FirstOrDefault()
                            ?? context.Request.Query["secret"].FirstOrDefault();
 
+        logger.LogDebug("[WEBHOOK] Security check - Expected secret configured: {HasSecret}, Secret provided: {ProvidedSecret}",
+            !string.IsNullOrEmpty(expectedSecret), !string.IsNullOrEmpty(providedSecret));
+
         if (!string.IsNullOrEmpty(expectedSecret) && expectedSecret != providedSecret)
         {
+            logger.LogWarning("[WEBHOOK] Unauthorized webhook attempt - invalid secret for VideoGuid: {VideoGuid}", update.VideoGuid);
             return TypedResults.Unauthorized();
         }
 
+        logger.LogInformation("[WEBHOOK] Looking up clip by VideoGuid: {VideoGuid}", update.VideoGuid);
         ClipsStatements.ClipRow? clip = await clipsStatements.GetClipByVideoId(update.VideoGuid);
         if (clip == null)
         {
+            logger.LogWarning("[WEBHOOK] No clip found for VideoGuid: {VideoGuid} - ignoring webhook", update.VideoGuid);
             return TypedResults.Ok();
         }
+
+        logger.LogInformation("[WEBHOOK] Found clip - ClipId: {ClipId}, Title: {Title}, CurrentStatus: {CurrentStatus}",
+            clip.Id, clip.Title, clip.Status);
 
         if (update.Status == 3)
         {
-            await apexStatements.InsertApexClipDetection(clip.Id, 0);
+            logger.LogInformation("[WEBHOOK] Status is 3 (Finished) - triggering Apex detection for ClipId: {ClipId}", clip.Id);
 
-            await queueService.QueueDetectionAsync(
-                clip.Id,
-                GetScreenshotUrlsForVideo(clip.VideoId));
+            try
+            {
+                await apexStatements.InsertApexClipDetection(clip.Id, 0);
+                logger.LogInformation("[WEBHOOK] Inserted Apex clip detection record for ClipId: {ClipId}", clip.Id);
+
+                var screenshotUrls = GetScreenshotUrlsForVideo(clip.VideoId);
+                logger.LogInformation("[WEBHOOK] Queueing detection for ClipId: {ClipId} with {Count} screenshot URLs",
+                    clip.Id, screenshotUrls.Count);
+
+                await queueService.QueueDetectionAsync(clip.Id, screenshotUrls);
+                logger.LogInformation("[WEBHOOK] Successfully queued detection for ClipId: {ClipId}", clip.Id);
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "[WEBHOOK] Error during detection setup for ClipId: {ClipId}", clip.Id);
+            }
+        }
+        else
+        {
+            logger.LogInformation("[WEBHOOK] Status is {Status} (not Finished) - skipping detection", update.Status);
         }
 
         // fetch clip from bunny and update our model in the db
+        logger.LogInformation("[WEBHOOK] Fetching video metadata from Bunny for VideoGuid: {VideoGuid}", update.VideoGuid);
         Clips.Bunny.Models.BunnyVideo? video = await bunnyService.GetVideoByIdAsync(update.VideoGuid);
         if (video == null)
         {
+            logger.LogWarning("[WEBHOOK] Failed to fetch video from Bunny API for VideoGuid: {VideoGuid}", update.VideoGuid);
             return TypedResults.Ok();
         }
 
-        await backfillStatements.UpdateClipMetadataAsync(clip.Id, clip?.Title ?? video.Title, video.Length, video.ThumbnailFileName, video.DateUploaded, video.StorageSize, video.Status,
-            video.EncodeProgress);
+        logger.LogInformation(
+            "[WEBHOOK] Fetched video from Bunny - Title: {Title}, Length: {Length}s, Status: {Status}, EncodeProgress: {Progress}%",
+            video.Title, video.Length, video.Status, video.EncodeProgress);
 
+        try
+        {
+            await backfillStatements.UpdateClipMetadataAsync(
+                clip.Id,
+                clip?.Title ?? video.Title,
+                video.Length,
+                video.ThumbnailFileName,
+                video.DateUploaded,
+                video.StorageSize,
+                video.Status,
+                video.EncodeProgress);
 
+            logger.LogInformation("[WEBHOOK] Successfully updated clip metadata for ClipId: {ClipId}", clip.Id);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "[WEBHOOK] Error updating clip metadata for ClipId: {ClipId}", clip.Id);
+        }
+
+        logger.LogInformation("[WEBHOOK] Webhook processing complete for VideoGuid: {VideoGuid}, returning OK", update.VideoGuid);
         return TypedResults.Ok();
     }
 

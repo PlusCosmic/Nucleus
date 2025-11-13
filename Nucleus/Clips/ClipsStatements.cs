@@ -350,6 +350,33 @@ public class ClipsStatements(NpgsqlConnection connection)
         return (await connection.QueryAsync<ClipRow>(sql, new { category })).ToList();
     }
 
+    public async Task<List<ClipRow>> GetClipsNeedingStatusUpdate()
+    {
+        const string sql = """
+            SELECT id, owner_id, video_id, category, md5_hash, created_at, title, length, thumbnail_file_name, date_uploaded, storage_size, video_status, encode_progress
+            FROM clip
+            WHERE video_status IS NULL OR video_status != 3
+            """;
+        return (await connection.QueryAsync<ClipRow>(sql)).ToList();
+    }
+
+    public async Task UpdateClipMetadata(Guid clipId, string? title, int? length, string? thumbnailFileName,
+        DateTimeOffset? dateUploaded, long? storageSize, int? videoStatus, int? encodeProgress)
+    {
+        const string sql = """
+            UPDATE clip
+            SET title = @title,
+                length = @length,
+                thumbnail_file_name = @thumbnailFileName,
+                date_uploaded = @dateUploaded,
+                storage_size = @storageSize,
+                video_status = @videoStatus,
+                encode_progress = @encodeProgress
+            WHERE id = @clipId
+            """;
+        await connection.ExecuteAsync(sql, new { clipId, title, length, thumbnailFileName, dateUploaded, storageSize, videoStatus, encodeProgress });
+    }
+
     public class ClipRow
     {
         public Guid Id { get; set; }

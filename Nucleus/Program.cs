@@ -8,7 +8,6 @@ using Microsoft.AspNetCore.StaticFiles;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Npgsql;
 using Nucleus.Apex;
-using Nucleus.Apex.BunnyVideo;
 using Nucleus.ApexLegends;
 using Nucleus.ApexLegends.LegendDetection;
 using Nucleus.Auth;

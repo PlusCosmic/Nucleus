@@ -230,19 +230,18 @@ public class ClipsStatements(NpgsqlConnection connection)
         await connection.ExecuteAsync(sql, new { clipId, tagId });
     }
 
-    public async Task<List<TopTagRow>> GetTopTags(int limit)
+    public async Task<List<TopTagRow>> GetAllTagsOrderedByUsage()
     {
         const string sql = """
 
                                        SELECT t.name, COUNT(ct.clip_id)::int as count
-                                       FROM clip_tag ct
-                                       JOIN tag t ON ct.tag_id = t.id
+                                       FROM tag t
+                                       LEFT JOIN clip_tag ct ON ct.tag_id = t.id
                                        GROUP BY t.name
                                        ORDER BY count DESC, t.name ASC
-                                       LIMIT @limit
                            """;
 
-        return (await connection.QueryAsync<TopTagRow>(sql, new { limit })).ToList();
+        return (await connection.QueryAsync<TopTagRow>(sql)).ToList();
     }
 
     public async Task<ClipViewRow> InsertClipView(Guid userId, Guid clipId)

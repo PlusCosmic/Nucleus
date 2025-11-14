@@ -1,5 +1,4 @@
 using Microsoft.AspNetCore.Http.HttpResults;
-using Nucleus.Apex.BunnyVideo;
 using Nucleus.ApexLegends;
 using Nucleus.ApexLegends.LegendDetection;
 using Nucleus.Clips.Bunny.Models;

@@ -10,8 +10,6 @@ public static class ClipsEndpoints
         RouteGroupBuilder group = app.MapGroup("clips").RequireAuthorization();
         group.MapGet("categories", GetCategories).WithName("GetCategories");
         group.MapGet("categories/{category}/videos", GetVideosByCategory).WithName("GetVideosByCategory");
-        group.MapGet("categories/{category}/videos/unviewed", GetUnviewedVideosByCategory)
-            .WithName("GetUnviewedVideosByCategory");
         group.MapPost("categories/{category}/videos", CreateVideo).WithName("CreateVideo");
         group.MapGet("videos/{clipId}", GetVideoById).WithName("GetVideoById");
         group.MapPost("videos/{clipId}/view", MarkVideoAsViewed).WithName("MarkVideoAsViewed");
@@ -34,8 +32,12 @@ public static class ClipsEndpoints
         ClaimsPrincipal user,
         int page,
         int pageSize,
-        string? tags = null,
-        string? titleSearch = null)
+        string[]? tags = null,
+        string? titleSearch = null,
+        bool unviewedOnly = false,
+        ClipSortOrder sortOrder = ClipSortOrder.DateDescending,
+        DateTimeOffset? startDate = null,
+        DateTimeOffset? endDate = null)
     {
         string? discordId = user.FindFirstValue(ClaimTypes.NameIdentifier);
         if (string.IsNullOrEmpty(discordId))
@@ -43,15 +45,9 @@ public static class ClipsEndpoints
             return TypedResults.Unauthorized();
         }
 
-        // Parse tags from comma-separated string to list
-        List<string>? tagList = null;
-        if (!string.IsNullOrWhiteSpace(tags))
-        {
-            tagList = tags.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).ToList();
-        }
-
+        List<string>? tagList = tags?.ToList();
         return TypedResults.Ok(
-            await clipService.GetClipsForCategory(category, discordId, page, pageSize, tagList, titleSearch));
+            await clipService.GetClipsForCategory(category, discordId, page, pageSize, tagList, titleSearch, unviewedOnly, sortOrder, startDate, endDate));
     }
 
     public static async Task<Results<UnauthorizedHttpResult, Ok<CreateClipResponse>, Conflict<string>>> CreateVideo(
@@ -170,33 +166,6 @@ public static class ClipsEndpoints
         return TypedResults.Ok();
     }
 
-    public static async Task<Results<UnauthorizedHttpResult, Ok<PagedClipsResponse>>> GetUnviewedVideosByCategory(
-        ClipService clipService,
-        ClipCategoryEnum category,
-        ClaimsPrincipal user,
-        int page,
-        int pageSize,
-        string? tags = null,
-        string? titleSearch = null)
-    {
-        string? discordId = user.FindFirstValue(ClaimTypes.NameIdentifier);
-        if (string.IsNullOrEmpty(discordId))
-        {
-            return TypedResults.Unauthorized();
-        }
-
-        // Parse tags from comma-separated string to list
-        List<string>? tagList = null;
-        if (!string.IsNullOrWhiteSpace(tags))
-        {
-            tagList = tags.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).ToList();
-        }
-
-        return TypedResults.Ok(await clipService.GetClipsForCategory(category, discordId, page, pageSize, tagList,
-            titleSearch, true));
-    }
-
-
     public static async Task<Results<UnauthorizedHttpResult, Ok, NotFound>> DeleteClip(ClipService clipService,
         ClaimsPrincipal user, Guid clipId)
     {
@@ -232,4 +201,10 @@ public static class ClipsEndpoints
     public sealed record AddTagRequest(string Tag);
 
     public sealed record UpdateTitleRequest(string Title);
+}
+
+public enum ClipSortOrder
+{
+    DateDescending,
+    DateAscending
 }

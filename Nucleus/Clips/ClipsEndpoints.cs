@@ -32,7 +32,7 @@ public static class ClipsEndpoints
         ClaimsPrincipal user,
         int page,
         int pageSize,
-        List<string>? tags = null,
+        string[]? tags = null,
         string? titleSearch = null,
         bool unviewedOnly = false,
         ClipSortOrder sortOrder = ClipSortOrder.DateDescending,
@@ -45,8 +45,9 @@ public static class ClipsEndpoints
             return TypedResults.Unauthorized();
         }
 
+        List<string>? tagList = tags?.ToList();
         return TypedResults.Ok(
-            await clipService.GetClipsForCategory(category, discordId, page, pageSize, tags, titleSearch, unviewedOnly, sortOrder, startDate, endDate));
+            await clipService.GetClipsForCategory(category, discordId, page, pageSize, tagList, titleSearch, unviewedOnly, sortOrder, startDate, endDate));
     }
 
     public static async Task<Results<UnauthorizedHttpResult, Ok<CreateClipResponse>, Conflict<string>>> CreateVideo(

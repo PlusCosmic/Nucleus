@@ -249,9 +249,9 @@ public class ClipService(
         return await GetClipById(clipId, discordUserId);
     }
 
-    public async Task<List<TopTag>> GetTopTags(int limit = 20)
+    public async Task<List<TopTag>> GetTopTags()
     {
-        List<ClipsStatements.TopTagRow> topTagRows = await clipsStatements.GetTopTags(limit);
+        List<ClipsStatements.TopTagRow> topTagRows = await clipsStatements.GetAllTagsOrderedByUsage();
         return topTagRows.Select(t => new TopTag(t.Name, t.Count)).ToList();
     }
 

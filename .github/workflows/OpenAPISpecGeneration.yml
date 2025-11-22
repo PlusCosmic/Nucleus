@@ -98,8 +98,19 @@ jobs:
           # Create and switch to new branch
           git checkout -b "$BRANCH_NAME"
 
-          # Stage and commit changes
-          git add .
+          # Stage and commit changes (force add generated files even if in .gitignore)
+          git add -f packages/nucleus-api-client/Nucleus.json
+          git add -f packages/nucleus-api-client/src/
+          git add packages/nucleus-api-client/dist/ 2>/dev/null || true
+          git add packages/nucleus-api-client/package.json 2>/dev/null || true
+
+          # Check if anything was actually staged
+          if git diff --cached --quiet; then
+            echo "⚠️ No files were staged for commit (files may be gitignored)"
+            echo "has_changes=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
           git commit -m "$COMMIT_MESSAGE"
 
           # Push to frontend repo (force push since this is an automated branch)

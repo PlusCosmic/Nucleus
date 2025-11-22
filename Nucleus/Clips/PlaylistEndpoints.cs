@@ -237,16 +237,9 @@ public static class PlaylistEndpoints
             return TypedResults.Unauthorized();
         }
 
-        // Validate that at least one identifier is provided
-        if (!request.UserId.HasValue && string.IsNullOrWhiteSpace(request.Username) && string.IsNullOrWhiteSpace(request.Email))
+        if (!request.UserId.HasValue && string.IsNullOrWhiteSpace(request.Username))
         {
-            return TypedResults.BadRequest("Either userId, username, or email must be provided");
-        }
-
-        // Note: Email lookup is not supported in the current schema
-        if (!string.IsNullOrWhiteSpace(request.Email))
-        {
-            return TypedResults.BadRequest("Email lookup is not currently supported. Please use userId or username.");
+            return TypedResults.BadRequest("Either userId or username must be provided");
         }
 
         try

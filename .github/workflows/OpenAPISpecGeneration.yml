@@ -65,59 +65,81 @@ jobs:
           # Build the package
           pnpm run build
 
-      - name: Check for changes
-        id: check_changes
+      - name: Commit and push changes
+        id: commit_changes
         working-directory: plus-cosmic-dev
+        env:
+          GITHUB_TOKEN: ${{ secrets.FRONTEND_REPO_TOKEN }}
+          BRANCH_NAME: api-sync/nucleus-${{ github.sha }}
+          COMMIT_MESSAGE: 'chore: update Nucleus API client from ${{ github.sha }}'
         run: |
-          if git diff --quiet; then
+          # Check if there are changes
+          if git diff --quiet && git diff --cached --quiet; then
             echo "has_changes=false" >> $GITHUB_OUTPUT
-            echo "No changes detected in generated client"
-          else
-            echo "has_changes=true" >> $GITHUB_OUTPUT
-            echo "Changes detected in generated client"
+            echo "ℹ️ No changes detected in generated client"
+            exit 0
           fi
 
+          echo "has_changes=true" >> $GITHUB_OUTPUT
+
+          # Configure git
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          # Create and switch to new branch
+          git checkout -b "$BRANCH_NAME"
+
+          # Stage and commit changes
+          git add .
+          git commit -m "$COMMIT_MESSAGE"
+
+          # Push to frontend repo
+          git push -u origin "$BRANCH_NAME"
+
       - name: Create Pull Request
-        if: steps.check_changes.outputs.has_changes == 'true'
-        uses: peter-evans/create-pull-request@v6
-        with:
-          token: ${{ secrets.FRONTEND_REPO_TOKEN }}
-          commit-message: 'chore: update Nucleus API client'
-          branch: api-sync/nucleus-${{ github.sha }}
-          delete-branch: true
-          title: 'Update Nucleus API Client'
-          body: |
-            ## 🤖 Automated API Client Update
-            
-            This PR updates the `nucleus-api-client` package based on OpenAPI spec changes from Nucleus.
-            
-            ### Changes
-            - Updated `Nucleus.json` OpenAPI specification
-            - Regenerated TypeScript client in `packages/nucleus-api-client/src`
-            - Rebuilt the package
-            
-            ### Source
-            - **Repository:** ${{ github.repository }}
-            - **Commit:** ${{ github.sha }}
-            - **Branch:** ${{ github.ref_name }}
-            - **Triggered by:** ${{ github.event.head_commit.message }}
-            
-            ### Next Steps
-            1. Review the generated changes
-            2. Ensure tests pass
-            3. Merge when ready
-            
-            ---
-            
-            _This PR was automatically created by the Nucleus OpenAPI sync workflow._
-          labels: |
-            automated
-            api-client
-            nucleus
+        if: steps.commit_changes.outputs.has_changes == 'true'
+        working-directory: plus-cosmic-dev
+        env:
+          GH_TOKEN: ${{ secrets.FRONTEND_REPO_TOKEN }}
+          BRANCH_NAME: api-sync/nucleus-${{ github.sha }}
+          SOURCE_REPO: ${{ github.repository }}
+          SOURCE_SHA: ${{ github.sha }}
+          SOURCE_BRANCH: ${{ github.ref_name }}
+          TRIGGER_MESSAGE: ${{ github.event.head_commit.message }}
+        run: |
+          gh pr create \
+            --title "Update Nucleus API Client" \
+            --body "## 🤖 Automated API Client Update
+
+          This PR updates the \`nucleus-api-client\` package based on OpenAPI spec changes from Nucleus.
+
+          ### Changes
+          - Updated \`Nucleus.json\` OpenAPI specification
+          - Regenerated TypeScript client in \`packages/nucleus-api-client/src\`
+          - Rebuilt the package
+
+          ### Source
+          - **Repository:** $SOURCE_REPO
+          - **Commit:** $SOURCE_SHA
+          - **Branch:** $SOURCE_BRANCH
+          - **Triggered by:** $TRIGGER_MESSAGE
+
+          ### Next Steps
+          1. Review the generated changes
+          2. Ensure tests pass
+          3. Merge when ready
+
+          ---
+
+          _This PR was automatically created by the Nucleus OpenAPI sync workflow._" \
+            --label "automated,api-client,nucleus" \
+            --head "$BRANCH_NAME" \
+            --base master
 
       - name: Output result
+        if: always()
         run: |
-          if [ "${{ steps.check_changes.outputs.has_changes }}" == "true" ]; then
+          if [ "${{ steps.commit_changes.outputs.has_changes }}" == "true" ]; then
             echo "✅ Pull request created successfully"
           else
             echo "ℹ️ No changes to API client, skipping PR creation"

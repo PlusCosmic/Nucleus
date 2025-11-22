@@ -13,6 +13,7 @@ public static class AppRegistry
 {
     public static void MapEndpoints(this WebApplication app)
     {
+        app.MapOpenApi();
         app.MapUserEndpoints();
         app.MapApexEndpoints();
         app.MapAuthEndpoints();

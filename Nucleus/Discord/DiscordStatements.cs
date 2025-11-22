@@ -5,7 +5,6 @@ namespace Nucleus.Discord;
 
 public class DiscordStatements(NpgsqlConnection connection)
 {
-    // Queries
     public async Task<DiscordUserRow?> GetUserByDiscordId(string discordId)
     {
         const string sql = @"
@@ -26,6 +25,17 @@ public class DiscordStatements(NpgsqlConnection connection)
             LIMIT 1";
 
         return await connection.QuerySingleOrDefaultAsync<DiscordUserRow>(sql, new { id });
+    }
+
+    public async Task<DiscordUserRow?> GetUserByUsername(string username)
+    {
+        const string sql = @"
+            SELECT id, discord_id, username, global_name, avatar
+            FROM discord_user
+            WHERE username = @username
+            LIMIT 1";
+
+        return await connection.QuerySingleOrDefaultAsync<DiscordUserRow>(sql, new { username });
     }
 
     public async Task<DiscordUserRow> InsertUser(string discordId, string username, string? globalName, string? avatar)
@@ -63,7 +73,27 @@ public class DiscordStatements(NpgsqlConnection connection)
         return await connection.QuerySingleAsync<DiscordUserRow>(sql, new { discordId, username, globalName, avatar });
     }
 
-    // Database Models (PascalCase properties auto-mapped to snake_case via DefaultTypeMap.MatchNamesWithUnderscores)
+    public async Task<UserPreferences?> GetUserPreferences(Guid userId)
+    {
+        const string sql = @"
+            SELECT discord_notifications_enabled
+            FROM discord_user
+            WHERE id = @userId
+            LIMIT 1";
+
+        return await connection.QuerySingleOrDefaultAsync<UserPreferences>(sql, new { userId });
+    }
+
+    public async Task UpdateUserPreferences(Guid userId, bool discordNotificationsEnabled)
+    {
+        const string sql = @"
+            UPDATE discord_user
+            SET discord_notifications_enabled = @discordNotificationsEnabled
+            WHERE id = @userId";
+
+        await connection.ExecuteAsync(sql, new { userId, discordNotificationsEnabled });
+    }
+
     public class DiscordUserRow
     {
         public Guid Id { get; set; }
@@ -72,4 +102,9 @@ public class DiscordStatements(NpgsqlConnection connection)
         public string? GlobalName { get; set; }
         public string? Avatar { get; set; }
     }
+}
+
+public record UserPreferences
+{
+    public bool DiscordNotificationsEnabled { get; init; } = true;
 }

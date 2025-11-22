@@ -95,14 +95,30 @@ jobs:
           # Delete branch if it exists locally from a previous failed run
           git branch -D "$BRANCH_NAME" 2>/dev/null || true
 
+          # Debug: Show what files exist and git status
+          echo "📁 Files in nucleus-api-client:"
+          ls -la packages/nucleus-api-client/ || echo "Directory not found"
+          echo ""
+          echo "📝 Git status before staging:"
+          git status
+          echo ""
+
           # Create and switch to new branch
           git checkout -b "$BRANCH_NAME"
 
           # Stage and commit changes (force add generated files even if in .gitignore)
+          echo "➕ Staging files..."
           git add -f packages/nucleus-api-client/Nucleus.json
           git add -f packages/nucleus-api-client/src/
           git add packages/nucleus-api-client/dist/ 2>/dev/null || true
           git add packages/nucleus-api-client/package.json 2>/dev/null || true
+
+          echo ""
+          echo "📝 Git status after staging:"
+          git status
+          echo ""
+          echo "📊 Files staged for commit:"
+          git diff --cached --name-only
 
           # Check if anything was actually staged
           if git diff --cached --quiet; then
@@ -111,7 +127,12 @@ jobs:
             exit 0
           fi
 
+          echo "💾 Creating commit..."
           git commit -m "$COMMIT_MESSAGE"
+
+          echo ""
+          echo "📋 Commit created:"
+          git log -1 --stat
 
           # Push to frontend repo (force push since this is an automated branch)
           git push -u origin "$BRANCH_NAME" --force

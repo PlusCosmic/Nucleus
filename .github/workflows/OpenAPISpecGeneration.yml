@@ -3,7 +3,7 @@ name: Sync OpenAPI to Frontend
 on:
   push:
     branches:
-      - main  # adjust to your default branch
+      - master  # adjust to your default branch
   workflow_dispatch:  # allows manual trigger
 
 jobs:
@@ -16,7 +16,7 @@ jobs:
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: '8.0.x'  # adjust to your .NET version
+          dotnet-version: '9.0.x'  # adjust to your .NET version
 
       - name: Build Nucleus to generate OpenAPI spec
         run: dotnet build

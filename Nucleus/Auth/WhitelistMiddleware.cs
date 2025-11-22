@@ -5,9 +5,9 @@ namespace Nucleus.Auth;
 
 public class WhitelistMiddleware
 {
+    private readonly ILogger<WhitelistMiddleware> _logger;
     private readonly RequestDelegate _next;
     private readonly HashSet<string> _whitelistedUserIds;
-    private readonly ILogger<WhitelistMiddleware> _logger;
 
     public WhitelistMiddleware(RequestDelegate next, IConfiguration configuration, ILogger<WhitelistMiddleware> logger)
     {
@@ -15,14 +15,14 @@ public class WhitelistMiddleware
         _logger = logger;
 
         // Load whitelist from configuration file
-        var whitelistPath = Path.Combine(AppContext.BaseDirectory, "whitelist.json");
+        string whitelistPath = Path.Combine(AppContext.BaseDirectory, "whitelist.json");
 
         if (File.Exists(whitelistPath))
         {
             try
             {
-                var json = File.ReadAllText(whitelistPath);
-                var whitelist = JsonSerializer.Deserialize<WhitelistConfig>(json);
+                string json = File.ReadAllText(whitelistPath);
+                WhitelistConfig? whitelist = JsonSerializer.Deserialize<WhitelistConfig>(json);
                 _whitelistedUserIds = whitelist?.WhitelistedDiscordUserIds?.ToHashSet() ?? new HashSet<string>();
                 _logger.LogInformation("Loaded {Count} whitelisted Discord user IDs", _whitelistedUserIds.Count);
             }
@@ -55,6 +55,13 @@ public class WhitelistMiddleware
             return;
         }
 
+        // Skip whitelist check for dropzone endpoint (file upload)
+        if (context.Request.Path.StartsWithSegments("/dropzone"))
+        {
+            await _next(context);
+            return;
+        }
+
         // Skip whitelist check for apex-legends endpoint (public endpoint)
         if (context.Request.Path.StartsWithSegments("/apex-legends"))
         {
@@ -80,7 +87,7 @@ public class WhitelistMiddleware
         }
 
         // Get Discord user ID from claims
-        var discordUserId = context.User.FindFirstValue(ClaimTypes.NameIdentifier);
+        string? discordUserId = context.User.FindFirstValue(ClaimTypes.NameIdentifier);
 
         if (string.IsNullOrEmpty(discordUserId))
         {

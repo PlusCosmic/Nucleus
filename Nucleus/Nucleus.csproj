@@ -10,6 +10,11 @@
         <DockerDefaultTargetOS>Linux</DockerDefaultTargetOS>
         <LangVersion>13</LangVersion>
         <PreserveCompilationContext>true</PreserveCompilationContext>
+
+        <!-- OpenAPI Generation Configuration -->
+        <OpenApiGenerateDocuments>true</OpenApiGenerateDocuments>
+        <OpenApiDocumentsDirectory>$(MSBuildProjectDirectory)\bin\$(Configuration)\$(TargetFramework)</OpenApiDocumentsDirectory>
+        <OpenApiGenerateDocumentsOnBuild>true</OpenApiGenerateDocumentsOnBuild>
     </PropertyGroup>
 
     <ItemGroup>

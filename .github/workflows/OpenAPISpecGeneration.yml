@@ -19,12 +19,12 @@ jobs:
           dotnet-version: '9.0.x'  # adjust to your .NET version
 
       - name: Build Nucleus to generate OpenAPI spec
-        run: dotnet build
+        run: dotnet build --configuration Release
 
       - name: Verify OpenAPI spec exists
         run: |
-          if [ ! -f obj/Nucleus.json ]; then
-            echo "Error: obj/Nucleus.json not found after build"
+          if [ ! -f Nucleus/bin/Release/net9.0/Nucleus.json ]; then
+            echo "Error: Nucleus/bin/Release/net9.0/Nucleus.json not found after build"
             exit 1
           fi
 
@@ -33,10 +33,11 @@ jobs:
         with:
           repository: PlusCosmic/plus-cosmic-dev
           token: ${{ secrets.FRONTEND_REPO_TOKEN }}
+          path: plus-cosmic-dev
 
       - name: Copy OpenAPI Spec
         run: |
-          cp obj/Nucleus.json plus-cosmic-dev/packages/nucleus-api-client/Nucleus.json
+          cp Nucleus/bin/Release/net9.0/Nucleus.json plus-cosmic-dev/packages/nucleus-api-client/Nucleus.json
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -64,7 +65,7 @@ jobs:
 
       - name: Check for changes
         id: check_changes
-        working-directory: frontend
+        working-directory: plus-cosmic-dev
         run: |
           if git diff --quiet; then
             echo "has_changes=false" >> $GITHUB_OUTPUT

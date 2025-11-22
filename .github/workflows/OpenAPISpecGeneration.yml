@@ -1,0 +1,121 @@
+name: Sync OpenAPI to Frontend
+
+on:
+  push:
+    branches:
+      - master  # adjust to your default branch
+  workflow_dispatch:  # allows manual trigger
+
+jobs:
+  sync-openapi:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Nucleus
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.0.x'  # adjust to your .NET version
+
+      - name: Build Nucleus to generate OpenAPI spec
+        run: dotnet build
+
+      - name: Verify OpenAPI spec exists
+        run: |
+          if [ ! -f obj/Nucleus.json ]; then
+            echo "Error: obj/Nucleus.json not found after build"
+            exit 1
+          fi
+
+      - name: Checkout Frontend Repo
+        uses: actions/checkout@v4
+        with:
+          repository: PlusCosmic/plus-cosmic-dev
+          token: ${{ secrets.FRONTEND_REPO_TOKEN }}
+
+      - name: Copy OpenAPI Spec
+        run: |
+          cp obj/Nucleus.json plus-cosmic-dev/packages/nucleus-api-client/Nucleus.json
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: 10
+
+      - name: Regenerate API Client
+        working-directory: plus-cosmic-dev/packages/nucleus-api-client
+        run: |
+          # Clear src directory for clean start
+          rm -rf src
+          mkdir -p src
+          
+          # Generate TypeScript client
+          npx openapi-generator-cli generate -i Nucleus.json -g typescript-fetch -o src --additional-properties=supportsES6=true
+          
+          # Build the package
+          pnpm install
+          pnpm run build
+
+      - name: Check for changes
+        id: check_changes
+        working-directory: frontend
+        run: |
+          if git diff --quiet; then
+            echo "has_changes=false" >> $GITHUB_OUTPUT
+            echo "No changes detected in generated client"
+          else
+            echo "has_changes=true" >> $GITHUB_OUTPUT
+            echo "Changes detected in generated client"
+          fi
+
+      - name: Create Pull Request
+        if: steps.check_changes.outputs.has_changes == 'true'
+        uses: peter-evans/create-pull-request@v6
+        with:
+          token: ${{ secrets.FRONTEND_REPO_TOKEN }}
+          commit-message: 'chore: update Nucleus API client'
+          branch: api-sync/nucleus-${{ github.sha }}
+          delete-branch: true
+          title: 'Update Nucleus API Client'
+          body: |
+            ## 🤖 Automated API Client Update
+            
+            This PR updates the `nucleus-api-client` package based on OpenAPI spec changes from Nucleus.
+            
+            ### Changes
+            - Updated `Nucleus.json` OpenAPI specification
+            - Regenerated TypeScript client in `packages/nucleus-api-client/src`
+            - Rebuilt the package
+            
+            ### Source
+            - **Repository:** ${{ github.repository }}
+            - **Commit:** ${{ github.sha }}
+            - **Branch:** ${{ github.ref_name }}
+            - **Triggered by:** ${{ github.event.head_commit.message }}
+            
+            ### Next Steps
+            1. Review the generated changes
+            2. Ensure tests pass
+            3. Merge when ready
+            
+            ---
+            
+            _This PR was automatically created by the Nucleus OpenAPI sync workflow._
+          labels: |
+            automated
+            api-client
+            nucleus
+
+      - name: Output result
+        run: |
+          if [ "${{ steps.check_changes.outputs.has_changes }}" == "true" ]; then
+            echo "✅ Pull request created successfully"
+          else
+            echo "ℹ️ No changes to API client, skipping PR creation"
+          fi

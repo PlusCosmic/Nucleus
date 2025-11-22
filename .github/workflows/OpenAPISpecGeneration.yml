@@ -49,15 +49,18 @@ jobs:
         with:
           version: 10
 
+      - name: Install dependencies
+        working-directory: plus-cosmic-dev
+        run: |
+          # Install from workspace root for proper monorepo dependency resolution
+          pnpm install --config.ignore-scripts=false
+
       - name: Regenerate API Client
         working-directory: plus-cosmic-dev/packages/nucleus-api-client
         run: |
           # Clear src directory for clean start
           rm -rf src
           mkdir -p src
-
-          # Install dependencies (including openapi-generator-cli)
-          pnpm install --config.ignore-scripts=false
 
           # Generate TypeScript client using the installed package
           pnpm exec openapi-generator-cli generate -i Nucleus.json -g typescript-fetch -o src --additional-properties=supportsES6=true
@@ -82,9 +85,15 @@ jobs:
 
           echo "has_changes=true" >> $GITHUB_OUTPUT
 
-          # Configure git
+          # Configure git with authentication
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          # Configure git to use the token for authentication
+          git config url."https://x-access-token:${GITHUB_TOKEN}@github.com/".insteadOf "https://github.com/"
+
+          # Delete branch if it exists locally from a previous failed run
+          git branch -D "$BRANCH_NAME" 2>/dev/null || true
 
           # Create and switch to new branch
           git checkout -b "$BRANCH_NAME"
@@ -93,10 +102,10 @@ jobs:
           git add .
           git commit -m "$COMMIT_MESSAGE"
 
-          # Push to frontend repo
-          git push -u origin "$BRANCH_NAME"
+          # Push to frontend repo (force push since this is an automated branch)
+          git push -u origin "$BRANCH_NAME" --force
 
-      - name: Create Pull Request
+      - name: Create or Update Pull Request
         if: steps.commit_changes.outputs.has_changes == 'true'
         working-directory: plus-cosmic-dev
         env:
@@ -106,35 +115,48 @@ jobs:
           SOURCE_SHA: ${{ github.sha }}
           SOURCE_BRANCH: ${{ github.ref_name }}
           TRIGGER_MESSAGE: ${{ github.event.head_commit.message }}
+          PR_BODY: |
+            ## 🤖 Automated API Client Update
+
+            This PR updates the \`nucleus-api-client\` package based on OpenAPI spec changes from Nucleus.
+
+            ### Changes
+            - Updated \`Nucleus.json\` OpenAPI specification
+            - Regenerated TypeScript client in \`packages/nucleus-api-client/src\`
+            - Rebuilt the package
+
+            ### Source
+            - **Repository:** $SOURCE_REPO
+            - **Commit:** $SOURCE_SHA
+            - **Branch:** $SOURCE_BRANCH
+            - **Triggered by:** $TRIGGER_MESSAGE
+
+            ### Next Steps
+            1. Review the generated changes
+            2. Ensure tests pass
+            3. Merge when ready
+
+            ---
+
+            _This PR was automatically created by the Nucleus OpenAPI sync workflow._
         run: |
-          gh pr create \
-            --title "Update Nucleus API Client" \
-            --body "## 🤖 Automated API Client Update
+          # Check if PR already exists for this branch
+          EXISTING_PR=$(gh pr list --head "$BRANCH_NAME" --json number --jq '.[0].number' || echo "")
 
-          This PR updates the \`nucleus-api-client\` package based on OpenAPI spec changes from Nucleus.
-
-          ### Changes
-          - Updated \`Nucleus.json\` OpenAPI specification
-          - Regenerated TypeScript client in \`packages/nucleus-api-client/src\`
-          - Rebuilt the package
-
-          ### Source
-          - **Repository:** $SOURCE_REPO
-          - **Commit:** $SOURCE_SHA
-          - **Branch:** $SOURCE_BRANCH
-          - **Triggered by:** $TRIGGER_MESSAGE
-
-          ### Next Steps
-          1. Review the generated changes
-          2. Ensure tests pass
-          3. Merge when ready
-
-          ---
-
-          _This PR was automatically created by the Nucleus OpenAPI sync workflow._" \
-            --label "automated,api-client,nucleus" \
-            --head "$BRANCH_NAME" \
-            --base master
+          if [ -n "$EXISTING_PR" ]; then
+            echo "📝 Updating existing PR #$EXISTING_PR"
+            gh pr edit "$EXISTING_PR" \
+              --title "Update Nucleus API Client" \
+              --body "$PR_BODY"
+          else
+            echo "✨ Creating new PR"
+            gh pr create \
+              --title "Update Nucleus API Client" \
+              --body "$PR_BODY" \
+              --label "automated,api-client,nucleus" \
+              --head "$BRANCH_NAME" \
+              --base master
+          fi
 
       - name: Output result
         if: always()

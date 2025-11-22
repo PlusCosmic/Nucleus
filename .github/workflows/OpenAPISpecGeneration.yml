@@ -55,12 +55,14 @@ jobs:
           # Clear src directory for clean start
           rm -rf src
           mkdir -p src
-          
-          # Generate TypeScript client
-          npx openapi-generator-cli generate -i Nucleus.json -g typescript-fetch -o src --additional-properties=supportsES6=true
-          
+
+          # Install dependencies (including openapi-generator-cli)
+          pnpm install --config.ignore-scripts=false
+
+          # Generate TypeScript client using the installed package
+          pnpm exec openapi-generator-cli generate -i Nucleus.json -g typescript-fetch -o src --additional-properties=supportsES6=true
+
           # Build the package
-          pnpm install
           pnpm run build
 
       - name: Check for changes

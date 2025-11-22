@@ -93,8 +93,8 @@ jobs:
           git add .
           git commit -m "$COMMIT_MESSAGE"
 
-          # Push to frontend repo
-          git push -u origin "$BRANCH_NAME"
+          # Push to frontend repo (force push since this is an automated branch)
+          git push -u origin "$BRANCH_NAME" --force
 
       - name: Create Pull Request
         if: steps.commit_changes.outputs.has_changes == 'true'

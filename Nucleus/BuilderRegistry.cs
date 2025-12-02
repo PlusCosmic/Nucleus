@@ -14,6 +14,7 @@ using Nucleus.Discord;
 using Nucleus.Dropzone;
 using Nucleus.Exceptions;
 using Nucleus.Links;
+using Nucleus.Minecraft;
 using StackExchange.Redis;
 
 namespace Nucleus;
@@ -30,6 +31,7 @@ public static class BuilderRegistry
         builder.Services.AddScoped<LinksStatements>();
         builder.Services.AddScoped<DiscordStatements>();
         builder.Services.AddScoped<PlaylistStatements>();
+        builder.Services.AddScoped<MinecraftStatements>();
         builder.Services.AddScoped<MapService>();
         builder.Services.AddScoped<LinksService>();
         builder.Services.AddScoped<ClipService>();
@@ -38,6 +40,12 @@ public static class BuilderRegistry
         builder.Services.AddScoped<FFmpegService>();
         builder.Services.AddScoped<PlaylistService>();
         builder.Services.AddScoped<DiscordBotService>();
+        builder.Services.AddSingleton<RconService>();
+        builder.Services.AddScoped<MinecraftStatusService>();
+        builder.Services.AddScoped<FileService>();
+        builder.Services.AddSingleton<LogTailerService>();
+        builder.Services.AddHostedService(sp => sp.GetRequiredService<LogTailerService>());
+        builder.Services.AddScoped<ConsoleWebSocketHandler>();
         builder.Services.AddScoped<IApexMapCacheService, ApexMapCacheService>();
         builder.Services.AddScoped<IApexDetectionQueueService, ApexDetectionQueueService>();
         builder.Services.AddHostedService<MapRefreshService>();

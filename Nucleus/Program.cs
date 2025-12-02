@@ -18,6 +18,10 @@ WebApplication app = builder.Build();
 
 app.UseHttpsRedirection();
 app.UseExceptionHandler();
+app.UseWebSockets(new WebSocketOptions
+{
+    KeepAliveInterval = TimeSpan.FromSeconds(30)
+});
 
 FileExtensionContentTypeProvider provider = new();
 provider.Mappings[".avif"] = "image/avif";

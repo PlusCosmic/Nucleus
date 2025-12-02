@@ -85,7 +85,7 @@ public class PlaylistStatements(NpgsqlConnection connection)
                 pc.added_at,
                 pc.added_by_user_id,
                 du.username,
-                du.avatar_url
+                du.avatar as avatar_url
             FROM playlist_collaborators pc
             INNER JOIN discord_user du ON pc.user_id = du.id
             WHERE pc.playlist_id = @playlistId

@@ -1,8 +1,7 @@
 using System.Net.WebSockets;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Http.HttpResults;
-using Nucleus.Discord;
-using Nucleus.Exceptions;
+using Nucleus.Auth;
 using Nucleus.Minecraft.Models;
 
 namespace Nucleus.Minecraft;
@@ -11,7 +10,8 @@ public static class MinecraftEndpoints
 {
     public static void MapMinecraftEndpoints(this WebApplication app)
     {
-        RouteGroupBuilder group = app.MapGroup("minecraft").RequireAuthorization();
+        RouteGroupBuilder group = app.MapGroup("minecraft")
+            .RequireAuthorization();
 
         // Status
         group.MapGet("status", GetStatus).WithName("GetMinecraftStatus");
@@ -21,7 +21,7 @@ public static class MinecraftEndpoints
         group.MapPost("console/command", SendCommand).WithName("SendMinecraftCommand");
         group.MapGet("console/history", GetCommandHistory).WithName("GetCommandHistory");
 
-        // Console (WebSocket) - requires authorization
+        // Console (WebSocket) - uses HttpContext directly for WebSocket upgrade
         group.MapGet("console/live", HandleConsoleWebSocket).WithName("ConsoleWebSocket");
 
         // Files
@@ -35,6 +35,7 @@ public static class MinecraftEndpoints
     private static async Task HandleConsoleWebSocket(
         HttpContext context,
         ConsoleWebSocketHandler handler,
+        AuthenticatedUser user,
         CancellationToken ct)
     {
         if (!context.WebSockets.IsWebSocketRequest)
@@ -44,297 +45,200 @@ public static class MinecraftEndpoints
             return;
         }
 
-        ClaimsPrincipal user = context.User;
-        string? discordId = user.FindFirstValue(ClaimTypes.NameIdentifier);
-        if (discordId is null)
-        {
-            context.Response.StatusCode = StatusCodes.Status401Unauthorized;
-            return;
-        }
-
         WebSocket webSocket = await context.WebSockets.AcceptWebSocketAsync();
-        await handler.HandleAsync(webSocket, user, ct);
+        await handler.HandleAsync(webSocket, context.User, ct);
     }
 
-    private static async Task<Results<Ok<ServerStatus>, UnauthorizedHttpResult>> GetStatus(
+    private static async Task<Ok<ServerStatus>> GetStatus(
         MinecraftStatusService statusService,
-        ClaimsPrincipal user)
+        AuthenticatedUser user)
     {
-        string? discordId = user.FindFirstValue(ClaimTypes.NameIdentifier);
-        if (discordId is null)
-        {
-            return TypedResults.Unauthorized();
-        }
-
         ServerStatus status = await statusService.GetServerStatusAsync();
         return TypedResults.Ok(status);
     }
 
-    private static async Task<Results<Ok<List<OnlinePlayer>>, UnauthorizedHttpResult>> GetPlayers(
+    private static async Task<Ok<List<OnlinePlayer>>> GetPlayers(
         RconService rconService,
-        ClaimsPrincipal user)
+        AuthenticatedUser user)
     {
-        string? discordId = user.FindFirstValue(ClaimTypes.NameIdentifier);
-        if (discordId is null)
-        {
-            return TypedResults.Unauthorized();
-        }
-
         List<OnlinePlayer> players = await rconService.GetOnlinePlayersAsync();
         return TypedResults.Ok(players);
     }
 
-    private static async Task<Results<Ok<RconResponse>, UnauthorizedHttpResult, BadRequest<string>>> SendCommand(
+    private static async Task<Results<Ok<RconResponse>, BadRequest<string>>> SendCommand(
         RconService rconService,
         MinecraftStatements statements,
-        DiscordStatements discordStatements,
-        ClaimsPrincipal user,
+        AuthenticatedUser user,
         RconCommand request)
     {
-        string? discordId = user.FindFirstValue(ClaimTypes.NameIdentifier);
-        if (discordId is null)
-        {
-            return TypedResults.Unauthorized();
-        }
-
         if (string.IsNullOrWhiteSpace(request.Command))
         {
             return TypedResults.BadRequest("Command cannot be empty");
         }
 
-        DiscordStatements.DiscordUserRow discordUser = await discordStatements.GetUserByDiscordId(discordId)
-                                                       ?? throw new UnauthorizedException("User not found");
-        Guid userId = discordUser.Id;
-
         try
         {
             string response = await rconService.SendCommandAsync(request.Command);
-            await statements.LogCommand(userId, request.Command, response, true, null);
+            await statements.LogCommand(user.Id, request.Command, response, true, null);
             return TypedResults.Ok(new RconResponse(true, response, null));
         }
         catch (Exception ex)
         {
-            await statements.LogCommand(userId, request.Command, null, false, ex.Message);
+            await statements.LogCommand(user.Id, request.Command, null, false, ex.Message);
             return TypedResults.Ok(new RconResponse(false, null, ex.Message));
         }
     }
 
-    private static async Task<Results<Ok<List<CommandLogEntry>>, UnauthorizedHttpResult>> GetCommandHistory(
+    private static async Task<Ok<List<CommandLogEntry>>> GetCommandHistory(
         MinecraftStatements statements,
-        DiscordStatements discordStatements,
-        ClaimsPrincipal user,
+        AuthenticatedUser user,
         int limit = 50)
     {
-        string? discordId = user.FindFirstValue(ClaimTypes.NameIdentifier);
-        if (discordId is null)
-        {
-            return TypedResults.Unauthorized();
-        }
-
-        DiscordStatements.DiscordUserRow discordUser = await discordStatements.GetUserByDiscordId(discordId)
-                                                       ?? throw new UnauthorizedException("User not found");
-        Guid userId = discordUser.Id;
-
-        List<CommandLogEntry> history = await statements.GetRecentCommands(userId, Math.Min(limit, 100));
+        List<CommandLogEntry> history = await statements.GetRecentCommands(user.Id, Math.Min(limit, 100));
         return TypedResults.Ok(history);
     }
 
-    private static async Task<Results<Ok<DirectoryListing>, UnauthorizedHttpResult, BadRequest<string>, NotFound<string>>> ListFiles(
+    private static async Task<Results<Ok<DirectoryListing>, BadRequest<string>, NotFound<string>>> ListFiles(
         FileService fileService,
         MinecraftStatements statements,
-        DiscordStatements discordStatements,
-        ClaimsPrincipal user,
+        AuthenticatedUser user,
         string path = "")
     {
-        string? discordId = user.FindFirstValue(ClaimTypes.NameIdentifier);
-        if (discordId is null)
-        {
-            return TypedResults.Unauthorized();
-        }
-
-        DiscordStatements.DiscordUserRow discordUser = await discordStatements.GetUserByDiscordId(discordId)
-                                                       ?? throw new UnauthorizedException("User not found");
-        Guid userId = discordUser.Id;
-
         try
         {
             DirectoryListing listing = fileService.ListDirectory(path);
-            await statements.LogFileOperation(userId, "list", path, true, null);
+            await statements.LogFileOperation(user.Id, "list", path, true, null);
             return TypedResults.Ok(listing);
         }
         catch (DirectoryNotFoundException)
         {
-            await statements.LogFileOperation(userId, "list", path, false, "Directory not found");
+            await statements.LogFileOperation(user.Id, "list", path, false, "Directory not found");
             return TypedResults.NotFound($"Directory not found: {path}");
         }
         catch (System.Security.SecurityException ex)
         {
-            await statements.LogFileOperation(userId, "list", path, false, ex.Message);
+            await statements.LogFileOperation(user.Id, "list", path, false, ex.Message);
             return TypedResults.BadRequest(ex.Message);
         }
     }
 
-    private static async Task<Results<Ok<string>, UnauthorizedHttpResult, BadRequest<string>, NotFound<string>>> GetFileContent(
+    private static async Task<Results<Ok<string>, BadRequest<string>, NotFound<string>>> GetFileContent(
         FileService fileService,
         MinecraftStatements statements,
-        DiscordStatements discordStatements,
-        ClaimsPrincipal user,
+        AuthenticatedUser user,
         string path)
     {
-        string? discordId = user.FindFirstValue(ClaimTypes.NameIdentifier);
-        if (discordId is null)
-        {
-            return TypedResults.Unauthorized();
-        }
-
         if (string.IsNullOrWhiteSpace(path))
         {
             return TypedResults.BadRequest("Path cannot be empty");
         }
-
-        DiscordStatements.DiscordUserRow discordUser = await discordStatements.GetUserByDiscordId(discordId)
-                                                       ?? throw new UnauthorizedException("User not found");
-        Guid userId = discordUser.Id;
 
         try
         {
             string content = await fileService.ReadFileAsync(path);
-            await statements.LogFileOperation(userId, "read", path, true, null);
+            await statements.LogFileOperation(user.Id, "read", path, true, null);
             return TypedResults.Ok(content);
         }
         catch (FileNotFoundException)
         {
-            await statements.LogFileOperation(userId, "read", path, false, "File not found");
+            await statements.LogFileOperation(user.Id, "read", path, false, "File not found");
             return TypedResults.NotFound($"File not found: {path}");
         }
         catch (System.Security.SecurityException ex)
         {
-            await statements.LogFileOperation(userId, "read", path, false, ex.Message);
+            await statements.LogFileOperation(user.Id, "read", path, false, ex.Message);
             return TypedResults.BadRequest(ex.Message);
         }
         catch (InvalidOperationException ex)
         {
-            await statements.LogFileOperation(userId, "read", path, false, ex.Message);
+            await statements.LogFileOperation(user.Id, "read", path, false, ex.Message);
             return TypedResults.BadRequest(ex.Message);
         }
     }
 
-    private static async Task<Results<Ok, UnauthorizedHttpResult, BadRequest<string>>> SaveFileContent(
+    private static async Task<Results<Ok, BadRequest<string>>> SaveFileContent(
         FileService fileService,
         MinecraftStatements statements,
-        DiscordStatements discordStatements,
-        ClaimsPrincipal user,
+        AuthenticatedUser user,
         SaveFileRequest request)
     {
-        string? discordId = user.FindFirstValue(ClaimTypes.NameIdentifier);
-        if (discordId is null)
-        {
-            return TypedResults.Unauthorized();
-        }
-
         if (string.IsNullOrWhiteSpace(request.Path))
         {
             return TypedResults.BadRequest("Path cannot be empty");
         }
 
-        DiscordStatements.DiscordUserRow discordUser = await discordStatements.GetUserByDiscordId(discordId)
-                                                       ?? throw new UnauthorizedException("User not found");
-        Guid userId = discordUser.Id;
-
         try
         {
             await fileService.WriteFileAsync(request.Path, request.Content ?? "");
-            await statements.LogFileOperation(userId, "write", request.Path, true, null);
+            await statements.LogFileOperation(user.Id, "write", request.Path, true, null);
             return TypedResults.Ok();
         }
         catch (System.Security.SecurityException ex)
         {
-            await statements.LogFileOperation(userId, "write", request.Path, false, ex.Message);
+            await statements.LogFileOperation(user.Id, "write", request.Path, false, ex.Message);
             return TypedResults.BadRequest(ex.Message);
         }
         catch (InvalidOperationException ex)
         {
-            await statements.LogFileOperation(userId, "write", request.Path, false, ex.Message);
+            await statements.LogFileOperation(user.Id, "write", request.Path, false, ex.Message);
             return TypedResults.BadRequest(ex.Message);
         }
     }
 
-    private static async Task<Results<Ok, UnauthorizedHttpResult, BadRequest<string>, NotFound<string>>> DeleteFile(
+    private static async Task<Results<Ok, BadRequest<string>, NotFound<string>>> DeleteFile(
         FileService fileService,
         MinecraftStatements statements,
-        DiscordStatements discordStatements,
-        ClaimsPrincipal user,
+        AuthenticatedUser user,
         string path)
     {
-        string? discordId = user.FindFirstValue(ClaimTypes.NameIdentifier);
-        if (discordId is null)
-        {
-            return TypedResults.Unauthorized();
-        }
-
         if (string.IsNullOrWhiteSpace(path))
         {
             return TypedResults.BadRequest("Path cannot be empty");
         }
 
-        DiscordStatements.DiscordUserRow discordUser = await discordStatements.GetUserByDiscordId(discordId)
-                                                       ?? throw new UnauthorizedException("User not found");
-        Guid userId = discordUser.Id;
-
         try
         {
             fileService.DeleteFile(path);
-            await statements.LogFileOperation(userId, "delete", path, true, null);
+            await statements.LogFileOperation(user.Id, "delete", path, true, null);
             return TypedResults.Ok();
         }
         catch (FileNotFoundException)
         {
-            await statements.LogFileOperation(userId, "delete", path, false, "File not found");
+            await statements.LogFileOperation(user.Id, "delete", path, false, "File not found");
             return TypedResults.NotFound($"File not found: {path}");
         }
         catch (System.Security.SecurityException ex)
         {
-            await statements.LogFileOperation(userId, "delete", path, false, ex.Message);
+            await statements.LogFileOperation(user.Id, "delete", path, false, ex.Message);
             return TypedResults.BadRequest(ex.Message);
         }
     }
 
-    private static async Task<Results<Ok, UnauthorizedHttpResult, BadRequest<string>>> CreateDirectory(
+    private static async Task<Results<Ok, BadRequest<string>>> CreateDirectory(
         FileService fileService,
         MinecraftStatements statements,
-        DiscordStatements discordStatements,
-        ClaimsPrincipal user,
+        AuthenticatedUser user,
         CreateDirectoryRequest request)
     {
-        string? discordId = user.FindFirstValue(ClaimTypes.NameIdentifier);
-        if (discordId is null)
-        {
-            return TypedResults.Unauthorized();
-        }
-
         if (string.IsNullOrWhiteSpace(request.Path))
         {
             return TypedResults.BadRequest("Path cannot be empty");
         }
 
-        DiscordStatements.DiscordUserRow discordUser = await discordStatements.GetUserByDiscordId(discordId)
-                                                       ?? throw new UnauthorizedException("User not found");
-        Guid userId = discordUser.Id;
-
         try
         {
             fileService.CreateDirectory(request.Path);
-            await statements.LogFileOperation(userId, "mkdir", request.Path, true, null);
+            await statements.LogFileOperation(user.Id, "mkdir", request.Path, true, null);
             return TypedResults.Ok();
         }
         catch (System.Security.SecurityException ex)
         {
-            await statements.LogFileOperation(userId, "mkdir", request.Path, false, ex.Message);
+            await statements.LogFileOperation(user.Id, "mkdir", request.Path, false, ex.Message);
             return TypedResults.BadRequest(ex.Message);
         }
         catch (InvalidOperationException ex)
         {
-            await statements.LogFileOperation(userId, "mkdir", request.Path, false, ex.Message);
+            await statements.LogFileOperation(user.Id, "mkdir", request.Path, false, ex.Message);
             return TypedResults.BadRequest(ex.Message);
         }
     }

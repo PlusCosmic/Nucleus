@@ -1,6 +1,5 @@
-using System.Security.Claims;
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http.HttpResults;
+using Nucleus.Auth;
 
 namespace Nucleus.Discord;
 
@@ -8,63 +7,44 @@ public static class DiscordUserEndpoints
 {
     public static void MapUserEndpoints(this WebApplication app)
     {
-        app.MapGet("/me", GetMe);
-        app.MapGet("/user/{userId}", GetUser);
-        app.MapGet("/me/preferences", GetMyPreferences);
-        app.MapPatch("/me/preferences", UpdateMyPreferences);
+        // Endpoints that need the authenticated user
+        RouteGroupBuilder meGroup = app.MapGroup("/me")
+            .RequireAuthorization();
+
+        meGroup.MapGet("/", GetMe);
+        meGroup.MapGet("/preferences", GetMyPreferences);
+        meGroup.MapPatch("/preferences", UpdateMyPreferences);
+
+        // Endpoints that don't need the current user but still require authorization
+        app.MapGet("/user/{userId}", GetUser).RequireAuthorization();
     }
 
-    [Authorize]
-    public static async Task<Results<Ok<DiscordUser>, UnauthorizedHttpResult>> GetMe(ClaimsPrincipal user, DiscordStatements discordStatements)
+    private static Ok<DiscordUser> GetMe(AuthenticatedUser user)
     {
-        string? discordId = user.FindFirstValue(ClaimTypes.NameIdentifier);
-        if (discordId == null)
-        {
-            return TypedResults.Unauthorized();
-        }
-
-        DiscordStatements.DiscordUserRow? dbUser = await discordStatements.GetUserByDiscordId(discordId);
-        if (dbUser == null)
-        {
-            return TypedResults.Unauthorized();
-        }
-
-        string? avatar = user.FindFirst("urn:discord:avatar")?.Value;
-        string avatarUrl = $"https://cdn.discordapp.com/avatars/{discordId}/{avatar}";
-        return TypedResults.Ok(new DiscordUser(dbUser.Id, dbUser.Username, dbUser.GlobalName, avatarUrl));
+        return TypedResults.Ok(new DiscordUser(user.Id, user.Username, user.GlobalName, user.GetAvatarUrl()));
     }
 
-    [Authorize]
-    public static async Task<Results<Ok<DiscordUser>, NotFound>> GetUser(Guid userId, DiscordStatements discordStatements)
+    private static async Task<Results<Ok<DiscordUser>, NotFound>> GetUser(Guid userId, DiscordStatements discordStatements)
     {
         DiscordStatements.DiscordUserRow? dbUser = await discordStatements.GetUserById(userId);
-        if (dbUser == null)
+        if (dbUser is null)
         {
             return TypedResults.NotFound();
         }
 
-        return TypedResults.Ok(new DiscordUser(dbUser.Id, dbUser.Username, dbUser.GlobalName, $"https://cdn.discordapp.com/avatars/{dbUser.DiscordId}/{dbUser.Avatar}"));
+        return TypedResults.Ok(new DiscordUser(
+            dbUser.Id,
+            dbUser.Username,
+            dbUser.GlobalName,
+            $"https://cdn.discordapp.com/avatars/{dbUser.DiscordId}/{dbUser.Avatar}"));
     }
 
-    [Authorize]
-    public static async Task<Results<Ok<UserPreferences>, UnauthorizedHttpResult, NotFound>> GetMyPreferences(
-        ClaimsPrincipal user,
+    private static async Task<Results<Ok<UserPreferences>, NotFound>> GetMyPreferences(
+        AuthenticatedUser user,
         DiscordStatements discordStatements)
     {
-        string? discordId = user.FindFirstValue(ClaimTypes.NameIdentifier);
-        if (discordId == null)
-        {
-            return TypedResults.Unauthorized();
-        }
-
-        DiscordStatements.DiscordUserRow? dbUser = await discordStatements.GetUserByDiscordId(discordId);
-        if (dbUser == null)
-        {
-            return TypedResults.Unauthorized();
-        }
-
-        UserPreferences? preferences = await discordStatements.GetUserPreferences(dbUser.Id);
-        if (preferences == null)
+        UserPreferences? preferences = await discordStatements.GetUserPreferences(user.Id);
+        if (preferences is null)
         {
             return TypedResults.NotFound();
         }
@@ -72,28 +52,15 @@ public static class DiscordUserEndpoints
         return TypedResults.Ok(preferences);
     }
 
-    [Authorize]
-    public static async Task<Results<Ok<UserPreferences>, UnauthorizedHttpResult, BadRequest<string>>> UpdateMyPreferences(
-        ClaimsPrincipal user,
+    private static async Task<Results<Ok<UserPreferences>, BadRequest<string>>> UpdateMyPreferences(
+        AuthenticatedUser user,
         UpdatePreferencesRequest request,
         DiscordStatements discordStatements)
     {
-        string? discordId = user.FindFirstValue(ClaimTypes.NameIdentifier);
-        if (discordId == null)
-        {
-            return TypedResults.Unauthorized();
-        }
+        await discordStatements.UpdateUserPreferences(user.Id, request.DiscordNotificationsEnabled);
 
-        DiscordStatements.DiscordUserRow? dbUser = await discordStatements.GetUserByDiscordId(discordId);
-        if (dbUser == null)
-        {
-            return TypedResults.Unauthorized();
-        }
-
-        await discordStatements.UpdateUserPreferences(dbUser.Id, request.DiscordNotificationsEnabled);
-
-        UserPreferences? updatedPreferences = await discordStatements.GetUserPreferences(dbUser.Id);
-        if (updatedPreferences == null)
+        UserPreferences? updatedPreferences = await discordStatements.GetUserPreferences(user.Id);
+        if (updatedPreferences is null)
         {
             return TypedResults.BadRequest("Failed to update preferences");
         }

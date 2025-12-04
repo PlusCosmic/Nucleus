@@ -34,6 +34,7 @@ app.UseCors();
 app.UseAuthentication();
 app.UseAuthorization();
 app.UseMiddleware<WhitelistMiddleware>();
+app.UseAuthenticatedUserResolution();
 app.MapEndpoints();
 app.MapHealthChecks("/health", new HealthCheckOptions
 {

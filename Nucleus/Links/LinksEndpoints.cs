@@ -1,5 +1,5 @@
-using System.Security.Claims;
 using Microsoft.AspNetCore.Http.HttpResults;
+using Nucleus.Auth;
 
 namespace Nucleus.Links;
 
@@ -7,45 +7,37 @@ public static class LinksEndpoints
 {
     public static void MapLinksEndpoints(this WebApplication app)
     {
-        RouteGroupBuilder group = app.MapGroup("links").RequireAuthorization();
+        RouteGroupBuilder group = app.MapGroup("links")
+            .RequireAuthorization();
+
         group.MapGet("", GetLinksForUser).WithName("GetLinksForUser");
         group.MapDelete("{id:guid}", DeleteLinkById).WithName("DeleteLink");
         group.MapPost("", AddLink).WithName("AddLink");
     }
 
-    public static async Task<Results<Ok<List<LinksStatements.UserFrequentLinkRow>>, UnauthorizedHttpResult>> GetLinksForUser(LinksService linksService, ClaimsPrincipal user)
+    private static async Task<Ok<List<LinksStatements.UserFrequentLinkRow>>> GetLinksForUser(
+        LinksService linksService,
+        AuthenticatedUser user)
     {
-        string? discordId = user.FindFirstValue(ClaimTypes.NameIdentifier);
-        if (string.IsNullOrEmpty(discordId))
-        {
-            return TypedResults.Unauthorized();
-        }
-
-        List<LinksStatements.UserFrequentLinkRow> links = await linksService.GetLinksForUser(discordId);
+        List<LinksStatements.UserFrequentLinkRow> links = await linksService.GetLinksForUser(user.DiscordId);
         return TypedResults.Ok(links);
     }
 
-    public static async Task<Results<NoContent, NotFound, UnauthorizedHttpResult>> DeleteLinkById(LinksService linksService, Guid id, ClaimsPrincipal user)
+    private static async Task<Results<NoContent, NotFound>> DeleteLinkById(
+        LinksService linksService,
+        Guid id,
+        AuthenticatedUser user)
     {
-        string? discordId = user.FindFirstValue(ClaimTypes.NameIdentifier);
-        if (string.IsNullOrEmpty(discordId))
-        {
-            return TypedResults.Unauthorized();
-        }
-
-        bool result = await linksService.DeleteLink(id, discordId);
+        bool result = await linksService.DeleteLink(id, user.DiscordId);
         return result ? TypedResults.NoContent() : TypedResults.NotFound();
     }
 
-    public static async Task<Results<Created, UnauthorizedHttpResult>> AddLink(LinksService linksService, LinkRequest link, ClaimsPrincipal user)
+    private static async Task<Created> AddLink(
+        LinksService linksService,
+        LinkRequest link,
+        AuthenticatedUser user)
     {
-        string? discordId = user.FindFirstValue(ClaimTypes.NameIdentifier);
-        if (string.IsNullOrEmpty(discordId))
-        {
-            return TypedResults.Unauthorized();
-        }
-
-        await linksService.AddLink(discordId, link.Url);
+        await linksService.AddLink(user.DiscordId, link.Url);
         return TypedResults.Created();
     }
 }

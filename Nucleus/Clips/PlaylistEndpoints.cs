@@ -1,5 +1,5 @@
-using System.Security.Claims;
 using Microsoft.AspNetCore.Http.HttpResults;
+using Nucleus.Auth;
 using Nucleus.Exceptions;
 
 namespace Nucleus.Clips;
@@ -8,7 +8,8 @@ public static class PlaylistEndpoints
 {
     public static void MapPlaylistEndpoints(this WebApplication app)
     {
-        RouteGroupBuilder group = app.MapGroup("api/playlists").RequireAuthorization();
+        RouteGroupBuilder group = app.MapGroup("api/playlists")
+            .RequireAuthorization();
 
         group.MapPost("", CreatePlaylist).WithName("CreatePlaylist");
         group.MapGet("", GetPlaylists).WithName("GetPlaylists");
@@ -27,20 +28,14 @@ public static class PlaylistEndpoints
         group.MapGet("{id:guid}/collaborators", GetPlaylistCollaborators).WithName("GetCollaborators");
     }
 
-    private static async Task<Results<Created<Playlist>, UnauthorizedHttpResult, BadRequest<string>>> CreatePlaylist(
+    private static async Task<Results<Created<Playlist>, BadRequest<string>>> CreatePlaylist(
         PlaylistService playlistService,
         CreatePlaylistRequest request,
-        ClaimsPrincipal user)
+        AuthenticatedUser user)
     {
-        string? discordId = user.FindFirstValue(ClaimTypes.NameIdentifier);
-        if (string.IsNullOrEmpty(discordId))
-        {
-            return TypedResults.Unauthorized();
-        }
-
         try
         {
-            Playlist playlist = await playlistService.CreatePlaylist(request.Name, request.Description, discordId);
+            Playlist playlist = await playlistService.CreatePlaylist(request.Name, request.Description, user.DiscordId);
             return TypedResults.Created($"/api/playlists/{playlist.Id}", playlist);
         }
         catch (BadRequestException ex)
@@ -49,33 +44,21 @@ public static class PlaylistEndpoints
         }
     }
 
-    private static async Task<Results<Ok<List<PlaylistSummary>>, UnauthorizedHttpResult>> GetPlaylists(
+    private static async Task<Ok<List<PlaylistSummary>>> GetPlaylists(
         PlaylistService playlistService,
-        ClaimsPrincipal user)
+        AuthenticatedUser user)
     {
-        string? discordId = user.FindFirstValue(ClaimTypes.NameIdentifier);
-        if (string.IsNullOrEmpty(discordId))
-        {
-            return TypedResults.Unauthorized();
-        }
-
-        List<PlaylistSummary> playlists = await playlistService.GetPlaylistsForUser(discordId);
+        List<PlaylistSummary> playlists = await playlistService.GetPlaylistsForUser(user.DiscordId);
         return TypedResults.Ok(playlists);
     }
 
-    private static async Task<Results<Ok<PlaylistWithDetails>, NotFound, UnauthorizedHttpResult>> GetPlaylistById(
+    private static async Task<Results<Ok<PlaylistWithDetails>, NotFound>> GetPlaylistById(
         PlaylistService playlistService,
         Guid id,
-        ClaimsPrincipal user)
+        AuthenticatedUser user)
     {
-        string? discordId = user.FindFirstValue(ClaimTypes.NameIdentifier);
-        if (string.IsNullOrEmpty(discordId))
-        {
-            return TypedResults.Unauthorized();
-        }
-
-        PlaylistWithDetails? playlist = await playlistService.GetPlaylistById(id, discordId);
-        if (playlist == null)
+        PlaylistWithDetails? playlist = await playlistService.GetPlaylistById(id, user.DiscordId);
+        if (playlist is null)
         {
             return TypedResults.NotFound();
         }
@@ -83,22 +66,16 @@ public static class PlaylistEndpoints
         return TypedResults.Ok(playlist);
     }
 
-    private static async Task<Results<Ok<Playlist>, NotFound, UnauthorizedHttpResult, BadRequest<string>>> UpdatePlaylist(
+    private static async Task<Results<Ok<Playlist>, NotFound, BadRequest<string>>> UpdatePlaylist(
         PlaylistService playlistService,
         Guid id,
         UpdatePlaylistRequest request,
-        ClaimsPrincipal user)
+        AuthenticatedUser user)
     {
-        string? discordId = user.FindFirstValue(ClaimTypes.NameIdentifier);
-        if (string.IsNullOrEmpty(discordId))
-        {
-            return TypedResults.Unauthorized();
-        }
-
         try
         {
-            Playlist? playlist = await playlistService.UpdatePlaylist(id, discordId, request.Name, request.Description);
-            if (playlist == null)
+            Playlist? playlist = await playlistService.UpdatePlaylist(id, user.DiscordId, request.Name, request.Description);
+            if (playlist is null)
             {
                 return TypedResults.NotFound();
             }
@@ -111,18 +88,12 @@ public static class PlaylistEndpoints
         }
     }
 
-    private static async Task<Results<NoContent, NotFound, UnauthorizedHttpResult>> DeletePlaylist(
+    private static async Task<Results<NoContent, NotFound>> DeletePlaylist(
         PlaylistService playlistService,
         Guid id,
-        ClaimsPrincipal user)
+        AuthenticatedUser user)
     {
-        string? discordId = user.FindFirstValue(ClaimTypes.NameIdentifier);
-        if (string.IsNullOrEmpty(discordId))
-        {
-            return TypedResults.Unauthorized();
-        }
-
-        bool deleted = await playlistService.DeletePlaylist(id, discordId);
+        bool deleted = await playlistService.DeletePlaylist(id, user.DiscordId);
         if (!deleted)
         {
             return TypedResults.NotFound();
@@ -131,39 +102,30 @@ public static class PlaylistEndpoints
         return TypedResults.NoContent();
     }
 
-    // Playlist Clips Endpoints
-
-    private static async Task<Results<Ok<PlaylistWithDetails>, NotFound, UnauthorizedHttpResult, BadRequest<string>>> AddClipsToPlaylist(
+    private static async Task<Results<Ok<PlaylistWithDetails>, NotFound, BadRequest<string>>> AddClipsToPlaylist(
         PlaylistService playlistService,
         Guid id,
         AddClipToPlaylistRequest request,
-        ClaimsPrincipal user)
+        AuthenticatedUser user)
     {
-        string? discordId = user.FindFirstValue(ClaimTypes.NameIdentifier);
-        if (string.IsNullOrEmpty(discordId))
-        {
-            return TypedResults.Unauthorized();
-        }
-
         try
         {
             PlaylistWithDetails? playlist;
 
-            // Handle single clip or batch add
             if (request.ClipId.HasValue)
             {
-                playlist = await playlistService.AddClipToPlaylist(id, request.ClipId.Value, discordId);
+                playlist = await playlistService.AddClipToPlaylist(id, request.ClipId.Value, user.DiscordId);
             }
-            else if (request.ClipIds != null && request.ClipIds.Count > 0)
+            else if (request.ClipIds is { Count: > 0 })
             {
-                playlist = await playlistService.AddClipsToPlaylist(id, request.ClipIds, discordId);
+                playlist = await playlistService.AddClipsToPlaylist(id, request.ClipIds, user.DiscordId);
             }
             else
             {
                 return TypedResults.BadRequest("Either clipId or clipIds must be provided");
             }
 
-            if (playlist == null)
+            if (playlist is null)
             {
                 return TypedResults.NotFound();
             }
@@ -176,19 +138,13 @@ public static class PlaylistEndpoints
         }
     }
 
-    private static async Task<Results<NoContent, NotFound, UnauthorizedHttpResult>> RemoveClipFromPlaylist(
+    private static async Task<Results<NoContent, NotFound>> RemoveClipFromPlaylist(
         PlaylistService playlistService,
         Guid id,
         Guid clipId,
-        ClaimsPrincipal user)
+        AuthenticatedUser user)
     {
-        string? discordId = user.FindFirstValue(ClaimTypes.NameIdentifier);
-        if (string.IsNullOrEmpty(discordId))
-        {
-            return TypedResults.Unauthorized();
-        }
-
-        bool removed = await playlistService.RemoveClipFromPlaylist(id, clipId, discordId);
+        bool removed = await playlistService.RemoveClipFromPlaylist(id, clipId, user.DiscordId);
         if (!removed)
         {
             return TypedResults.NotFound();
@@ -197,25 +153,19 @@ public static class PlaylistEndpoints
         return TypedResults.NoContent();
     }
 
-    private static async Task<Results<Ok<PlaylistWithDetails>, NotFound, UnauthorizedHttpResult, BadRequest<string>>> ReorderPlaylistClips(
+    private static async Task<Results<Ok<PlaylistWithDetails>, NotFound, BadRequest<string>>> ReorderPlaylistClips(
         PlaylistService playlistService,
         Guid id,
         ReorderPlaylistClipsRequest request,
-        ClaimsPrincipal user)
+        AuthenticatedUser user)
     {
-        string? discordId = user.FindFirstValue(ClaimTypes.NameIdentifier);
-        if (string.IsNullOrEmpty(discordId))
-        {
-            return TypedResults.Unauthorized();
-        }
-
-        if (request.ClipOrdering == null || request.ClipOrdering.Count == 0)
+        if (request.ClipOrdering is not { Count: > 0 })
         {
             return TypedResults.BadRequest("clipOrdering must be provided and cannot be empty");
         }
 
-        PlaylistWithDetails? playlist = await playlistService.ReorderPlaylistClips(id, request.ClipOrdering, discordId);
-        if (playlist == null)
+        PlaylistWithDetails? playlist = await playlistService.ReorderPlaylistClips(id, request.ClipOrdering, user.DiscordId);
+        if (playlist is null)
         {
             return TypedResults.NotFound();
         }
@@ -223,20 +173,12 @@ public static class PlaylistEndpoints
         return TypedResults.Ok(playlist);
     }
 
-    // Playlist Collaborators Endpoints
-
-    private static async Task<Results<Ok<List<PlaylistCollaborator>>, NotFound, UnauthorizedHttpResult, BadRequest<string>>> AddCollaboratorToPlaylist(
+    private static async Task<Results<Ok<List<PlaylistCollaborator>>, NotFound, BadRequest<string>>> AddCollaboratorToPlaylist(
         PlaylistService playlistService,
         Guid id,
         AddCollaboratorRequest request,
-        ClaimsPrincipal user)
+        AuthenticatedUser user)
     {
-        string? discordId = user.FindFirstValue(ClaimTypes.NameIdentifier);
-        if (string.IsNullOrEmpty(discordId))
-        {
-            return TypedResults.Unauthorized();
-        }
-
         if (!request.UserId.HasValue && string.IsNullOrWhiteSpace(request.Username))
         {
             return TypedResults.BadRequest("Either userId or username must be provided");
@@ -246,12 +188,12 @@ public static class PlaylistEndpoints
         {
             List<PlaylistCollaborator>? collaborators = await playlistService.AddCollaborator(
                 id,
-                discordId,
+                user.DiscordId,
                 request.UserId,
                 request.Username
             );
 
-            if (collaborators == null)
+            if (collaborators is null)
             {
                 return TypedResults.NotFound();
             }
@@ -264,21 +206,15 @@ public static class PlaylistEndpoints
         }
     }
 
-    private static async Task<Results<NoContent, NotFound, UnauthorizedHttpResult, BadRequest<string>>> RemoveCollaboratorFromPlaylist(
+    private static async Task<Results<NoContent, NotFound, BadRequest<string>>> RemoveCollaboratorFromPlaylist(
         PlaylistService playlistService,
         Guid id,
         Guid userId,
-        ClaimsPrincipal user)
+        AuthenticatedUser user)
     {
-        string? discordId = user.FindFirstValue(ClaimTypes.NameIdentifier);
-        if (string.IsNullOrEmpty(discordId))
-        {
-            return TypedResults.Unauthorized();
-        }
-
         try
         {
-            bool removed = await playlistService.RemoveCollaborator(id, userId, discordId);
+            bool removed = await playlistService.RemoveCollaborator(id, userId, user.DiscordId);
             if (!removed)
             {
                 return TypedResults.NotFound();
@@ -292,19 +228,13 @@ public static class PlaylistEndpoints
         }
     }
 
-    private static async Task<Results<Ok<List<PlaylistCollaborator>>, NotFound, UnauthorizedHttpResult>> GetPlaylistCollaborators(
+    private static async Task<Results<Ok<List<PlaylistCollaborator>>, NotFound>> GetPlaylistCollaborators(
         PlaylistService playlistService,
         Guid id,
-        ClaimsPrincipal user)
+        AuthenticatedUser user)
     {
-        string? discordId = user.FindFirstValue(ClaimTypes.NameIdentifier);
-        if (string.IsNullOrEmpty(discordId))
-        {
-            return TypedResults.Unauthorized();
-        }
-
-        List<PlaylistCollaborator>? collaborators = await playlistService.GetCollaborators(id, discordId);
-        if (collaborators == null)
+        List<PlaylistCollaborator>? collaborators = await playlistService.GetCollaborators(id, user.DiscordId);
+        if (collaborators is null)
         {
             return TypedResults.NotFound();
         }

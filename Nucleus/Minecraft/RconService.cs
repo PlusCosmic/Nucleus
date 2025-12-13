@@ -1,22 +1,15 @@
+using System.Net;
 using System.Text.RegularExpressions;
 using CoreRCON;
 using Nucleus.Minecraft.Models;
 
 namespace Nucleus.Minecraft;
 
-public partial class RconService : IDisposable
+public partial class RconService(IConfiguration configuration, ILogger<RconService> logger) : IDisposable
 {
-    private readonly IConfiguration _configuration;
-    private readonly ILogger<RconService> _logger;
     private RCON? _rconClient;
     private readonly SemaphoreSlim _connectionLock = new(1, 1);
     private bool _disposed;
-
-    public RconService(IConfiguration configuration, ILogger<RconService> logger)
-    {
-        _configuration = configuration;
-        _logger = logger;
-    }
 
     private async Task<RCON> GetConnectedClientAsync()
     {
@@ -28,14 +21,18 @@ public partial class RconService : IDisposable
                 return _rconClient;
             }
 
-            string host = _configuration["Minecraft:RconHost"] ?? "localhost";
-            int port = int.Parse(_configuration["Minecraft:RconPort"] ?? "25575");
-            string password = _configuration["Minecraft:RconPassword"] ?? "";
+            string host = configuration["Minecraft:RconHost"] ?? "localhost";
+            int port = int.Parse(configuration["Minecraft:RconPort"] ?? "25575");
+            string password = configuration["Minecraft:RconPassword"] ?? "";
 
-            _logger.LogInformation("Connecting to RCON at {Host}:{Port}", host, port);
-            _rconClient = new RCON(System.Net.IPAddress.Parse(host), (ushort)port, password);
+            logger.LogInformation("Connecting to RCON at {Host}:{Port}", host, port);
+
+            IPAddress[] addresses = await Dns.GetHostAddressesAsync(host);
+            IPAddress ip = addresses.First();
+
+            _rconClient = new RCON(ip, (ushort)port, password);
             await _rconClient.ConnectAsync();
-            _logger.LogInformation("Successfully connected to RCON");
+            logger.LogInformation("Successfully connected to RCON");
 
             return _rconClient;
         }
@@ -55,7 +52,7 @@ public partial class RconService : IDisposable
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to send RCON command: {Command}", command);
+            logger.LogError(ex, "Failed to send RCON command: {Command}", command);
             _rconClient?.Dispose();
             _rconClient = null;
             throw;
@@ -71,7 +68,7 @@ public partial class RconService : IDisposable
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to get online players");
+            logger.LogError(ex, "Failed to get online players");
             return new List<OnlinePlayer>();
         }
     }

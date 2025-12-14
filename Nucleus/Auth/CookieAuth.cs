@@ -27,12 +27,9 @@ public static class CookieAuth
             {
                 options.Cookie.Name = "pcdash.auth";
                 options.Cookie.HttpOnly = true;
-                options.Cookie.SecurePolicy = builder.Environment.IsDevelopment()
-                    ? CookieSecurePolicy.SameAsRequest // Allow HTTP in development
-                    : CookieSecurePolicy.Always; // Require HTTPS in production
-                options.Cookie.SameSite = builder.Environment.IsDevelopment()
-                    ? SameSiteMode.Lax // More lenient for development
-                    : SameSiteMode.None; // Strict for production cross-origin
+                // SameSite=None requires Secure flag. Localhost is treated as secure context by browsers.
+                options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
+                options.Cookie.SameSite = SameSiteMode.None; // Required for cross-origin OAuth flow
                 options.SlidingExpiration = true;
                 options.ExpireTimeSpan = TimeSpan.FromDays(7);
                 options.Cookie.MaxAge = TimeSpan.FromDays(7);

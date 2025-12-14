@@ -25,9 +25,8 @@ public static class CookieAuth
             {
                 options.Cookie.Name = "pcdash.auth";
                 options.Cookie.HttpOnly = true;
-                // SameSite=None requires Secure flag. Localhost is treated as secure context by browsers.
                 options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
-                options.Cookie.SameSite = SameSiteMode.None; // Required for cross-origin OAuth flow
+                options.Cookie.SameSite = SameSiteMode.Lax;
                 options.SlidingExpiration = true;
                 options.ExpireTimeSpan = TimeSpan.FromDays(7);
                 options.Cookie.MaxAge = TimeSpan.FromDays(7);
@@ -51,10 +50,6 @@ public static class CookieAuth
 
             // Explicitly set the sign-in scheme to ensure OAuth uses Cookie authentication
             options.SignInScheme = CookieAuthenticationDefaults.AuthenticationScheme;
-
-            // Configure correlation cookie for cross-origin OAuth flow
-            options.CorrelationCookie.SameSite = SameSiteMode.None;
-            options.CorrelationCookie.SecurePolicy = CookieSecurePolicy.Always;
 
             options.AuthorizationEndpoint = "https://discord.com/api/oauth2/authorize";
             options.TokenEndpoint = "https://discord.com/api/oauth2/token";

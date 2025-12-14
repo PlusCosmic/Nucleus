@@ -43,11 +43,18 @@ public static class CookieAuth
                     context.Response.StatusCode = StatusCodes.Status403Forbidden;
                     return Task.CompletedTask;
                 };
-            });
-        builder.Services.AddAuthentication().AddOAuth("Discord", options =>
+            })
+            .AddOAuth("Discord", options =>
         {
             options.ClientId = discordClientId!;
             options.ClientSecret = discordClientSecret!;
+
+            // Explicitly set the sign-in scheme to ensure OAuth uses Cookie authentication
+            options.SignInScheme = CookieAuthenticationDefaults.AuthenticationScheme;
+
+            // Configure correlation cookie for cross-origin OAuth flow
+            options.CorrelationCookie.SameSite = SameSiteMode.None;
+            options.CorrelationCookie.SecurePolicy = CookieSecurePolicy.Always;
 
             options.AuthorizationEndpoint = "https://discord.com/api/oauth2/authorize";
             options.TokenEndpoint = "https://discord.com/api/oauth2/token";

@@ -46,6 +46,8 @@ public static class BuilderRegistry
         builder.Services.AddSingleton<LogTailerService>();
         builder.Services.AddHostedService(sp => sp.GetRequiredService<LogTailerService>());
         builder.Services.AddScoped<ConsoleWebSocketHandler>();
+        builder.Services.AddScoped<BackupService>();
+        builder.Services.AddHostedService<BackupSyncBackgroundService>();
         builder.Services.AddScoped<IApexMapCacheService, ApexMapCacheService>();
         builder.Services.AddScoped<IApexDetectionQueueService, ApexDetectionQueueService>();
         builder.Services.AddHostedService<MapRefreshService>();

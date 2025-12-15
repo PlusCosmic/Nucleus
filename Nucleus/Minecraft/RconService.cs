@@ -23,7 +23,7 @@ public partial class RconService(IConfiguration configuration, ILogger<RconServi
 
             string host = configuration["Minecraft:RconHost"] ?? "localhost";
             int port = int.Parse(configuration["Minecraft:RconPort"] ?? "25575");
-            string password = configuration["Minecraft:RconPassword"] ?? "";
+            string password = GetRconPassword();
 
             logger.LogInformation("Connecting to RCON at {Host}:{Port}", host, port);
 
@@ -108,6 +108,43 @@ public partial class RconService(IConfiguration configuration, ILogger<RconServi
 
     [GeneratedRegex(@"online:\s*(.*)$", RegexOptions.IgnoreCase)]
     private static partial Regex PlayerListRegex();
+
+    private string GetRconPassword()
+    {
+        string? dataPath = configuration["Minecraft:DataPath"];
+        if (!string.IsNullOrWhiteSpace(dataPath))
+        {
+            string serverPropertiesPath = Path.Combine(dataPath, "server.properties");
+            if (File.Exists(serverPropertiesPath))
+            {
+                try
+                {
+                    string[] lines = File.ReadAllLines(serverPropertiesPath);
+                    foreach (string line in lines)
+                    {
+                        string trimmed = line.Trim();
+                        if (trimmed.StartsWith("rcon.password=", StringComparison.OrdinalIgnoreCase))
+                        {
+                            string password = trimmed["rcon.password=".Length..];
+                            logger.LogDebug("RCON password read from server.properties");
+                            return password;
+                        }
+                    }
+                    logger.LogWarning("rcon.password not found in server.properties, falling back to configuration");
+                }
+                catch (Exception ex)
+                {
+                    logger.LogWarning(ex, "Failed to read server.properties, falling back to configuration");
+                }
+            }
+            else
+            {
+                logger.LogDebug("server.properties not found at {Path}, falling back to configuration", serverPropertiesPath);
+            }
+        }
+
+        return configuration["Minecraft:RconPassword"] ?? "";
+    }
 
     public void Dispose()
     {

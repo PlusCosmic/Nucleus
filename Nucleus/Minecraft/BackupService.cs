@@ -147,7 +147,7 @@ public class BackupService
 
             ListObjectsV2Response response = await _s3Client!.ListObjectsV2Async(request, cancellationToken);
 
-            foreach (S3Object obj in response.S3Objects)
+            foreach (S3Object obj in response.S3Objects ?? [])
             {
                 keys.Add(obj.Key);
             }
@@ -217,7 +217,7 @@ public class BackupService
 
                 ListObjectsV2Response response = await _s3Client!.ListObjectsV2Async(request, cancellationToken);
 
-                foreach (S3Object obj in response.S3Objects)
+                foreach (S3Object obj in response.S3Objects ?? [])
                 {
                     string relativePath = obj.Key.StartsWith(_bucketPrefix)
                         ? obj.Key[_bucketPrefix.Length..]

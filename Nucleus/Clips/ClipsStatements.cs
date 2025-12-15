@@ -1,6 +1,7 @@
 using System.Text;
 using Dapper;
 using Npgsql;
+using Nucleus.Clips.Bunny.Models;
 
 namespace Nucleus.Clips;
 
@@ -354,9 +355,13 @@ public class ClipsStatements(NpgsqlConnection connection)
         const string sql = """
             SELECT id, owner_id, video_id, category, md5_hash, created_at, title, length, thumbnail_file_name, date_uploaded, storage_size, video_status, encode_progress
             FROM clip
-            WHERE video_status IS NULL OR video_status != 3
+            WHERE video_status IS NULL OR video_status NOT IN (@FinishedStatus, @ResolutionFinishedStatus)
             """;
-        return (await connection.QueryAsync<ClipRow>(sql)).ToList();
+        return (await connection.QueryAsync<ClipRow>(sql, new
+        {
+            FinishedStatus = (int)BunnyVideoStatus.Finished,
+            ResolutionFinishedStatus = (int)BunnyVideoStatus.ResolutionFinished
+        })).ToList();
     }
 
     public async Task UpdateClipMetadata(Guid clipId, string? title, int? length, string? thumbnailFileName,

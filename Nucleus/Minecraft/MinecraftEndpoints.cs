@@ -30,6 +30,10 @@ public static class MinecraftEndpoints
         group.MapPut("files/content", SaveFileContent).WithName("SaveMinecraftFileContent");
         group.MapDelete("files", DeleteFile).WithName("DeleteMinecraftFile");
         group.MapPost("files/mkdir", CreateDirectory).WithName("CreateMinecraftDirectory");
+
+        // Backups
+        group.MapGet("backups", GetBackupStatus).WithName("GetBackupStatus");
+        group.MapPost("backups/sync", TriggerBackupSync).WithName("TriggerBackupSync");
     }
 
     private static async Task HandleConsoleWebSocket(
@@ -241,6 +245,22 @@ public static class MinecraftEndpoints
             await statements.LogFileOperation(user.Id, "mkdir", request.Path, false, ex.Message);
             return TypedResults.BadRequest(ex.Message);
         }
+    }
+
+    private static async Task<Ok<BackupListResult>> GetBackupStatus(
+        BackupService backupService,
+        AuthenticatedUser user)
+    {
+        BackupListResult status = await backupService.GetBackupStatusAsync();
+        return TypedResults.Ok(status);
+    }
+
+    private static async Task<Ok<BackupSyncResult>> TriggerBackupSync(
+        BackupService backupService,
+        AuthenticatedUser user)
+    {
+        BackupSyncResult result = await backupService.SyncBackupsAsync();
+        return TypedResults.Ok(result);
     }
 
     public sealed record SaveFileRequest(string Path, string? Content);

@@ -1,5 +1,6 @@
 using Amazon.S3;
 using Amazon.S3.Model;
+using Amazon.S3.Transfer;
 
 namespace Nucleus.Minecraft;
 
@@ -161,17 +162,18 @@ public class BackupService
 
     private async Task UploadFileAsync(string localPath, string key, CancellationToken cancellationToken)
     {
-        await using FileStream fileStream = File.OpenRead(localPath);
+        using var transferUtility = new TransferUtility(_s3Client);
 
-        var request = new PutObjectRequest
+        var request = new TransferUtilityUploadRequest
         {
             BucketName = _bucketName,
             Key = key,
-            InputStream = fileStream,
-            ContentType = GetContentType(localPath)
+            FilePath = localPath,
+            ContentType = GetContentType(localPath),
+            PartSize = 50 * 1024 * 1024 // 50MB parts for multipart upload
         };
 
-        await _s3Client!.PutObjectAsync(request, cancellationToken);
+        await transferUtility.UploadAsync(request, cancellationToken);
     }
 
     private static string GetContentType(string filePath)

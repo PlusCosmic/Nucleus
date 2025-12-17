@@ -12,6 +12,7 @@ public static class PlaylistEndpoints
             .RequireAuthorization();
 
         group.MapPost("", CreatePlaylist).WithName("CreatePlaylist");
+        group.MapPost("gaming-session", CreateGamingSessionPlaylist).WithName("CreateGamingSessionPlaylist");
         group.MapGet("", GetPlaylists).WithName("GetPlaylists");
         group.MapGet("{id:guid}", GetPlaylistById).WithName("GetPlaylistById");
         group.MapPut("{id:guid}", UpdatePlaylist).WithName("UpdatePlaylist");
@@ -36,6 +37,26 @@ public static class PlaylistEndpoints
         try
         {
             Playlist playlist = await playlistService.CreatePlaylist(request.Name, request.Description, user.DiscordId);
+            return TypedResults.Created($"/api/playlists/{playlist.Id}", playlist);
+        }
+        catch (BadRequestException ex)
+        {
+            return TypedResults.BadRequest(ex.Message);
+        }
+    }
+    
+    private static async Task<Results<Created<PlaylistWithDetails>, BadRequest<string>>> CreateGamingSessionPlaylist(
+        PlaylistService playlistService,
+        CreateGamingSessionPlaylistRequest request,
+        AuthenticatedUser user)
+    {
+        try
+        {
+            PlaylistWithDetails playlist = await playlistService.CreateGamingSessionPlaylist(
+                request.Participants,
+                request.Category,
+                user.DiscordId);
+
             return TypedResults.Created($"/api/playlists/{playlist.Id}", playlist);
         }
         catch (BadRequestException ex)

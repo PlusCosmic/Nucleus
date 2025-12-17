@@ -7,6 +7,7 @@ public class PlaylistService(
     PlaylistStatements playlistStatements,
     DiscordStatements discordStatements,
     ClipsStatements clipsStatements,
+    ClipService clipService,
     DiscordBotService discordBotService)
 {
     public async Task<Playlist> CreatePlaylist(string name, string? description, string discordUserId)
@@ -398,5 +399,88 @@ public class PlaylistService(
             c.AddedAt,
             c.AddedByUserId
         )).ToList();
+    }
+
+    public async Task<PlaylistWithDetails> CreateGamingSessionPlaylist(
+        List<Guid> participantIds,
+        ClipCategoryEnum category,
+        string discordUserId)
+    {
+        DiscordStatements.DiscordUserRow currentUser = await discordStatements.GetUserByDiscordId(discordUserId)
+                                                       ?? throw new UnauthorizedException("User not found");
+
+        List<Guid> participants = participantIds.ToList();
+        if (!participants.Contains(currentUser.Id))
+        {
+            participants.Add(currentUser.Id);
+        }
+
+        string playlistName = $"{category} Session - {DateTimeOffset.UtcNow:MMMM dd}";
+        Playlist playlist = await CreatePlaylist(playlistName, string.Empty, discordUserId);
+
+        DateTimeOffset sessionStart = DateTimeOffset.UtcNow.AddDays(-1);
+        DateTimeOffset sessionEnd = DateTimeOffset.UtcNow;
+        List<Clip> allClips = [];
+
+        foreach (Guid participantId in participants)
+        {
+            DiscordStatements.DiscordUserRow? participant = await discordStatements.GetUserById(participantId);
+            if (participant == null)
+            {
+                continue;
+            }
+
+            if (participantId != currentUser.Id)
+            {
+                await AddCollaboratorInternal(playlist.Id, currentUser.Id, participantId);
+            }
+
+            PagedClipsResponse clipsForParticipant = await clipService.GetClipsForCategory(
+                category,
+                participant.DiscordId,
+                1,
+                int.MaxValue,
+                null,
+                null,
+                false,
+                ClipSortOrder.DateAscending,
+                sessionStart,
+                sessionEnd);
+
+            allClips.AddRange(clipsForParticipant.Clips);
+        }
+
+        allClips = allClips.OrderBy(c => c.CreatedAt).ToList();
+
+        if (allClips.Count > 0)
+        {
+            await AddClipsToPlaylistInternal(playlist.Id, allClips.Select(c => c.ClipId).ToList(), currentUser.Id);
+        }
+
+        return await GetPlaylistById(playlist.Id, discordUserId)
+               ?? throw new InvalidOperationException("Failed to retrieve created playlist");
+    }
+
+    private async Task AddCollaboratorInternal(Guid playlistId, Guid addedByUserId, Guid userIdToAdd)
+    {
+        await playlistStatements.AddCollaborator(playlistId, userIdToAdd, addedByUserId);
+    }
+
+    private async Task AddClipsToPlaylistInternal(Guid playlistId, List<Guid> clipIds, Guid addedByUserId)
+    {
+        int maxPosition = await playlistStatements.GetMaxPosition(playlistId);
+        int currentPosition = maxPosition + 1;
+
+        foreach (Guid clipId in clipIds)
+        {
+            bool exists = await playlistStatements.ClipExistsInPlaylist(playlistId, clipId);
+            if (!exists)
+            {
+                await playlistStatements.AddClipToPlaylist(playlistId, clipId, addedByUserId, currentPosition);
+                currentPosition++;
+            }
+        }
+
+        await playlistStatements.TouchPlaylistUpdatedAt(playlistId);
     }
 }

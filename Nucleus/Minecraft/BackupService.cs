@@ -1,29 +1,21 @@
 using Amazon.S3;
 using Amazon.S3.Model;
 using Amazon.S3.Transfer;
+using Nucleus.Minecraft.Models;
 
 namespace Nucleus.Minecraft;
 
 public class BackupService
 {
     private readonly ILogger<BackupService> _logger;
-    private readonly string _backupsPath;
     private readonly IAmazonS3? _s3Client;
     private readonly string? _bucketName;
-    private readonly string _bucketPrefix;
+    private readonly string _bucketPrefixBase;
 
     public BackupService(IConfiguration configuration, ILogger<BackupService> logger)
     {
         _logger = logger;
-
-        string? dataPath = configuration["Minecraft:DataPath"];
-        if (string.IsNullOrWhiteSpace(dataPath))
-        {
-            throw new InvalidOperationException("Minecraft:DataPath is not configured");
-        }
-
-        _backupsPath = Path.Combine(dataPath, "simplebackups");
-        _bucketPrefix = configuration["Backblaze:BucketPrefix"] ?? "minecraft-backups/";
+        _bucketPrefixBase = configuration["Backblaze:BucketPrefix"] ?? "minecraft-backups/";
 
         string? keyId = configuration["Backblaze:KeyId"];
         string? appKey = configuration["Backblaze:ApplicationKey"];
@@ -52,7 +44,13 @@ public class BackupService
 
     public bool IsConfigured => _s3Client != null && _bucketName != null;
 
-    public async Task<BackupSyncResult> SyncBackupsAsync(CancellationToken cancellationToken = default)
+    private static string GetBackupsPath(MinecraftServer server) =>
+        Path.Combine(server.PersistenceLocation, "simplebackups");
+
+    private string GetBucketPrefix(MinecraftServer server) =>
+        $"{_bucketPrefixBase}{server.ContainerName}/";
+
+    public async Task<BackupSyncResult> SyncBackupsAsync(MinecraftServer server, CancellationToken cancellationToken = default)
     {
         if (!IsConfigured)
         {
@@ -65,12 +63,15 @@ public class BackupService
             );
         }
 
-        if (!Directory.Exists(_backupsPath))
+        string backupsPath = GetBackupsPath(server);
+        string bucketPrefix = GetBucketPrefix(server);
+
+        if (!Directory.Exists(backupsPath))
         {
-            _logger.LogWarning("Backups directory does not exist: {Path}", _backupsPath);
+            _logger.LogWarning("Backups directory does not exist: {Path}", backupsPath);
             return new BackupSyncResult(
                 Success: false,
-                Message: $"Backups directory not found: {_backupsPath}",
+                Message: $"Backups directory not found: {backupsPath}",
                 FilesUploaded: 0,
                 FilesSkipped: 0,
                 BytesUploaded: 0
@@ -79,8 +80,8 @@ public class BackupService
 
         try
         {
-            HashSet<string> existingKeys = await GetExistingKeysAsync(cancellationToken);
-            string[] localFiles = Directory.GetFiles(_backupsPath, "*", SearchOption.AllDirectories);
+            HashSet<string> existingKeys = await GetExistingKeysAsync(bucketPrefix, cancellationToken);
+            string[] localFiles = Directory.GetFiles(backupsPath, "*", SearchOption.AllDirectories);
 
             int uploaded = 0;
             int skipped = 0;
@@ -90,8 +91,8 @@ public class BackupService
             {
                 cancellationToken.ThrowIfCancellationRequested();
 
-                string relativePath = Path.GetRelativePath(_backupsPath, localFile).Replace('\\', '/');
-                string key = _bucketPrefix + relativePath;
+                string relativePath = Path.GetRelativePath(backupsPath, localFile).Replace('\\', '/');
+                string key = bucketPrefix + relativePath;
 
                 if (existingKeys.Contains(key))
                 {
@@ -132,7 +133,7 @@ public class BackupService
         }
     }
 
-    private async Task<HashSet<string>> GetExistingKeysAsync(CancellationToken cancellationToken)
+    private async Task<HashSet<string>> GetExistingKeysAsync(string bucketPrefix, CancellationToken cancellationToken)
     {
         HashSet<string> keys = new();
 
@@ -142,7 +143,7 @@ public class BackupService
             var request = new ListObjectsV2Request
             {
                 BucketName = _bucketName,
-                Prefix = _bucketPrefix,
+                Prefix = bucketPrefix,
                 ContinuationToken = continuationToken
             };
 
@@ -190,17 +191,20 @@ public class BackupService
         };
     }
 
-    public async Task<BackupListResult> GetBackupStatusAsync(CancellationToken cancellationToken = default)
+    public async Task<BackupListResult> GetBackupStatusAsync(MinecraftServer server, CancellationToken cancellationToken = default)
     {
+        string backupsPath = GetBackupsPath(server);
+        string bucketPrefix = GetBucketPrefix(server);
+
         List<BackupFileInfo> localFiles = new();
         List<BackupFileInfo> remoteFiles = new();
 
-        if (Directory.Exists(_backupsPath))
+        if (Directory.Exists(backupsPath))
         {
-            foreach (string file in Directory.GetFiles(_backupsPath, "*", SearchOption.AllDirectories))
+            foreach (string file in Directory.GetFiles(backupsPath, "*", SearchOption.AllDirectories))
             {
                 FileInfo info = new(file);
-                string relativePath = Path.GetRelativePath(_backupsPath, file).Replace('\\', '/');
+                string relativePath = Path.GetRelativePath(backupsPath, file).Replace('\\', '/');
                 localFiles.Add(new BackupFileInfo(relativePath, info.Length, info.LastWriteTimeUtc));
             }
         }
@@ -213,7 +217,7 @@ public class BackupService
                 var request = new ListObjectsV2Request
                 {
                     BucketName = _bucketName,
-                    Prefix = _bucketPrefix,
+                    Prefix = bucketPrefix,
                     ContinuationToken = continuationToken
                 };
 
@@ -221,8 +225,8 @@ public class BackupService
 
                 foreach (S3Object obj in response.S3Objects ?? [])
                 {
-                    string relativePath = obj.Key.StartsWith(_bucketPrefix)
-                        ? obj.Key[_bucketPrefix.Length..]
+                    string relativePath = obj.Key.StartsWith(bucketPrefix)
+                        ? obj.Key[bucketPrefix.Length..]
                         : obj.Key;
                     remoteFiles.Add(new BackupFileInfo(
                         relativePath,

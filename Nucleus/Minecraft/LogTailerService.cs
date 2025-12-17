@@ -1,66 +1,85 @@
-using System.Collections.Concurrent;
 using System.Text;
 using System.Threading.Channels;
+using Nucleus.Minecraft.Models;
 
 namespace Nucleus.Minecraft;
 
 /// <summary>
-/// Tails the Minecraft server log file and broadcasts new lines to subscribers.
-/// Runs as a background service that continuously watches for log changes.
+/// Provides log tailing functionality for Minecraft servers.
+/// Supports reading recent log lines and streaming new log entries.
 /// </summary>
-public class LogTailerService : BackgroundService
+public class LogTailerService(ILogger<LogTailerService> logger)
 {
-    private readonly IConfiguration _configuration;
-    private readonly ILogger<LogTailerService> _logger;
-    private readonly ConcurrentDictionary<Guid, Channel<LogEntry>> _subscribers = new();
-    private string? _logFilePath;
-
-    public LogTailerService(IConfiguration configuration, ILogger<LogTailerService> logger)
-    {
-        _configuration = configuration;
-        _logger = logger;
-    }
-
     public record LogEntry(string Text, DateTimeOffset Timestamp, LogLevel Level);
 
-    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+    private static string GetLogFilePath(MinecraftServer server) =>
+        Path.Combine(server.PersistenceLocation, "logs", "latest.log");
+
+    /// <summary>
+    /// Gets recent log lines by reading the tail of the log file.
+    /// Used to provide initial context when a client connects.
+    /// </summary>
+    public async Task<List<LogEntry>> GetRecentLinesAsync(MinecraftServer server, int count = 100)
     {
-        string dataPath = _configuration["Minecraft:DataPath"] ?? "./data";
-        _logFilePath = Path.Combine(dataPath, "logs", "latest.log");
+        string logFilePath = GetLogFilePath(server);
 
-        _logger.LogInformation("LogTailerService starting, watching: {LogPath}", _logFilePath);
+        if (!File.Exists(logFilePath))
+            return new List<LogEntry>();
 
-        while (!stoppingToken.IsCancellationRequested)
+        try
         {
+            string[] allLines = await File.ReadAllLinesAsync(logFilePath);
+            return allLines
+                .TakeLast(count)
+                .Select(ParseLogLine)
+                .ToList();
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Failed to read recent log lines for server {ServerId}", server.Id);
+            return new List<LogEntry>();
+        }
+    }
+
+    /// <summary>
+    /// Creates a channel that streams new log entries for a specific server.
+    /// The returned task completes when streaming stops (cancelled or error).
+    /// </summary>
+    public async Task StreamLogsAsync(MinecraftServer server, Channel<LogEntry> channel, CancellationToken ct)
+    {
+        string logFilePath = GetLogFilePath(server);
+
+        while (!ct.IsCancellationRequested)
+        {
+            if (!File.Exists(logFilePath))
+            {
+                logger.LogWarning("Log file not found for server {ServerId}: {Path}", server.Id, logFilePath);
+                await Task.Delay(TimeSpan.FromSeconds(10), ct);
+                continue;
+            }
+
             try
             {
-                await TailLogFileAsync(stoppingToken);
+                await TailLogFileAsync(logFilePath, channel, ct);
             }
-            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+            catch (OperationCanceledException) when (ct.IsCancellationRequested)
             {
                 break;
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error tailing log file, retrying in 5 seconds");
-                await Task.Delay(TimeSpan.FromSeconds(5), stoppingToken);
+                logger.LogError(ex, "Error tailing log file for server {ServerId}, retrying", server.Id);
+                await Task.Delay(TimeSpan.FromSeconds(5), ct);
             }
         }
 
-        _logger.LogInformation("LogTailerService stopping");
+        channel.Writer.TryComplete();
     }
 
-    private async Task TailLogFileAsync(CancellationToken ct)
+    private async Task TailLogFileAsync(string logFilePath, Channel<LogEntry> channel, CancellationToken ct)
     {
-        if (!File.Exists(_logFilePath))
-        {
-            _logger.LogWarning("Log file not found: {Path}, waiting...", _logFilePath);
-            await Task.Delay(TimeSpan.FromSeconds(10), ct);
-            return;
-        }
-
         await using FileStream fs = new(
-            _logFilePath,
+            logFilePath,
             FileMode.Open,
             FileAccess.Read,
             FileShare.ReadWrite | FileShare.Delete);
@@ -77,7 +96,7 @@ public class LogTailerService : BackgroundService
             if (line != null)
             {
                 LogEntry entry = ParseLogLine(line);
-                await BroadcastAsync(entry);
+                await channel.Writer.WriteAsync(entry, ct);
             }
             else
             {
@@ -101,68 +120,5 @@ public class LogTailerService : BackgroundService
             level = LogLevel.Debug;
 
         return new LogEntry(line, DateTimeOffset.UtcNow, level);
-    }
-
-    private async Task BroadcastAsync(LogEntry entry)
-    {
-        foreach (var (id, channel) in _subscribers)
-        {
-            try
-            {
-                // Non-blocking write, drop if channel is full
-                channel.Writer.TryWrite(entry);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "Failed to write to subscriber {Id}", id);
-            }
-        }
-
-        await Task.CompletedTask;
-    }
-
-    public Guid Subscribe(out Channel<LogEntry> channel)
-    {
-        Guid id = Guid.NewGuid();
-        channel = Channel.CreateBounded<LogEntry>(new BoundedChannelOptions(1000)
-        {
-            FullMode = BoundedChannelFullMode.DropOldest
-        });
-        _subscribers.TryAdd(id, channel);
-        _logger.LogDebug("Subscriber {Id} added, total: {Count}", id, _subscribers.Count);
-        return id;
-    }
-
-    public void Unsubscribe(Guid id)
-    {
-        if (_subscribers.TryRemove(id, out var channel))
-        {
-            channel.Writer.TryComplete();
-            _logger.LogDebug("Subscriber {Id} removed, total: {Count}", id, _subscribers.Count);
-        }
-    }
-
-    /// <summary>
-    /// Gets recent log lines by reading the tail of the log file.
-    /// Used to provide initial context when a client connects.
-    /// </summary>
-    public async Task<List<LogEntry>> GetRecentLinesAsync(int count = 100)
-    {
-        if (_logFilePath == null || !File.Exists(_logFilePath))
-            return new List<LogEntry>();
-
-        try
-        {
-            string[] allLines = await File.ReadAllLinesAsync(_logFilePath);
-            return allLines
-                .TakeLast(count)
-                .Select(ParseLogLine)
-                .ToList();
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Failed to read recent log lines");
-            return new List<LogEntry>();
-        }
     }
 }

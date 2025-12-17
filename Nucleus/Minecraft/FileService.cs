@@ -3,54 +3,36 @@ using Nucleus.Minecraft.Models;
 
 namespace Nucleus.Minecraft;
 
-public class FileService
+public class FileService(ILogger<FileService> logger)
 {
-    private readonly string _basePath;
-    private readonly ILogger<FileService> _logger;
     private const long MaxFileSize = 5 * 1024 * 1024; // 5MB
 
-    public FileService(IConfiguration configuration, ILogger<FileService> logger)
+    private string GetSafePath(MinecraftServer server, string relativePath)
     {
-        _logger = logger;
-        string? configuredPath = configuration["Minecraft:DataPath"];
-        if (string.IsNullOrWhiteSpace(configuredPath))
-        {
-            throw new InvalidOperationException("Minecraft:DataPath is not configured");
-        }
+        string basePath = Path.GetFullPath(server.PersistenceLocation);
 
-        _basePath = Path.GetFullPath(configuredPath);
-        _logger.LogInformation("FileService initialized with base path: {BasePath}", _basePath);
-
-        if (!Directory.Exists(_basePath))
-        {
-            _logger.LogWarning("Base path does not exist: {BasePath}", _basePath);
-        }
-    }
-
-    private string GetSafePath(string relativePath)
-    {
         // Normalize the relative path
         string normalizedRelativePath = relativePath.Replace('\\', '/').TrimStart('/');
 
         // Combine with base path
-        string combinedPath = Path.Combine(_basePath, normalizedRelativePath);
+        string combinedPath = Path.Combine(basePath, normalizedRelativePath);
 
         // Get the full normalized path
         string fullPath = Path.GetFullPath(combinedPath);
 
         // Verify the resulting path is still within the base path
-        if (!fullPath.StartsWith(_basePath, StringComparison.OrdinalIgnoreCase))
+        if (!fullPath.StartsWith(basePath, StringComparison.OrdinalIgnoreCase))
         {
-            _logger.LogWarning("Path traversal attempt detected: {RelativePath} -> {FullPath}", relativePath, fullPath);
+            logger.LogWarning("Path traversal attempt detected: {RelativePath} -> {FullPath}", relativePath, fullPath);
             throw new SecurityException("Access to the specified path is denied");
         }
 
         return fullPath;
     }
 
-    public DirectoryListing ListDirectory(string relativePath)
+    public DirectoryListing ListDirectory(MinecraftServer server, string relativePath)
     {
-        string safePath = GetSafePath(relativePath);
+        string safePath = GetSafePath(server, relativePath);
 
         if (!Directory.Exists(safePath))
         {
@@ -97,9 +79,9 @@ public class FileService
         return new DirectoryListing(relativePath, entries);
     }
 
-    public async Task<string> ReadFileAsync(string relativePath)
+    public async Task<string> ReadFileAsync(MinecraftServer server, string relativePath)
     {
-        string safePath = GetSafePath(relativePath);
+        string safePath = GetSafePath(server, relativePath);
 
         if (!File.Exists(safePath))
         {
@@ -115,9 +97,9 @@ public class FileService
         return await File.ReadAllTextAsync(safePath);
     }
 
-    public async Task WriteFileAsync(string relativePath, string content)
+    public async Task WriteFileAsync(MinecraftServer server, string relativePath, string content)
     {
-        string safePath = GetSafePath(relativePath);
+        string safePath = GetSafePath(server, relativePath);
 
         // Check content size
         long contentSize = System.Text.Encoding.UTF8.GetByteCount(content);
@@ -134,12 +116,12 @@ public class FileService
         }
 
         await File.WriteAllTextAsync(safePath, content);
-        _logger.LogInformation("File written: {Path}", relativePath);
+        logger.LogInformation("File written: {Path}", relativePath);
     }
 
-    public void DeleteFile(string relativePath)
+    public void DeleteFile(MinecraftServer server, string relativePath)
     {
-        string safePath = GetSafePath(relativePath);
+        string safePath = GetSafePath(server, relativePath);
 
         if (!File.Exists(safePath))
         {
@@ -147,12 +129,12 @@ public class FileService
         }
 
         File.Delete(safePath);
-        _logger.LogInformation("File deleted: {Path}", relativePath);
+        logger.LogInformation("File deleted: {Path}", relativePath);
     }
 
-    public void CreateDirectory(string relativePath)
+    public void CreateDirectory(MinecraftServer server, string relativePath)
     {
-        string safePath = GetSafePath(relativePath);
+        string safePath = GetSafePath(server, relativePath);
 
         if (Directory.Exists(safePath))
         {
@@ -160,6 +142,6 @@ public class FileService
         }
 
         Directory.CreateDirectory(safePath);
-        _logger.LogInformation("Directory created: {Path}", relativePath);
+        logger.LogInformation("Directory created: {Path}", relativePath);
     }
 }

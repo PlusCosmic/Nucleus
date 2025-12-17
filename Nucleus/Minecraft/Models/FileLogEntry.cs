@@ -7,5 +7,6 @@ public record FileLogEntry(
     string FilePath,
     bool Success,
     string? Error,
-    DateTimeOffset ExecutedAt
+    DateTimeOffset ExecutedAt,
+    Guid? ServerId
 );

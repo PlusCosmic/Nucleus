@@ -1,3 +1,5 @@
+using Nucleus.Minecraft.Models;
+
 namespace Nucleus.Minecraft;
 
 public class BackupSyncBackgroundService(
@@ -36,28 +38,53 @@ public class BackupSyncBackgroundService(
 
     private async Task SyncBackupsAsync(CancellationToken stoppingToken)
     {
-        logger.LogInformation("Starting scheduled backup sync");
+        logger.LogInformation("Starting scheduled backup sync for all active servers");
 
         try
         {
             using IServiceScope scope = scopeFactory.CreateScope();
             BackupService backupService = scope.ServiceProvider.GetRequiredService<BackupService>();
+            MinecraftStatements statements = scope.ServiceProvider.GetRequiredService<MinecraftStatements>();
 
-            BackupSyncResult result = await backupService.SyncBackupsAsync(stoppingToken);
+            List<MinecraftServer> servers = await statements.GetAllActiveServersAsync();
 
-            if (result.Success)
+            if (servers.Count == 0)
             {
-                logger.LogInformation(
-                    "Scheduled backup sync completed: {Uploaded} uploaded, {Skipped} skipped, {Bytes:N0} bytes",
-                    result.FilesUploaded,
-                    result.FilesSkipped,
-                    result.BytesUploaded
-                );
+                logger.LogInformation("No active servers found, skipping backup sync");
+                return;
             }
-            else
+
+            int totalUploaded = 0;
+            int totalSkipped = 0;
+            long totalBytes = 0;
+
+            foreach (MinecraftServer server in servers)
             {
-                logger.LogWarning("Scheduled backup sync failed: {Message}", result.Message);
+                stoppingToken.ThrowIfCancellationRequested();
+
+                logger.LogInformation("Syncing backups for server {ServerName} ({ServerId})", server.Name, server.Id);
+
+                BackupSyncResult result = await backupService.SyncBackupsAsync(server, stoppingToken);
+
+                if (result.Success)
+                {
+                    totalUploaded += result.FilesUploaded;
+                    totalSkipped += result.FilesSkipped;
+                    totalBytes += result.BytesUploaded;
+
+                    logger.LogDebug(
+                        "Server {ServerName}: {Uploaded} uploaded, {Skipped} skipped",
+                        server.Name, result.FilesUploaded, result.FilesSkipped);
+                }
+                else
+                {
+                    logger.LogWarning("Backup sync failed for server {ServerName}: {Message}", server.Name, result.Message);
+                }
             }
+
+            logger.LogInformation(
+                "Scheduled backup sync completed for {ServerCount} servers: {Uploaded} uploaded, {Skipped} skipped, {Bytes:N0} bytes",
+                servers.Count, totalUploaded, totalSkipped, totalBytes);
         }
         catch (OperationCanceledException)
         {

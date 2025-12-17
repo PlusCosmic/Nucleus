@@ -5,6 +5,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Threading.Channels;
 using Nucleus.Discord;
+using Nucleus.Minecraft.Models;
 
 namespace Nucleus.Minecraft;
 
@@ -14,35 +15,20 @@ namespace Nucleus.Minecraft;
 /// - Sending RCON commands to the server
 /// - Receiving real-time server log output
 /// </summary>
-public class ConsoleWebSocketHandler
+public class ConsoleWebSocketHandler(
+    RconService rconService,
+    LogTailerService logTailerService,
+    MinecraftStatements statements,
+    DiscordStatements discordStatements,
+    ILogger<ConsoleWebSocketHandler> logger)
 {
-    private readonly RconService _rconService;
-    private readonly LogTailerService _logTailerService;
-    private readonly MinecraftStatements _statements;
-    private readonly DiscordStatements _discordStatements;
-    private readonly ILogger<ConsoleWebSocketHandler> _logger;
-
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower,
         DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
     };
 
-    public ConsoleWebSocketHandler(
-        RconService rconService,
-        LogTailerService logTailerService,
-        MinecraftStatements statements,
-        DiscordStatements discordStatements,
-        ILogger<ConsoleWebSocketHandler> logger)
-    {
-        _rconService = rconService;
-        _logTailerService = logTailerService;
-        _statements = statements;
-        _discordStatements = discordStatements;
-        _logger = logger;
-    }
-
-    public async Task HandleAsync(WebSocket webSocket, ClaimsPrincipal user, CancellationToken ct)
+    public async Task HandleAsync(WebSocket webSocket, ClaimsPrincipal user, MinecraftServer server, CancellationToken ct)
     {
         string? discordId = user.FindFirstValue(ClaimTypes.NameIdentifier);
         if (discordId == null)
@@ -51,7 +37,7 @@ public class ConsoleWebSocketHandler
             return;
         }
 
-        DiscordStatements.DiscordUserRow? discordUser = await _discordStatements.GetUserByDiscordId(discordId);
+        DiscordStatements.DiscordUserRow? discordUser = await discordStatements.GetUserByDiscordId(discordId);
         if (discordUser == null)
         {
             await CloseWithErrorAsync(webSocket, "User not found", ct);
@@ -59,15 +45,16 @@ public class ConsoleWebSocketHandler
         }
 
         Guid userId = discordUser.Id;
-        _logger.LogInformation("WebSocket console connected for user {UserId}", userId);
+        logger.LogInformation("WebSocket console connected for user {UserId} to server {ServerId}", userId, server.Id);
 
-        // Subscribe to log stream
-        Guid subscriptionId = _logTailerService.Subscribe(out Channel<LogTailerService.LogEntry> logChannel);
+        // Create a channel for log entries
+        Channel<LogTailerService.LogEntry> logChannel = Channel.CreateBounded<LogTailerService.LogEntry>(
+            new BoundedChannelOptions(1000) { FullMode = BoundedChannelFullMode.DropOldest });
 
         try
         {
             // Send recent log history first
-            List<LogTailerService.LogEntry> recentLogs = await _logTailerService.GetRecentLinesAsync(50);
+            List<LogTailerService.LogEntry> recentLogs = await logTailerService.GetRecentLinesAsync(server, 50);
             foreach (var entry in recentLogs)
             {
                 await SendLogEntryAsync(webSocket, entry, ct);
@@ -77,19 +64,20 @@ public class ConsoleWebSocketHandler
             await SendMessageAsync(webSocket, new WsMessage
             {
                 Type = "connected",
-                Message = "Connected to Minecraft console"
+                Message = $"Connected to Minecraft console: {server.Name}"
             }, ct);
 
-            // Start concurrent tasks for reading commands and streaming logs
+            // Start concurrent tasks for reading commands, streaming logs, and tailing
             using CancellationTokenSource linkedCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
 
-            Task readTask = ReadCommandsAsync(webSocket, userId, linkedCts.Token);
+            Task readTask = ReadCommandsAsync(webSocket, userId, server, linkedCts.Token);
             Task writeTask = StreamLogsAsync(webSocket, logChannel, linkedCts.Token);
+            Task tailTask = logTailerService.StreamLogsAsync(server, logChannel, linkedCts.Token);
 
-            // Wait for either task to complete (connection closed or error)
-            await Task.WhenAny(readTask, writeTask);
+            // Wait for any task to complete (connection closed or error)
+            await Task.WhenAny(readTask, writeTask, tailTask);
 
-            // Cancel the other task
+            // Cancel the other tasks
             await linkedCts.CancelAsync();
         }
         catch (OperationCanceledException)
@@ -98,12 +86,12 @@ public class ConsoleWebSocketHandler
         }
         catch (WebSocketException ex)
         {
-            _logger.LogWarning(ex, "WebSocket error for user {UserId}", userId);
+            logger.LogWarning(ex, "WebSocket error for user {UserId} on server {ServerId}", userId, server.Id);
         }
         finally
         {
-            _logTailerService.Unsubscribe(subscriptionId);
-            _logger.LogInformation("WebSocket console disconnected for user {UserId}", userId);
+            logChannel.Writer.TryComplete();
+            logger.LogInformation("WebSocket console disconnected for user {UserId} from server {ServerId}", userId, server.Id);
 
             if (webSocket.State == WebSocketState.Open)
             {
@@ -112,7 +100,7 @@ public class ConsoleWebSocketHandler
         }
     }
 
-    private async Task ReadCommandsAsync(WebSocket webSocket, Guid userId, CancellationToken ct)
+    private async Task ReadCommandsAsync(WebSocket webSocket, Guid userId, MinecraftServer server, CancellationToken ct)
     {
         byte[] buffer = new byte[4096];
 
@@ -134,12 +122,12 @@ public class ConsoleWebSocketHandler
             if (result.MessageType == WebSocketMessageType.Text)
             {
                 string json = Encoding.UTF8.GetString(ms.ToArray());
-                await ProcessCommandAsync(webSocket, json, userId, ct);
+                await ProcessCommandAsync(webSocket, json, userId, server, ct);
             }
         }
     }
 
-    private async Task ProcessCommandAsync(WebSocket webSocket, string json, Guid userId, CancellationToken ct)
+    private async Task ProcessCommandAsync(WebSocket webSocket, string json, Guid userId, MinecraftServer server, CancellationToken ct)
     {
         try
         {
@@ -150,12 +138,12 @@ public class ConsoleWebSocketHandler
             }
 
             string command = message.Command;
-            _logger.LogInformation("User {UserId} executing command: {Command}", userId, command);
+            logger.LogInformation("User {UserId} executing command on server {ServerId}: {Command}", userId, server.Id, command);
 
             try
             {
-                string response = await _rconService.SendCommandAsync(command);
-                await _statements.LogCommand(userId, command, response, true, null);
+                string response = await rconService.SendCommandAsync(server, command);
+                await statements.LogCommand(userId, command, response, true, null, server.Id);
 
                 await SendMessageAsync(webSocket, new WsMessage
                 {
@@ -168,7 +156,7 @@ public class ConsoleWebSocketHandler
             }
             catch (Exception ex)
             {
-                await _statements.LogCommand(userId, command, null, false, ex.Message);
+                await statements.LogCommand(userId, command, null, false, ex.Message, server.Id);
 
                 await SendMessageAsync(webSocket, new WsMessage
                 {
@@ -183,11 +171,11 @@ public class ConsoleWebSocketHandler
         }
         catch (JsonException ex)
         {
-            _logger.LogWarning(ex, "Invalid JSON received from client");
+            logger.LogWarning(ex, "Invalid JSON received from client");
         }
     }
 
-    private async Task StreamLogsAsync(WebSocket webSocket, Channel<LogTailerService.LogEntry> logChannel, CancellationToken ct)
+    private static async Task StreamLogsAsync(WebSocket webSocket, Channel<LogTailerService.LogEntry> logChannel, CancellationToken ct)
     {
         await foreach (var entry in logChannel.Reader.ReadAllAsync(ct))
         {
@@ -198,7 +186,7 @@ public class ConsoleWebSocketHandler
         }
     }
 
-    private async Task SendLogEntryAsync(WebSocket webSocket, LogTailerService.LogEntry entry, CancellationToken ct)
+    private static async Task SendLogEntryAsync(WebSocket webSocket, LogTailerService.LogEntry entry, CancellationToken ct)
     {
         await SendMessageAsync(webSocket, new WsMessage
         {

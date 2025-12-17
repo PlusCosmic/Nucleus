@@ -15,6 +15,7 @@ using Nucleus.Dropzone;
 using Nucleus.Exceptions;
 using Nucleus.Links;
 using Nucleus.Minecraft;
+using Nucleus.Minecraft.Models;
 using StackExchange.Redis;
 
 namespace Nucleus;
@@ -44,7 +45,6 @@ public static class BuilderRegistry
         builder.Services.AddScoped<MinecraftStatusService>();
         builder.Services.AddScoped<FileService>();
         builder.Services.AddSingleton<LogTailerService>();
-        builder.Services.AddHostedService(sp => sp.GetRequiredService<LogTailerService>());
         builder.Services.AddScoped<ConsoleWebSocketHandler>();
         builder.Services.AddScoped<BackupService>();
         builder.Services.AddHostedService<BackupSyncBackgroundService>();
@@ -113,9 +113,14 @@ public static class BuilderRegistry
         builder.Services.AddSingleton<MongoClient>(_ => new MongoClient(mongoConnectionString));
         builder.Services.AddSingleton<IMongoDatabase>(provider => provider.GetRequiredService<MongoClient>().GetDatabase("dropzone"));
         builder.Services.AddSingleton<IMongoCollection<ShareGroup>>(provider => provider.GetRequiredService<IMongoDatabase>().GetCollection<ShareGroup>("share-groups"));
-        builder.Services.AddScoped(sp =>
-            new NpgsqlConnection(connectionString ??
-                                 "Host=localhost;Database=nucleus_db;Username=nucleus_user;Password=dummy"));
+
+        NpgsqlDataSourceBuilder dataSourceBuilder = new(connectionString ??
+            "Host=localhost;Database=nucleus_db;Username=nucleus_user;Password=dummy");
+        dataSourceBuilder.MapEnum<MinecraftServerType>("minecraft_server_type");
+        NpgsqlDataSource dataSource = dataSourceBuilder.Build();
+
+        builder.Services.AddSingleton(dataSource);
+        builder.Services.AddScoped(_ => dataSource.CreateConnection());
 
         IHealthChecksBuilder healthChecksBuilder = builder.Services.AddHealthChecks();
 

@@ -2,23 +2,14 @@ using Nucleus.Minecraft.Models;
 
 namespace Nucleus.Minecraft;
 
-public class MinecraftStatusService
+public class MinecraftStatusService(RconService rconService, ILogger<MinecraftStatusService> logger)
 {
-    private readonly RconService _rconService;
-    private readonly ILogger<MinecraftStatusService> _logger;
-
-    public MinecraftStatusService(RconService rconService, ILogger<MinecraftStatusService> logger)
-    {
-        _rconService = rconService;
-        _logger = logger;
-    }
-
-    public async Task<ServerStatus> GetServerStatusAsync()
+    public async Task<ServerStatus> GetServerStatusAsync(MinecraftServer server)
     {
         try
         {
             // Try to get player list to determine if server is online
-            string listResponse = await _rconService.SendCommandAsync("list");
+            string listResponse = await rconService.SendCommandAsync(server, "list");
 
             // Parse the response to extract player counts
             // Expected format: "There are X of a max of Y players online: ..."
@@ -44,7 +35,7 @@ public class MinecraftStatusService
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Failed to get server status, assuming offline");
+            logger.LogWarning(ex, "Failed to get server status for {ServerId}, assuming offline", server.Id);
             return new ServerStatus(
                 IsOnline: false,
                 OnlinePlayers: 0,

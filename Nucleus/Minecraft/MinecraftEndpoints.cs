@@ -15,10 +15,13 @@ public static class MinecraftEndpoints
 
         // Server Management
         group.MapGet("servers", GetServers).WithName("GetMinecraftServers");
-        group.MapPost("servers", CreateServer).WithName("CreateMinecraftServer");
+        group.MapPost("servers", CreateServer).WithName("CreateMinecraftServer")
+            .RequirePermission(Permissions.MinecraftConsole);
         group.MapGet("servers/{serverId:guid}", GetServer).WithName("GetMinecraftServer");
-        group.MapPut("servers/{serverId:guid}", UpdateServer).WithName("UpdateMinecraftServer");
-        group.MapDelete("servers/{serverId:guid}", DeleteServer).WithName("DeleteMinecraftServer");
+        group.MapPut("servers/{serverId:guid}", UpdateServer).WithName("UpdateMinecraftServer")
+            .RequirePermission(Permissions.MinecraftConsole);
+        group.MapDelete("servers/{serverId:guid}", DeleteServer).WithName("DeleteMinecraftServer")
+            .RequirePermission(Permissions.MinecraftConsole);
 
         // Server-scoped endpoints
         RouteGroupBuilder serverGroup = group.MapGroup("servers/{serverId:guid}");
@@ -28,22 +31,31 @@ public static class MinecraftEndpoints
         serverGroup.MapGet("players", GetPlayers).WithName("GetMinecraftPlayers");
 
         // Console (REST)
-        serverGroup.MapPost("console/command", SendCommand).WithName("SendMinecraftCommand");
-        serverGroup.MapGet("console/history", GetCommandHistory).WithName("GetCommandHistory");
+        serverGroup.MapPost("console/command", SendCommand).WithName("SendMinecraftCommand")
+            .RequirePermission(Permissions.MinecraftConsole);
+        serverGroup.MapGet("console/history", GetCommandHistory).WithName("GetCommandHistory")
+            .RequirePermission(Permissions.MinecraftConsole);
 
         // Console (WebSocket) - uses HttpContext directly for WebSocket upgrade
-        serverGroup.MapGet("console/live", HandleConsoleWebSocket).WithName("ConsoleWebSocket");
+        serverGroup.MapGet("console/live", HandleConsoleWebSocket).WithName("ConsoleWebSocket")
+            .RequirePermission(Permissions.MinecraftConsole);
 
         // Files
-        serverGroup.MapGet("files", ListFiles).WithName("ListMinecraftFiles");
-        serverGroup.MapGet("files/content", GetFileContent).WithName("GetMinecraftFileContent");
-        serverGroup.MapPut("files/content", SaveFileContent).WithName("SaveMinecraftFileContent");
-        serverGroup.MapDelete("files", DeleteFile).WithName("DeleteMinecraftFile");
-        serverGroup.MapPost("files/mkdir", CreateDirectory).WithName("CreateMinecraftDirectory");
+        serverGroup.MapGet("files", ListFiles).WithName("ListMinecraftFiles")
+            .RequirePermission(Permissions.MinecraftFiles);
+        serverGroup.MapGet("files/content", GetFileContent).WithName("GetMinecraftFileContent")
+            .RequirePermission(Permissions.MinecraftFiles);
+        serverGroup.MapPut("files/content", SaveFileContent).WithName("SaveMinecraftFileContent")
+            .RequirePermission(Permissions.MinecraftFiles);
+        serverGroup.MapDelete("files", DeleteFile).WithName("DeleteMinecraftFile")
+            .RequirePermission(Permissions.MinecraftFiles);
+        serverGroup.MapPost("files/mkdir", CreateDirectory).WithName("CreateMinecraftDirectory")
+            .RequirePermission(Permissions.MinecraftFiles);
 
         // Backups
         serverGroup.MapGet("backups", GetBackupStatus).WithName("GetBackupStatus");
-        serverGroup.MapPost("backups/sync", TriggerBackupSync).WithName("TriggerBackupSync");
+        serverGroup.MapPost("backups/sync", TriggerBackupSync).WithName("TriggerBackupSync")
+            .RequirePermission(Permissions.MinecraftConsole);
     }
 
     #region Server Management

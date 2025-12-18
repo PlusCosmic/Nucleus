@@ -1,5 +1,4 @@
 using System.Security.Claims;
-using System.Text.Json;
 
 namespace Nucleus.Auth;
 
@@ -7,36 +6,13 @@ public class WhitelistMiddleware
 {
     private readonly ILogger<WhitelistMiddleware> _logger;
     private readonly RequestDelegate _next;
-    private readonly HashSet<string> _whitelistedUserIds;
+    private readonly WhitelistService _whitelistService;
 
-    public WhitelistMiddleware(RequestDelegate next, IConfiguration configuration, ILogger<WhitelistMiddleware> logger)
+    public WhitelistMiddleware(RequestDelegate next, WhitelistService whitelistService, ILogger<WhitelistMiddleware> logger)
     {
         _next = next;
+        _whitelistService = whitelistService;
         _logger = logger;
-
-        // Load whitelist from configuration file
-        string whitelistPath = Path.Combine(AppContext.BaseDirectory, "whitelist.json");
-
-        if (File.Exists(whitelistPath))
-        {
-            try
-            {
-                string json = File.ReadAllText(whitelistPath);
-                WhitelistConfig? whitelist = JsonSerializer.Deserialize<WhitelistConfig>(json);
-                _whitelistedUserIds = whitelist?.WhitelistedDiscordUserIds?.ToHashSet() ?? new HashSet<string>();
-                _logger.LogInformation("Loaded {Count} whitelisted Discord user IDs", _whitelistedUserIds.Count);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Failed to load whitelist.json, denying all requests");
-                _whitelistedUserIds = new HashSet<string>();
-            }
-        }
-        else
-        {
-            _logger.LogWarning("whitelist.json not found at {Path}, denying all requests", whitelistPath);
-            _whitelistedUserIds = new HashSet<string>();
-        }
     }
 
     public async Task InvokeAsync(HttpContext context)
@@ -98,7 +74,7 @@ public class WhitelistMiddleware
         }
 
         // Check if user is whitelisted
-        if (!_whitelistedUserIds.Contains(discordUserId))
+        if (!_whitelistService.IsWhitelisted(discordUserId))
         {
             _logger.LogWarning("Discord user {DiscordUserId} is not whitelisted", discordUserId);
             context.Response.StatusCode = StatusCodes.Status403Forbidden;
@@ -107,10 +83,5 @@ public class WhitelistMiddleware
         }
 
         await _next(context);
-    }
-
-    private class WhitelistConfig
-    {
-        public List<string>? WhitelistedDiscordUserIds { get; set; }
     }
 }

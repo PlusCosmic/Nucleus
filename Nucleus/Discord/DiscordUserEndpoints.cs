@@ -17,6 +17,7 @@ public static class DiscordUserEndpoints
 
         // Endpoints that don't need the current user but still require authorization
         app.MapGet("/user/{userId}", GetUser).RequireAuthorization();
+        app.MapGet("/users/suggestions", GetUserSuggestions).RequireAuthorization();
     }
 
     private static Ok<DiscordUser> GetMe(AuthenticatedUser user)
@@ -66,6 +67,24 @@ public static class DiscordUserEndpoints
         }
 
         return TypedResults.Ok(updatedPreferences);
+    }
+
+    private static async Task<Ok<List<DiscordUser>>> GetUserSuggestions(
+        AuthenticatedUser user,
+        DiscordStatements discordStatements)
+    {
+        var users = await discordStatements.GetAllUsersExcept(user.DiscordId);
+
+        var suggestions = users.Select(u => new DiscordUser(
+            u.Id,
+            u.Username,
+            u.GlobalName,
+            string.IsNullOrEmpty(u.Avatar)
+                ? null
+                : $"https://cdn.discordapp.com/avatars/{u.DiscordId}/{u.Avatar}"
+        )).ToList();
+
+        return TypedResults.Ok(suggestions);
     }
 }
 

@@ -192,10 +192,13 @@ public class WebApplicationFixture : WebApplicationFactory<Program>, IAsyncLifet
 
     /// <summary>
     ///     Creates a test whitelist.json file for authentication tests.
+    ///     Test users are given the Admin role to allow testing all operations.
     /// </summary>
     public static void CreateTestWhitelist(params string[] discordIds)
     {
-        var whitelistConfig = new { WhitelistedDiscordUserIds = discordIds };
+        // Use the new whitelist format with roles - test users get Admin role for full access
+        var users = discordIds.Select(id => new { DiscordId = id, Role = "Admin" }).ToArray();
+        var whitelistConfig = new { Users = users };
         string json = JsonSerializer.Serialize(whitelistConfig, new JsonSerializerOptions { WriteIndented = true });
 
         // Write to AppContext.BaseDirectory so WhitelistMiddleware can find it

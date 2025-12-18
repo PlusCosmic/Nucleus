@@ -28,6 +28,13 @@ jobs:
             exit 1
           fi
 
+      - name: Generate TypeScript Client
+        uses: openapi-generators/openapitools-generator-action@v1
+        with:
+          generator: typescript-fetch
+          openapi-file: Nucleus/bin/Release/net9.0/Nucleus.json
+          command-args: --additional-properties=supportsES6=true
+
       - name: Checkout Frontend Repo
         uses: actions/checkout@v4
         with:
@@ -35,9 +42,14 @@ jobs:
           token: ${{ secrets.FRONTEND_REPO_TOKEN }}
           path: plus-cosmic-dev
 
-      - name: Copy OpenAPI Spec
+      - name: Copy Generated Client
         run: |
+          # Copy OpenAPI spec
           cp Nucleus/bin/Release/net9.0/Nucleus.json plus-cosmic-dev/packages/nucleus-api-client/Nucleus.json
+
+          # Clear existing src and copy generated client
+          rm -rf plus-cosmic-dev/packages/nucleus-api-client/src
+          cp -r typescript-fetch-client plus-cosmic-dev/packages/nucleus-api-client/src
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -49,21 +61,11 @@ jobs:
         with:
           version: 10
 
-      - name: Install dependencies
-        working-directory: plus-cosmic-dev
-        run: |
-          # Install from workspace root for proper monorepo dependency resolution
-          pnpm install --config.ignore-scripts=false
-
-      - name: Regenerate API Client
+      - name: Build API Client Package
         working-directory: plus-cosmic-dev/packages/nucleus-api-client
         run: |
-          # Clear src directory for clean start
-          rm -rf src
-          mkdir -p src
-
-          # Generate TypeScript client using the installed package
-          pnpm exec openapi-generator-cli generate -i Nucleus.json -g typescript-fetch -o src --additional-properties=supportsES6=true
+          # Install package dependencies for build toolchain
+          pnpm install
 
           # Build the package
           pnpm run build

@@ -45,14 +45,17 @@ public class AuthenticatedUserMiddleware(RequestDelegate next, WhitelistService 
 
         if (dbUser is not null)
         {
-            // Get the expected role from whitelist (source of truth for base roles)
-            UserRole whitelistRole = whitelistService.GetRole(discordId);
+            // Determine the effective role:
+            // 1. If whitelist has explicit role override, use it
+            // 2. Otherwise, use database role (set by Discord sync or default)
+            UserRole? whitelistRole = whitelistService.GetRole(discordId);
             UserRole dbRole = ParseRole(dbUser.Role);
+            UserRole effectiveRole = whitelistRole ?? dbRole;
 
-            // Sync role from whitelist to database if different
-            if (dbRole != whitelistRole)
+            // Sync whitelist role to database if explicitly set and different
+            if (whitelistRole.HasValue && dbRole != whitelistRole.Value)
             {
-                await discordStatements.UpdateUserRole(dbUser.Id, whitelistRole.ToString());
+                await discordStatements.UpdateUserRole(dbUser.Id, whitelistRole.Value.ToString());
             }
 
             // Load additional permissions
@@ -64,7 +67,7 @@ public class AuthenticatedUserMiddleware(RequestDelegate next, WhitelistService 
                 dbUser.Username,
                 dbUser.GlobalName,
                 dbUser.Avatar,
-                whitelistRole, // Use whitelist role as source of truth
+                effectiveRole,
                 new HashSet<string>(additionalPermissions));
         }
 

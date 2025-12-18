@@ -13,6 +13,49 @@ public class DiscordBotService(
 {
     private readonly string _backendAddress = configuration["BackendAddress"] ?? "https://api.pluscosmic.dev";
 
+    public async Task<List<GuildMemberData>> GetAllGuildMembersAsync()
+    {
+        var members = new Dictionary<ulong, GuildMemberData>();
+
+        foreach (var guild in discordClient.Guilds)
+        {
+            try
+            {
+                await guild.DownloadUsersAsync();
+
+                foreach (var member in guild.Users)
+                {
+                    if (member.IsBot)
+                        continue;
+
+                    var discordId = member.Id;
+                    if (members.ContainsKey(discordId))
+                        continue;
+
+                    members[discordId] = new GuildMemberData(
+                        discordId.ToString(),
+                        member.Username,
+                        member.GlobalName,
+                        member.GetAvatarUrl() ?? member.GetDefaultAvatarUrl()
+                    );
+                }
+
+                logger.LogDebug("Fetched {Count} members from guild {GuildName}", guild.Users.Count, guild.Name);
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "Failed to fetch members from guild {GuildName}", guild.Name);
+            }
+        }
+
+        logger.LogInformation("Fetched {Count} unique members across {GuildCount} guilds",
+            members.Count, discordClient.Guilds.Count);
+
+        return members.Values.ToList();
+    }
+
+    public bool IsConnected => discordClient.ConnectionState == ConnectionState.Connected;
+
     public async Task SendPlaylistInvitationMessage(DiscordUser invitor, DiscordUser invitee, Playlist playlist)
     {
         try

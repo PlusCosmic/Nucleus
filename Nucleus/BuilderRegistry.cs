@@ -54,6 +54,7 @@ public static class BuilderRegistry
         builder.Services.AddHostedService<ApexDetectionBackgroundService>();
         builder.Services.AddHostedService<ClipStatusRefreshService>();
         builder.Services.AddHostedService<DiscordBotHostedService>();
+        builder.Services.AddHostedService<GuildMemberSyncService>();
         builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
         builder.Services.AddProblemDetails();
         builder.Services.Configure<JsonOptions>(options =>
@@ -88,11 +89,11 @@ public static class BuilderRegistry
 
         DiscordSocketConfig discordConfig = new DiscordSocketConfig()
         {
-            
+            GatewayIntents = GatewayIntents.Guilds | GatewayIntents.GuildMembers
         };
 
         builder.Services.AddSingleton(discordConfig);
-        builder.Services.AddSingleton<DiscordSocketClient>();
+        builder.Services.AddSingleton(provider => new DiscordSocketClient(provider.GetRequiredService<DiscordSocketConfig>()));
     }
 
     public static void RegisterDatabases(this WebApplicationBuilder builder)

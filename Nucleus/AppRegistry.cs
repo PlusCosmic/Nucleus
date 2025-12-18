@@ -1,3 +1,4 @@
+using Nucleus.Admin;
 using Nucleus.ApexLegends;
 using Nucleus.ApexLegends.LegendDetection;
 using Nucleus.Auth;
@@ -25,6 +26,7 @@ public static class AppRegistry
         app.MapApexDetectionEndpoints();
         app.MapPlaylistEndpoints();
         app.MapMinecraftEndpoints();
+        app.MapAdminEndpoints();
         //app.MapDropzoneEndpoints();
     }
 }

@@ -7,8 +7,9 @@ namespace Nucleus.Auth;
 /// Middleware that resolves the authenticated user from the database and stores it in HttpContext.Items.
 /// This middleware runs after WhitelistMiddleware and before endpoint execution.
 /// The user is then available via AuthenticatedUser.BindAsync for parameter binding.
+/// Also syncs roles from whitelist.json to the database (whitelist is source of truth for base roles).
 /// </summary>
-public class AuthenticatedUserMiddleware(RequestDelegate next)
+public class AuthenticatedUserMiddleware(RequestDelegate next, WhitelistService whitelistService)
 {
     // Paths that don't need user resolution (same as WhitelistMiddleware bypass paths)
     private static readonly HashSet<string> BypassPaths = new(StringComparer.OrdinalIgnoreCase)
@@ -44,8 +45,15 @@ public class AuthenticatedUserMiddleware(RequestDelegate next)
 
         if (dbUser is not null)
         {
-            // Parse the role from the database
-            UserRole role = ParseRole(dbUser.Role);
+            // Get the expected role from whitelist (source of truth for base roles)
+            UserRole whitelistRole = whitelistService.GetRole(discordId);
+            UserRole dbRole = ParseRole(dbUser.Role);
+
+            // Sync role from whitelist to database if different
+            if (dbRole != whitelistRole)
+            {
+                await discordStatements.UpdateUserRole(dbUser.Id, whitelistRole.ToString());
+            }
 
             // Load additional permissions
             List<string> additionalPermissions = await discordStatements.GetUserAdditionalPermissions(dbUser.Id);
@@ -56,7 +64,7 @@ public class AuthenticatedUserMiddleware(RequestDelegate next)
                 dbUser.Username,
                 dbUser.GlobalName,
                 dbUser.Avatar,
-                role,
+                whitelistRole, // Use whitelist role as source of truth
                 new HashSet<string>(additionalPermissions));
         }
 

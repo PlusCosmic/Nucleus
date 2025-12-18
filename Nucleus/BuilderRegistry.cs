@@ -14,6 +14,7 @@ using Nucleus.Discord;
 using Nucleus.Dropzone;
 using Nucleus.Exceptions;
 using Nucleus.Links;
+using Nucleus.Auth;
 using Nucleus.Minecraft;
 using Nucleus.Minecraft.Models;
 using StackExchange.Redis;
@@ -41,6 +42,7 @@ public static class BuilderRegistry
         builder.Services.AddScoped<FFmpegService>();
         builder.Services.AddScoped<PlaylistService>();
         builder.Services.AddScoped<DiscordBotService>();
+        builder.Services.AddSingleton<WhitelistService>();
         builder.Services.AddSingleton<RconService>();
         builder.Services.AddScoped<MinecraftStatusService>();
         builder.Services.AddScoped<FileService>();

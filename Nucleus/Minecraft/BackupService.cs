@@ -11,11 +11,13 @@ public class BackupService
     private readonly IAmazonS3? _s3Client;
     private readonly string? _bucketName;
     private readonly string _bucketPrefixBase;
+    private readonly int _localRetentionCount;
 
     public BackupService(IConfiguration configuration, ILogger<BackupService> logger)
     {
         _logger = logger;
         _bucketPrefixBase = configuration["Backblaze:BucketPrefix"] ?? "minecraft-backups/";
+        _localRetentionCount = int.TryParse(configuration["Backblaze:LocalRetentionCount"], out int count) ? count : 3;
 
         string? keyId = configuration["Backblaze:KeyId"];
         string? appKey = configuration["Backblaze:ApplicationKey"];
@@ -249,6 +251,83 @@ public class BackupService
             PendingSyncCount: pendingCount
         );
     }
+
+    public (int FilesDeleted, long BytesDeleted) CleanupOldBackups(MinecraftServer server)
+    {
+        string backupsPath = GetBackupsPath(server);
+
+        if (!Directory.Exists(backupsPath))
+        {
+            _logger.LogDebug("Backups directory does not exist, nothing to clean up: {Path}", backupsPath);
+            return (0, 0);
+        }
+
+        // Get all top-level entries (files and directories) as backup units
+        var backupEntries = Directory.GetFileSystemEntries(backupsPath)
+            .Select(path =>
+            {
+                bool isDirectory = Directory.Exists(path);
+                DateTime lastModified = isDirectory
+                    ? Directory.GetLastWriteTimeUtc(path)
+                    : File.GetLastWriteTimeUtc(path);
+                long size = isDirectory
+                    ? GetDirectorySize(path)
+                    : new FileInfo(path).Length;
+
+                return new { Path = path, LastModified = lastModified, Size = size, IsDirectory = isDirectory };
+            })
+            .OrderByDescending(e => e.LastModified)
+            .ToList();
+
+        if (backupEntries.Count <= _localRetentionCount)
+        {
+            _logger.LogDebug(
+                "Local backup count ({Count}) is within retention limit ({Limit}), no cleanup needed",
+                backupEntries.Count, _localRetentionCount);
+            return (0, 0);
+        }
+
+        var entriesToDelete = backupEntries.Skip(_localRetentionCount).ToList();
+        int filesDeleted = 0;
+        long bytesDeleted = 0;
+
+        foreach (var entry in entriesToDelete)
+        {
+            try
+            {
+                if (entry.IsDirectory)
+                {
+                    Directory.Delete(entry.Path, recursive: true);
+                }
+                else
+                {
+                    File.Delete(entry.Path);
+                }
+
+                filesDeleted++;
+                bytesDeleted += entry.Size;
+                _logger.LogInformation(
+                    "Deleted old backup: {Path} ({Size:N0} bytes)",
+                    Path.GetFileName(entry.Path), entry.Size);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to delete old backup: {Path}", entry.Path);
+            }
+        }
+
+        _logger.LogInformation(
+            "Backup cleanup complete: deleted {Count} backups ({Bytes:N0} bytes freed)",
+            filesDeleted, bytesDeleted);
+
+        return (filesDeleted, bytesDeleted);
+    }
+
+    private static long GetDirectorySize(string path)
+    {
+        return Directory.GetFiles(path, "*", SearchOption.AllDirectories)
+            .Sum(file => new FileInfo(file).Length);
+    }
 }
 
 public record BackupSyncResult(
@@ -256,7 +335,9 @@ public record BackupSyncResult(
     string Message,
     int FilesUploaded,
     int FilesSkipped,
-    long BytesUploaded
+    long BytesUploaded,
+    int FilesDeleted = 0,
+    long BytesDeleted = 0
 );
 
 public record BackupFileInfo(

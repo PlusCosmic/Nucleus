@@ -11,21 +11,30 @@ public static class PlaylistEndpoints
         RouteGroupBuilder group = app.MapGroup("api/playlists")
             .RequireAuthorization();
 
-        group.MapPost("", CreatePlaylist).WithName("CreatePlaylist");
-        group.MapPost("gaming-session", CreateGamingSessionPlaylist).WithName("CreateGamingSessionPlaylist");
+        group.MapPost("", CreatePlaylist).WithName("CreatePlaylist")
+            .RequirePermission(Permissions.PlaylistsManage);
+        group.MapPost("gaming-session", CreateGamingSessionPlaylist).WithName("CreateGamingSessionPlaylist")
+            .RequirePermission(Permissions.PlaylistsManage);
         group.MapGet("", GetPlaylists).WithName("GetPlaylists");
         group.MapGet("{id:guid}", GetPlaylistById).WithName("GetPlaylistById");
-        group.MapPut("{id:guid}", UpdatePlaylist).WithName("UpdatePlaylist");
-        group.MapDelete("{id:guid}", DeletePlaylist).WithName("DeletePlaylist");
+        group.MapPut("{id:guid}", UpdatePlaylist).WithName("UpdatePlaylist")
+            .RequirePermission(Permissions.PlaylistsManage);
+        group.MapDelete("{id:guid}", DeletePlaylist).WithName("DeletePlaylist")
+            .RequirePermission(Permissions.PlaylistsManage);
 
         // Playlist clips endpoints
-        group.MapPost("{id:guid}/clips", AddClipsToPlaylist).WithName("AddClipsToPlaylist");
-        group.MapDelete("{id:guid}/clips/{clipId:guid}", RemoveClipFromPlaylist).WithName("RemoveClipFromPlaylist");
-        group.MapPut("{id:guid}/clips/reorder", ReorderPlaylistClips).WithName("ReorderPlaylistClips");
+        group.MapPost("{id:guid}/clips", AddClipsToPlaylist).WithName("AddClipsToPlaylist")
+            .RequirePermission(Permissions.PlaylistsManage);
+        group.MapDelete("{id:guid}/clips/{clipId:guid}", RemoveClipFromPlaylist).WithName("RemoveClipFromPlaylist")
+            .RequirePermission(Permissions.PlaylistsManage);
+        group.MapPut("{id:guid}/clips/reorder", ReorderPlaylistClips).WithName("ReorderPlaylistClips")
+            .RequirePermission(Permissions.PlaylistsManage);
 
         // Playlist collaborators endpoints
-        group.MapPost("{id:guid}/collaborators", AddCollaboratorToPlaylist).WithName("AddCollaborator");
-        group.MapDelete("{id:guid}/collaborators/{userId:guid}", RemoveCollaboratorFromPlaylist).WithName("RemoveCollaborator");
+        group.MapPost("{id:guid}/collaborators", AddCollaboratorToPlaylist).WithName("AddCollaborator")
+            .RequirePermission(Permissions.PlaylistsManage);
+        group.MapDelete("{id:guid}/collaborators/{userId:guid}", RemoveCollaboratorFromPlaylist).WithName("RemoveCollaborator")
+            .RequirePermission(Permissions.PlaylistsManage);
         group.MapGet("{id:guid}/collaborators", GetPlaylistCollaborators).WithName("GetCollaborators");
     }
 

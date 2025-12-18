@@ -14,6 +14,7 @@ using Nucleus.Discord;
 using Nucleus.Dropzone;
 using Nucleus.Exceptions;
 using Nucleus.Links;
+using Nucleus.Auth;
 using Nucleus.Minecraft;
 using Nucleus.Minecraft.Models;
 using StackExchange.Redis;
@@ -41,6 +42,7 @@ public static class BuilderRegistry
         builder.Services.AddScoped<FFmpegService>();
         builder.Services.AddScoped<PlaylistService>();
         builder.Services.AddScoped<DiscordBotService>();
+        builder.Services.AddSingleton<WhitelistService>();
         builder.Services.AddSingleton<RconService>();
         builder.Services.AddScoped<MinecraftStatusService>();
         builder.Services.AddScoped<FileService>();
@@ -54,6 +56,7 @@ public static class BuilderRegistry
         builder.Services.AddHostedService<ApexDetectionBackgroundService>();
         builder.Services.AddHostedService<ClipStatusRefreshService>();
         builder.Services.AddHostedService<DiscordBotHostedService>();
+        builder.Services.AddHostedService<GuildMemberSyncService>();
         builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
         builder.Services.AddProblemDetails();
         builder.Services.Configure<JsonOptions>(options =>
@@ -88,11 +91,11 @@ public static class BuilderRegistry
 
         DiscordSocketConfig discordConfig = new DiscordSocketConfig()
         {
-            
+            GatewayIntents = GatewayIntents.Guilds | GatewayIntents.GuildMembers
         };
 
         builder.Services.AddSingleton(discordConfig);
-        builder.Services.AddSingleton<DiscordSocketClient>();
+        builder.Services.AddSingleton(provider => new DiscordSocketClient(provider.GetRequiredService<DiscordSocketConfig>()));
     }
 
     public static void RegisterDatabases(this WebApplicationBuilder builder)

@@ -12,15 +12,21 @@ public static class ClipsEndpoints
 
         group.MapGet("categories", GetCategories).WithName("GetCategories");
         group.MapGet("categories/{category}/videos", GetVideosByCategory).WithName("GetVideosByCategory");
-        group.MapPost("categories/{category}/videos", CreateVideo).WithName("CreateVideo");
+        group.MapPost("categories/{category}/videos", CreateVideo).WithName("CreateVideo")
+            .RequirePermission(Permissions.ClipsCreate);
         group.MapGet("videos/{clipId:guid}", GetVideoById).WithName("GetVideoById");
         group.MapPost("videos/{clipId:guid}/view", MarkVideoAsViewed).WithName("MarkVideoAsViewed");
-        group.MapPost("videos/{clipId:guid}/tags", AddTagToClip).WithName("AddTagToClip");
-        group.MapDelete("videos/{clipId:guid}/tags/{tag}", RemoveTagFromClip).WithName("RemoveTagFromClip");
+        group.MapPost("videos/{clipId:guid}/tags", AddTagToClip).WithName("AddTagToClip")
+            .RequirePermission(Permissions.ClipsEdit);
+        group.MapDelete("videos/{clipId:guid}/tags/{tag}", RemoveTagFromClip).WithName("RemoveTagFromClip")
+            .RequirePermission(Permissions.ClipsEdit);
         group.MapGet("tags/top", GetTopTags).WithName("GetTopTags");
-        group.MapPatch("videos/{clipId:guid}/title", UpdateClipTitle).WithName("UpdateClipTitle");
-        group.MapDelete("videos/{clipId:guid}", DeleteClip).WithName("DeleteClip");
-        group.MapPost("backfill-metadata", BackfillClipMetadata).WithName("BackfillClipMetadata");
+        group.MapPatch("videos/{clipId:guid}/title", UpdateClipTitle).WithName("UpdateClipTitle")
+            .RequirePermission(Permissions.ClipsEdit);
+        group.MapDelete("videos/{clipId:guid}", DeleteClip).WithName("DeleteClip")
+            .RequirePermission(Permissions.ClipsDelete);
+        group.MapPost("backfill-metadata", BackfillClipMetadata).WithName("BackfillClipMetadata")
+            .RequirePermission(Permissions.AdminUsers);
     }
 
     private static Ok<List<ClipCategory>> GetCategories(ClipService clipService)

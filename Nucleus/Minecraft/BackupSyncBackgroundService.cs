@@ -56,7 +56,9 @@ public class BackupSyncBackgroundService(
 
             int totalUploaded = 0;
             int totalSkipped = 0;
-            long totalBytes = 0;
+            long totalBytesUploaded = 0;
+            int totalDeleted = 0;
+            long totalBytesDeleted = 0;
 
             foreach (MinecraftServer server in servers)
             {
@@ -70,11 +72,16 @@ public class BackupSyncBackgroundService(
                 {
                     totalUploaded += result.FilesUploaded;
                     totalSkipped += result.FilesSkipped;
-                    totalBytes += result.BytesUploaded;
+                    totalBytesUploaded += result.BytesUploaded;
+
+                    // Clean up old local backups after successful sync
+                    var (filesDeleted, bytesDeleted) = backupService.CleanupOldBackups(server);
+                    totalDeleted += filesDeleted;
+                    totalBytesDeleted += bytesDeleted;
 
                     logger.LogDebug(
-                        "Server {ServerName}: {Uploaded} uploaded, {Skipped} skipped",
-                        server.Name, result.FilesUploaded, result.FilesSkipped);
+                        "Server {ServerName}: {Uploaded} uploaded, {Skipped} skipped, {Deleted} deleted",
+                        server.Name, result.FilesUploaded, result.FilesSkipped, filesDeleted);
                 }
                 else
                 {
@@ -83,8 +90,8 @@ public class BackupSyncBackgroundService(
             }
 
             logger.LogInformation(
-                "Scheduled backup sync completed for {ServerCount} servers: {Uploaded} uploaded, {Skipped} skipped, {Bytes:N0} bytes",
-                servers.Count, totalUploaded, totalSkipped, totalBytes);
+                "Scheduled backup sync completed for {ServerCount} servers: {Uploaded} uploaded, {Skipped} skipped, {Deleted} deleted, {BytesUp:N0} bytes up, {BytesDel:N0} bytes freed",
+                servers.Count, totalUploaded, totalSkipped, totalDeleted, totalBytesUploaded, totalBytesDeleted);
         }
         catch (OperationCanceledException)
         {

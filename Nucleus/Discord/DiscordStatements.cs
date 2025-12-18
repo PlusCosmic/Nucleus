@@ -73,6 +73,44 @@ public class DiscordStatements(NpgsqlConnection connection)
         return await connection.QuerySingleAsync<DiscordUserRow>(sql, new { discordId, username, globalName, avatar });
     }
 
+    public async Task<List<DiscordUserRow>> BulkUpsertUsers(List<GuildMemberData> members)
+    {
+        if (members.Count == 0)
+            return [];
+
+        const string sql = @"
+            INSERT INTO discord_user (discord_id, username, global_name, avatar)
+            SELECT * FROM UNNEST(@DiscordIds, @Usernames, @GlobalNames, @Avatars)
+            ON CONFLICT (discord_id)
+            DO UPDATE SET
+                username = EXCLUDED.username,
+                global_name = EXCLUDED.global_name,
+                avatar = EXCLUDED.avatar
+            RETURNING id, discord_id, username, global_name, avatar, role";
+
+        var result = await connection.QueryAsync<DiscordUserRow>(sql, new
+        {
+            DiscordIds = members.Select(m => m.DiscordId).ToArray(),
+            Usernames = members.Select(m => m.Username).ToArray(),
+            GlobalNames = members.Select(m => m.GlobalName).ToArray(),
+            Avatars = members.Select(m => m.Avatar).ToArray()
+        });
+
+        return result.ToList();
+    }
+
+    public async Task<List<DiscordUserRow>> GetAllUsersExcept(string excludeDiscordId)
+    {
+        const string sql = @"
+            SELECT id, discord_id, username, global_name, avatar, role
+            FROM discord_user
+            WHERE discord_id != @excludeDiscordId
+            ORDER BY global_name, username";
+
+        var result = await connection.QueryAsync<DiscordUserRow>(sql, new { excludeDiscordId });
+        return result.ToList();
+    }
+
     public async Task<List<string>> GetUserAdditionalPermissions(Guid userId)
     {
         const string sql = @"
@@ -149,3 +187,5 @@ public record UserPreferences
 {
     public bool DiscordNotificationsEnabled { get; init; } = true;
 }
+
+public record GuildMemberData(string DiscordId, string Username, string? GlobalName, string? Avatar);

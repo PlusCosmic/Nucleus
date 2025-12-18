@@ -43,6 +43,7 @@ public static class BuilderRegistry
         builder.Services.AddScoped<PlaylistService>();
         builder.Services.AddScoped<DiscordBotService>();
         builder.Services.AddSingleton<WhitelistService>();
+        builder.Services.AddSingleton<DiscordRoleMapping>();
         builder.Services.AddSingleton<RconService>();
         builder.Services.AddScoped<MinecraftStatusService>();
         builder.Services.AddScoped<FileService>();

@@ -6,14 +6,25 @@ namespace Nucleus.Auth;
 public class WhitelistEntry
 {
     public string DiscordId { get; set; } = string.Empty;
-    public string Role { get; set; } = nameof(UserRole.Viewer);
+    public string? Role { get; set; }
 
-    public UserRole GetRole()
+    /// <summary>
+    /// Gets the role, or null if not explicitly set.
+    /// </summary>
+    public UserRole? GetRole()
     {
+        if (string.IsNullOrEmpty(Role))
+            return null;
+
         return Enum.TryParse<UserRole>(Role, ignoreCase: true, out var role)
             ? role
-            : UserRole.Viewer;
+            : null;
     }
+
+    /// <summary>
+    /// Returns true if this entry has an explicit role override.
+    /// </summary>
+    public bool HasExplicitRole => !string.IsNullOrEmpty(Role);
 }
 
 /// <summary>

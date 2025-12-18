@@ -5,6 +5,7 @@ namespace Nucleus.Discord;
 
 public class DiscordBotHostedService(
     DiscordSocketClient discordClient,
+    IServiceProvider serviceProvider,
     IConfiguration configuration,
     ILogger<DiscordBotHostedService> logger) : IHostedService
 {
@@ -20,6 +21,7 @@ public class DiscordBotHostedService(
 
         discordClient.Log += LogAsync;
         discordClient.Ready += OnReadyAsync;
+        discordClient.GuildMemberUpdated += OnGuildMemberUpdatedAsync;
 
         try
         {
@@ -64,5 +66,31 @@ public class DiscordBotHostedService(
     {
         logger.LogInformation("Discord bot is ready! Logged in as {Username}", discordClient.CurrentUser.Username);
         return Task.CompletedTask;
+    }
+
+    private async Task OnGuildMemberUpdatedAsync(Cacheable<SocketGuildUser, ulong> before, SocketGuildUser after)
+    {
+        try
+        {
+            // Check if roles have changed
+            var beforeRoles = before.HasValue ? before.Value.Roles.Select(r => r.Id).ToHashSet() : new HashSet<ulong>();
+            var afterRoles = after.Roles.Select(r => r.Id).ToHashSet();
+
+            if (beforeRoles.SetEquals(afterRoles))
+            {
+                // Roles haven't changed, skip
+                return;
+            }
+
+            logger.LogDebug("Detected role change for {Username} ({DiscordId})", after.Username, after.Id);
+
+            // Get the sync service and trigger role update
+            var syncService = serviceProvider.GetRequiredService<GuildMemberSyncService>();
+            await syncService.SyncSingleUserRoleAsync(after.Id.ToString(), afterRoles.ToList());
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to handle guild member update for {Username}", after.Username);
+        }
     }
 }

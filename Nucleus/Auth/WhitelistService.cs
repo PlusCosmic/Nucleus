@@ -35,13 +35,21 @@ public class WhitelistService
     }
 
     /// <summary>
-    /// Gets the role for a Discord ID, defaulting to Viewer if not found.
+    /// Gets the explicit role for a Discord ID, or null if not explicitly set.
     /// </summary>
-    public UserRole GetRole(string discordId)
+    public UserRole? GetRole(string discordId)
     {
         return _entries.TryGetValue(discordId, out var entry)
             ? entry.GetRole()
-            : UserRole.Viewer;
+            : null;
+    }
+
+    /// <summary>
+    /// Checks if a Discord ID has an explicit role override in the whitelist.
+    /// </summary>
+    public bool HasExplicitRole(string discordId)
+    {
+        return _entries.TryGetValue(discordId, out var entry) && entry.HasExplicitRole;
     }
 
     /// <summary>

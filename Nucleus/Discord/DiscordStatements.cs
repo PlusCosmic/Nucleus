@@ -199,4 +199,9 @@ public record UserPreferences
     public bool DiscordNotificationsEnabled { get; init; } = true;
 }
 
-public record GuildMemberData(string DiscordId, string Username, string? GlobalName, string? Avatar);
+public record GuildMemberData(
+    string DiscordId,
+    string Username,
+    string? GlobalName,
+    string? Avatar,
+    List<ulong> DiscordRoleIds);

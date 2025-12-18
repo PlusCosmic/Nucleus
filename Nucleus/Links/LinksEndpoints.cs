@@ -11,8 +11,10 @@ public static class LinksEndpoints
             .RequireAuthorization();
 
         group.MapGet("", GetLinksForUser).WithName("GetLinksForUser");
-        group.MapDelete("{id:guid}", DeleteLinkById).WithName("DeleteLink");
-        group.MapPost("", AddLink).WithName("AddLink");
+        group.MapDelete("{id:guid}", DeleteLinkById).WithName("DeleteLink")
+            .RequirePermission(Permissions.LinksManage);
+        group.MapPost("", AddLink).WithName("AddLink")
+            .RequirePermission(Permissions.LinksManage);
     }
 
     private static async Task<Ok<List<LinksStatements.UserFrequentLinkRow>>> GetLinksForUser(

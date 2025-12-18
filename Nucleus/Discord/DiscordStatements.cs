@@ -111,6 +111,17 @@ public class DiscordStatements(NpgsqlConnection connection)
         return result.ToList();
     }
 
+    public async Task<List<DiscordUserRow>> GetAllUsers()
+    {
+        const string sql = @"
+            SELECT id, discord_id, username, global_name, avatar, role
+            FROM discord_user
+            ORDER BY role DESC, global_name, username";
+
+        var result = await connection.QueryAsync<DiscordUserRow>(sql);
+        return result.ToList();
+    }
+
     public async Task<List<string>> GetUserAdditionalPermissions(Guid userId)
     {
         const string sql = @"

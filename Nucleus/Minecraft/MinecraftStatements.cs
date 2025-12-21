@@ -163,6 +163,39 @@ public class MinecraftStatements(NpgsqlConnection connection)
         return await connection.ExecuteScalarAsync<bool>(sql, new { ContainerName = containerName, ExcludeServerId = excludeServerId });
     }
 
+    public async Task UpdateRconPasswordAsync(Guid serverId, string rconPassword)
+    {
+        const string sql = """
+            UPDATE minecraft_server
+            SET rcon_password = @RconPassword
+            WHERE id = @ServerId
+            """;
+
+        await connection.ExecuteAsync(sql, new { ServerId = serverId, RconPassword = rconPassword });
+    }
+
+    public async Task MarkServerInactiveAsync(Guid serverId)
+    {
+        const string sql = """
+            UPDATE minecraft_server
+            SET is_active = FALSE
+            WHERE id = @ServerId
+            """;
+
+        await connection.ExecuteAsync(sql, new { ServerId = serverId });
+    }
+
+    public async Task UpdatePersistenceLocationAsync(Guid serverId, string persistenceLocation)
+    {
+        const string sql = """
+            UPDATE minecraft_server
+            SET persistence_location = @PersistenceLocation
+            WHERE id = @ServerId
+            """;
+
+        await connection.ExecuteAsync(sql, new { ServerId = serverId, PersistenceLocation = persistenceLocation });
+    }
+
     #endregion
 
     #region Logging Operations

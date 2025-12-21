@@ -45,6 +45,7 @@ public static class BuilderRegistry
         builder.Services.AddSingleton<WhitelistService>();
         builder.Services.AddSingleton<DiscordRoleMapping>();
         builder.Services.AddSingleton<RconService>();
+        builder.Services.AddSingleton<DockerContainerService>();
         builder.Services.AddScoped<MinecraftStatusService>();
         builder.Services.AddScoped<FileService>();
         builder.Services.AddSingleton<LogTailerService>();

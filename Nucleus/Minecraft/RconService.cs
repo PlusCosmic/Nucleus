@@ -127,12 +127,17 @@ public partial class RconService(ILogger<RconService> logger) : IDisposable
 
     private static (string host, int port, string password) GetRconSettings(MinecraftServer server)
     {
-        // Default values - RCON typically runs on the container's hostname
         string host = server.ContainerName;
         int port = 25575;
-        string password = "";
 
-        // Try to read from server.properties
+        // Prefer database password (set during container provisioning)
+        if (!string.IsNullOrEmpty(server.RconPassword))
+        {
+            return (host, port, server.RconPassword);
+        }
+
+        // Fall back to reading from server.properties (legacy/manual containers)
+        string password = "";
         string serverPropertiesPath = Path.Combine(server.PersistenceLocation, "server.properties");
         if (File.Exists(serverPropertiesPath))
         {

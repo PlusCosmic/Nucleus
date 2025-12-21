@@ -27,11 +27,11 @@ SELECT
     'Main Server',
     (SELECT id FROM discord_user ORDER BY created_at LIMIT 1),
     '/data/minecraft',  -- UPDATE THIS to your actual data path
-    'mc',
-    1.0,    -- CPU reservation (cores)
-    4096,   -- RAM reservation (MB)
-    4.0,    -- CPU limit (cores)
-    10240,  -- RAM limit (MB) - matches MEMORY=10240M
+    'mc-atm10',
+    4.0,    -- CPU reservation (cores)
+    10240,   -- RAM reservation (MB)
+    6.0,    -- CPU limit (cores)
+    12288,  -- RAM limit (MB) - matches MEMORY=10240M
     'curseforge',
     '1.21.1',
     'https://www.curseforge.com/minecraft/modpacks/all-the-mods-10/files/7223056',

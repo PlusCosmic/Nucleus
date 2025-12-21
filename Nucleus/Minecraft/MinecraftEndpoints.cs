@@ -30,6 +30,17 @@ public static class MinecraftEndpoints
         serverGroup.MapGet("status", GetStatus).WithName("GetMinecraftStatus");
         serverGroup.MapGet("players", GetPlayers).WithName("GetMinecraftPlayers");
 
+        // Container Lifecycle
+        serverGroup.MapGet("container", GetContainerState).WithName("GetContainerState");
+        serverGroup.MapPost("container/start", StartContainer).WithName("StartContainer")
+            .RequirePermission(Permissions.MinecraftConsole);
+        serverGroup.MapPost("container/stop", StopContainer).WithName("StopContainer")
+            .RequirePermission(Permissions.MinecraftConsole);
+        serverGroup.MapPost("container/provision", ProvisionContainer).WithName("ProvisionContainer")
+            .RequirePermission(Permissions.MinecraftConsole);
+        serverGroup.MapDelete("container", DestroyContainer).WithName("DestroyContainer")
+            .RequirePermission(Permissions.MinecraftConsole);
+
         // Console (REST)
         serverGroup.MapPost("console/command", SendCommand).WithName("SendMinecraftCommand")
             .RequirePermission(Permissions.MinecraftConsole);
@@ -157,6 +168,209 @@ public static class MinecraftEndpoints
         if (server is null || server.OwnerId != userId)
             return null;
         return server;
+    }
+
+    #endregion
+
+    #region Container Lifecycle
+
+    private static async Task<Results<Ok<ContainerStateResponse>, NotFound, ForbidHttpResult>> GetContainerState(
+        DockerContainerService dockerService,
+        MinecraftStatements statements,
+        AuthenticatedUser user,
+        Guid serverId)
+    {
+        MinecraftServer? server = await ValidateServerOwnership(statements, serverId, user.Id);
+        if (server is null)
+            return TypedResults.NotFound();
+
+        ContainerState state = await dockerService.GetContainerStateAsync(server.ContainerName);
+        ContainerResourceStats? stats = state.IsRunning
+            ? await dockerService.GetContainerStatsAsync(server.ContainerName)
+            : null;
+
+        return TypedResults.Ok(new ContainerStateResponse(
+            state.Exists,
+            state.Status,
+            state.IsRunning,
+            state.ContainerId,
+            state.StartedAt,
+            stats?.CpuPercent,
+            stats?.MemoryUsedMb,
+            stats?.MemoryLimitMb,
+            stats?.MemoryPercent
+        ));
+    }
+
+    private static async Task<Results<Ok<ContainerActionResponse>, NotFound, ForbidHttpResult, BadRequest<string>>> StartContainer(
+        DockerContainerService dockerService,
+        MinecraftStatements statements,
+        AuthenticatedUser user,
+        Guid serverId)
+    {
+        MinecraftServer? server = await ValidateServerOwnership(statements, serverId, user.Id);
+        if (server is null)
+            return TypedResults.NotFound();
+
+        ContainerState state = await dockerService.GetContainerStateAsync(server.ContainerName);
+
+        if (!state.Exists)
+            return TypedResults.BadRequest($"Container '{server.ContainerName}' does not exist");
+
+        if (state.IsRunning)
+            return TypedResults.BadRequest("Container is already running");
+
+        await dockerService.StartContainerAsync(server.ContainerName);
+
+        return TypedResults.Ok(new ContainerActionResponse(
+            Success: true,
+            Message: $"Container '{server.ContainerName}' started successfully",
+            NewStatus: "running"
+        ));
+    }
+
+    private static async Task<Results<Ok<ContainerActionResponse>, NotFound, ForbidHttpResult, BadRequest<string>>> StopContainer(
+        DockerContainerService dockerService,
+        RconService rconService,
+        MinecraftStatements statements,
+        AuthenticatedUser user,
+        Guid serverId,
+        int? timeout = 120,
+        bool announce = true)
+    {
+        MinecraftServer? server = await ValidateServerOwnership(statements, serverId, user.Id);
+        if (server is null)
+            return TypedResults.NotFound();
+
+        ContainerState state = await dockerService.GetContainerStateAsync(server.ContainerName);
+
+        if (!state.Exists)
+            return TypedResults.BadRequest($"Container '{server.ContainerName}' does not exist");
+
+        if (!state.IsRunning)
+            return TypedResults.BadRequest("Container is not running");
+
+        // Announce to players before stopping
+        if (announce)
+        {
+            try
+            {
+                await rconService.SendCommandAsync(server, "say Server shutting down in 30 seconds...");
+                await Task.Delay(TimeSpan.FromSeconds(30));
+            }
+            catch
+            {
+                // RCON may be unavailable - proceed with stop anyway
+            }
+        }
+
+        await dockerService.StopContainerAsync(server.ContainerName, timeout ?? 120);
+
+        return TypedResults.Ok(new ContainerActionResponse(
+            Success: true,
+            Message: $"Container '{server.ContainerName}' stopped successfully",
+            NewStatus: "exited"
+        ));
+    }
+
+    private static async Task<Results<Ok<ProvisionResponse>, NotFound, ForbidHttpResult, BadRequest<string>, Conflict<string>>> ProvisionContainer(
+        DockerContainerService dockerService,
+        MinecraftStatements statements,
+        IConfiguration configuration,
+        AuthenticatedUser user,
+        Guid serverId,
+        CancellationToken ct)
+    {
+        MinecraftServer? server = await ValidateServerOwnership(statements, serverId, user.Id);
+        if (server is null)
+            return TypedResults.NotFound();
+
+        // Check if container already exists
+        ContainerState existingState = await dockerService.GetContainerStateAsync(server.ContainerName, ct);
+        if (existingState.Exists)
+            return TypedResults.Conflict($"Container '{server.ContainerName}' already exists");
+
+        // Generate RCON password
+        string rconPassword = Convert.ToBase64String(System.Security.Cryptography.RandomNumberGenerator.GetBytes(24));
+
+        // Get CurseForge API key if needed
+        string? curseForgeApiKey = server.ServerType == MinecraftServerType.Curseforge
+            ? configuration["CurseforgeApiKey"]
+            : null;
+
+        // Create the container
+        string containerId = await dockerService.CreateServerContainerAsync(server, rconPassword, curseForgeApiKey, ct);
+
+        // Store the RCON password
+        await statements.UpdateRconPasswordAsync(server.Id, rconPassword);
+
+        // Update persistence location to match volume name
+        string volumeName = $"mc-{server.ContainerName}-data";
+        await statements.UpdatePersistenceLocationAsync(server.Id, volumeName);
+
+        return TypedResults.Ok(new ProvisionResponse(
+            Success: true,
+            Message: $"Container '{server.ContainerName}' provisioned successfully",
+            ContainerId: containerId,
+            VolumeName: volumeName
+        ));
+    }
+
+    private static async Task<Results<Ok<ContainerActionResponse>, NotFound, ForbidHttpResult, BadRequest<string>>> DestroyContainer(
+        DockerContainerService dockerService,
+        RconService rconService,
+        MinecraftStatements statements,
+        AuthenticatedUser user,
+        Guid serverId,
+        bool removeData = false,
+        CancellationToken ct = default)
+    {
+        MinecraftServer? server = await ValidateServerOwnership(statements, serverId, user.Id);
+        if (server is null)
+            return TypedResults.NotFound();
+
+        ContainerState state = await dockerService.GetContainerStateAsync(server.ContainerName, ct);
+
+        if (!state.Exists)
+            return TypedResults.BadRequest($"Container '{server.ContainerName}' does not exist");
+
+        // Safety check: verify no players are online if container is running
+        if (state.IsRunning)
+        {
+            try
+            {
+                var players = await rconService.GetOnlinePlayersAsync(server);
+                if (players.Count > 0)
+                    return TypedResults.BadRequest($"Cannot destroy container with {players.Count} player(s) online. Stop the server first.");
+            }
+            catch
+            {
+                // RCON unavailable - proceed anyway
+            }
+        }
+
+        // Destroy the container
+        await dockerService.DestroyContainerAsync(server.ContainerName, removeData, ct);
+
+        // If removing data, delete the server record; otherwise mark as inactive
+        if (removeData)
+        {
+            await statements.DeleteServerAsync(server.Id);
+        }
+        else
+        {
+            await statements.MarkServerInactiveAsync(server.Id);
+        }
+
+        string message = removeData
+            ? $"Container '{server.ContainerName}' and all data permanently destroyed"
+            : $"Container '{server.ContainerName}' destroyed (data preserved)";
+
+        return TypedResults.Ok(new ContainerActionResponse(
+            Success: true,
+            Message: message,
+            NewStatus: "destroyed"
+        ));
     }
 
     #endregion
@@ -460,4 +674,30 @@ public static class MinecraftEndpoints
 
     public sealed record SaveFileRequest(string Path, string? Content);
     public sealed record CreateDirectoryRequest(string Path);
+
+    // Container lifecycle response types
+    public sealed record ContainerStateResponse(
+        bool Exists,
+        string Status,
+        bool IsRunning,
+        string? ContainerId,
+        DateTimeOffset? StartedAt,
+        double? CpuPercent,
+        long? MemoryUsedMb,
+        long? MemoryLimitMb,
+        double? MemoryPercent
+    );
+
+    public sealed record ContainerActionResponse(
+        bool Success,
+        string Message,
+        string NewStatus
+    );
+
+    public sealed record ProvisionResponse(
+        bool Success,
+        string Message,
+        string ContainerId,
+        string VolumeName
+    );
 }

@@ -17,4 +17,9 @@ public record MinecraftServer
     public string? CurseforgePageUrl { get; init; }
     public bool IsActive { get; init; }
     public DateTimeOffset CreatedAt { get; init; }
+
+    // Container provisioning fields (V13 migration)
+    public string? RconPassword { get; init; }
+    public int MaxPlayers { get; init; } = 20;
+    public string Motd { get; init; } = "A Minecraft Server";
 }

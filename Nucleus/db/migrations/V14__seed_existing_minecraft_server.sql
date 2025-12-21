@@ -25,7 +25,7 @@ INSERT INTO minecraft_server (
 )
 SELECT
     'Main Server',
-    (SELECT id FROM discord_user ORDER BY created_at LIMIT 1),
+    (SELECT id FROM discord_user where username = 'pluscosmic'),
     '/data/minecraft',  -- UPDATE THIS to your actual data path
     'mc-atm10',
     4.0,    -- CPU reservation (cores)

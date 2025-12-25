@@ -9,8 +9,8 @@ services:
       - "8080:8080"
     environment:
       ASPNETCORE_ENVIRONMENT: Production
-      # Database
-      DatabaseConnectionString: "Host=postgres;Database=nucleus;Username=nucleus;Password=${POSTGRES_PASSWORD}"
+      # Database (external PostgreSQL)
+      DatabaseConnectionString: ${DATABASE_CONNECTION_STRING}
       # Discord OAuth
       DiscordClientId: ${DISCORD_CLIENT_ID}
       DiscordClientSecret: ${DISCORD_CLIENT_SECRET}
@@ -47,8 +47,6 @@ services:
     networks:
       - nucleus_internal
     depends_on:
-      postgres:
-        condition: service_healthy
       socket-proxy:
         condition: service_started
     healthcheck:
@@ -57,24 +55,6 @@ services:
       timeout: 10s
       retries: 3
       start_period: 10s
-
-  postgres:
-    image: postgres:16-alpine
-    container_name: nucleus-postgres
-    restart: unless-stopped
-    environment:
-      POSTGRES_USER: nucleus
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_DB: nucleus
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    networks:
-      - nucleus_internal
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U nucleus -d nucleus"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
 
   socket-proxy:
     image: tecnativa/docker-socket-proxy:latest
@@ -115,6 +95,3 @@ networks:
   nucleus_internal:
     name: nucleus_internal
     driver: bridge
-
-volumes:
-  postgres_data:

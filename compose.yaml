@@ -30,7 +30,7 @@ services:
       FFmpegOutputPath: ${FFmpegSharedPath:-/tmp/ffmpeg-downloads}
       # Docker integration for Minecraft
       Docker__ProxyHost: tcp://socket-proxy:2375
-      Docker__NetworkName: nucleus_internal
+      Docker__NetworkName: dokploy-network
       # Backblaze B2 backup
       Backblaze__KeyId: ${Backblaze__KeyId:-}
       Backblaze__ApplicationKey: ${Backblaze__ApplicationKey:-}
@@ -42,7 +42,7 @@ services:
       # Minecraft server data - maps to PersistenceLocation paths
       - /srv/minecraft-servers:/minecraft-servers:rw
     networks:
-      - nucleus_internal
+      - dokploy-network
     depends_on:
       socket-proxy:
         condition: service_started
@@ -86,9 +86,8 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
     networks:
-      - nucleus_internal
+      - dokploy-network
 
 networks:
-  nucleus_internal:
-    name: nucleus_internal
-    driver: bridge
+  dokploy-network:
+    external: true

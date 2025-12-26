@@ -8,39 +8,36 @@ services:
     ports:
       - "8080:8080"
     environment:
-      ASPNETCORE_ENVIRONMENT: Production
-      # Database (external PostgreSQL)
-      DatabaseConnectionString: ${DATABASE_CONNECTION_STRING}
-      # Discord OAuth
-      DiscordClientId: ${DISCORD_CLIENT_ID}
-      DiscordClientSecret: ${DISCORD_CLIENT_SECRET}
-      DiscordBotToken: ${DISCORD_BOT_TOKEN:-}
-      DISCORD_ADMIN_ROLE_ID: ${DISCORD_ADMIN_ROLE_ID:-}
-      DISCORD_EDITOR_ROLE_ID: ${DISCORD_EDITOR_ROLE_ID:-}
+      # Core ASP.NET
+      ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT}
+      ASPNETCORE_FORWARDEDHEADERS_ENABLED: ${ASPNETCORE_FORWARDEDHEADERS_ENABLED}
+      ASPNETCORE_URLS: ${ASPNETCORE_URLS}
+      # Database
+      DatabaseConnectionString: ${DatabaseConnectionString}
+      RedisConnectionString: ${RedisConnectionString:-}
+      # Discord
+      DiscordClientId: ${DiscordClientId}
+      DiscordClientSecret: ${DiscordClientSecret}
+      DiscordBotToken: ${DiscordBotToken:-}
       # URLs
-      FrontendOrigin: ${FRONTEND_ORIGIN}
-      BackendAddress: ${BACKEND_ADDRESS}
+      BackendAddress: ${BackendAddress}
       # Bunny CDN
-      BunnyLibraryId: ${BUNNY_LIBRARY_ID:-}
-      BunnyAccessKey: ${BUNNY_ACCESS_KEY:-}
-      BunnyWebhookSecret: ${BUNNY_WEBHOOK_SECRET:-}
+      BunnyLibraryId: ${BunnyLibraryId:-}
+      BunnyAccessKey: ${BunnyAccessKey:-}
       # Apex Legends
-      ApexLegendsApiKey: ${APEX_LEGENDS_API_KEY:-}
-      # FFmpeg
-      FFmpegOutputPath: /tmp/ffmpeg-downloads
+      ApexLegendsApiKey: ${ApexLegendsApiKey:-}
+      # FFmpeg (maps FFmpegSharedPath from .env to FFmpegOutputPath used by code)
+      FFmpegOutputPath: ${FFmpegSharedPath:-/tmp/ffmpeg-downloads}
       # Docker integration for Minecraft
       Docker__ProxyHost: tcp://socket-proxy:2375
       Docker__NetworkName: nucleus_internal
-      # CurseForge (for modded servers)
-      CurseforgeApiKey: ${CURSEFORGE_API_KEY:-}
-      # Backblaze B2 backup (optional)
-      Backblaze__KeyId: ${BACKBLAZE_KEY_ID:-}
-      Backblaze__ApplicationKey: ${BACKBLAZE_APPLICATION_KEY:-}
-      Backblaze__BucketName: ${BACKBLAZE_BUCKET_NAME:-}
-      Backblaze__Endpoint: ${BACKBLAZE_ENDPOINT:-}
-      Backblaze__BucketPrefix: ${BACKBLAZE_BUCKET_PREFIX:-minecraft-backups/}
-      Backblaze__LocalRetentionCount: ${BACKBLAZE_LOCAL_RETENTION_COUNT:-3}
-      Backblaze__SyncIntervalHours: ${BACKBLAZE_SYNC_INTERVAL_HOURS:-1}
+      # Backblaze B2 backup
+      Backblaze__KeyId: ${Backblaze__KeyId:-}
+      Backblaze__ApplicationKey: ${Backblaze__ApplicationKey:-}
+      Backblaze__BucketName: ${Backblaze__BucketName:-}
+      Backblaze__Endpoint: ${Backblaze__Endpoint:-}
+      Backblaze__BucketPrefix: ${Backblaze__BucketPrefix:-minecraft-backups/}
+      Backblaze__SyncIntervalHours: ${Backblaze__SyncIntervalHours:-1}
     volumes:
       # Minecraft server data - maps to PersistenceLocation paths
       - /srv/minecraft-servers:/minecraft-servers:rw

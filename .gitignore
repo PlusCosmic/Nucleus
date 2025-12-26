@@ -6,3 +6,6 @@ riderModule.iml
 appsettings.Development.json
 .idea
 *.DotSettings.user
+
+# Environment secrets
+.env

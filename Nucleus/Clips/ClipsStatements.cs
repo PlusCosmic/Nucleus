@@ -8,65 +8,62 @@ namespace Nucleus.Clips;
 public class ClipsStatements(NpgsqlConnection connection)
 {
     // Queries
-    public async Task<ClipCollectionRow?> GetCollectionByOwnerAndCategory(Guid ownerId, int category)
+    public async Task<ClipCollectionRow?> GetCollectionByOwnerAndCategory(Guid ownerId, Guid gameCategoryId)
     {
         const string sql = """
+            SELECT id, owner_id, collection_id, game_category_id
+            FROM clip_collection
+            WHERE owner_id = @ownerId AND game_category_id = @gameCategoryId
+            LIMIT 1
+            """;
 
-                                       SELECT id, owner_id, collection_id, category
-                                       FROM clip_collection
-                                       WHERE owner_id = @ownerId AND category = @category
-                                       LIMIT 1
-                           """;
-
-        return await connection.QuerySingleOrDefaultAsync<ClipCollectionRow>(sql, new { ownerId, category });
+        return await connection.QuerySingleOrDefaultAsync<ClipCollectionRow>(sql, new { ownerId, gameCategoryId });
     }
 
-    public async Task<ClipCollectionRow> InsertCollection(Guid ownerId, Guid collectionId, int category)
+    public async Task<ClipCollectionRow> InsertCollection(Guid ownerId, Guid collectionId, Guid gameCategoryId)
     {
         const string sql = """
+            INSERT INTO clip_collection (owner_id, collection_id, game_category_id)
+            VALUES (@ownerId, @collectionId, @gameCategoryId)
+            RETURNING id, owner_id, collection_id, game_category_id
+            """;
 
-                                       INSERT INTO clip_collection (owner_id, collection_id, category)
-                                       VALUES (@ownerId, @collectionId, @category)
-                                       RETURNING id, owner_id, collection_id, category
-                           """;
-
-        return await connection.QuerySingleAsync<ClipCollectionRow>(sql, new { ownerId, collectionId, category });
+        return await connection.QuerySingleAsync<ClipCollectionRow>(sql, new { ownerId, collectionId, gameCategoryId });
     }
 
-    public async Task<List<ClipWithTagsRow>> GetClipsWithTagsByOwnerAndCategory(Guid ownerId, int category,
+    public async Task<List<ClipWithTagsRow>> GetClipsWithTagsByOwnerAndCategory(Guid ownerId, Guid gameCategoryId,
         List<string>? tags = null)
     {
         StringBuilder sql = new("""
-
-                                            SELECT
-                                                c.id,
-                                                c.owner_id,
-                                                c.video_id,
-                                                c.category,
-                                                c.md5_hash,
-                                                c.created_at,
-                                                c.title,
-                                                c.length,
-                                                c.thumbnail_file_name,
-                                                c.date_uploaded,
-                                                c.storage_size,
-                                                c.video_status,
-                                                c.encode_progress,
-                                                STRING_AGG(t.name, ',') as tag_names
-                                            FROM clip c
-                                            LEFT JOIN clip_tag ct ON c.id = ct.clip_id
-                                            LEFT JOIN tag t ON ct.tag_id = t.id
-                                            WHERE c.owner_id = @ownerId AND c.category = @category
-                                """);
+            SELECT
+                c.id,
+                c.owner_id,
+                c.video_id,
+                c.game_category_id,
+                c.md5_hash,
+                c.created_at,
+                c.title,
+                c.length,
+                c.thumbnail_file_name,
+                c.date_uploaded,
+                c.storage_size,
+                c.video_status,
+                c.encode_progress,
+                STRING_AGG(t.name, ',') as tag_names
+            FROM clip c
+            LEFT JOIN clip_tag ct ON c.id = ct.clip_id
+            LEFT JOIN tag t ON ct.tag_id = t.id
+            WHERE c.owner_id = @ownerId AND c.game_category_id = @gameCategoryId
+            """);
 
         // If tags filter is provided, add HAVING clause to filter by tags
         if (tags != null && tags.Any())
         {
             sql.Append("""
 
-                                   GROUP BY c.id, c.owner_id, c.video_id, c.category, c.md5_hash, c.created_at, c.title, c.length, c.thumbnail_file_name, c.date_uploaded, c.storage_size, c.video_status, c.encode_progress
-                                   HAVING
-                       """);
+                GROUP BY c.id, c.owner_id, c.video_id, c.game_category_id, c.md5_hash, c.created_at, c.title, c.length, c.thumbnail_file_name, c.date_uploaded, c.storage_size, c.video_status, c.encode_progress
+                HAVING
+                """);
 
             // For each tag, ensure it exists in the aggregated tag_names
             List<string> conditions = tags.Select((_, i) => $"STRING_AGG(t.name, ',') LIKE @tag{i}").ToList();
@@ -74,7 +71,7 @@ public class ClipsStatements(NpgsqlConnection connection)
 
             DynamicParameters parameters = new();
             parameters.Add("ownerId", ownerId);
-            parameters.Add("category", category);
+            parameters.Add("gameCategoryId", gameCategoryId);
             for (int i = 0; i < tags.Count; i++)
             {
                 parameters.Add($"tag{i}", $"%{tags[i]}%");
@@ -85,10 +82,10 @@ public class ClipsStatements(NpgsqlConnection connection)
 
         sql.Append("""
 
-                               GROUP BY c.id, c.owner_id, c.video_id, c.category, c.md5_hash, c.created_at, c.title, c.length, c.thumbnail_file_name, c.date_uploaded, c.storage_size, c.video_status, c.encode_progress
-                   """);
+            GROUP BY c.id, c.owner_id, c.video_id, c.game_category_id, c.md5_hash, c.created_at, c.title, c.length, c.thumbnail_file_name, c.date_uploaded, c.storage_size, c.video_status, c.encode_progress
+            """);
 
-        return (await connection.QueryAsync<ClipWithTagsRow>(sql.ToString(), new { ownerId, category })).ToList();
+        return (await connection.QueryAsync<ClipWithTagsRow>(sql.ToString(), new { ownerId, gameCategoryId })).ToList();
     }
 
     public async Task<HashSet<Guid>> GetViewedClipIds(Guid userId, List<Guid> clipIds)
@@ -108,58 +105,55 @@ public class ClipsStatements(NpgsqlConnection connection)
         return (await connection.QueryAsync<Guid>(sql, new { userId, clipIds = clipIds.ToArray() })).ToHashSet();
     }
 
-    public async Task<bool> ClipExistsByMd5Hash(Guid ownerId, int category, string md5Hash)
+    public async Task<bool> ClipExistsByMd5Hash(Guid ownerId, Guid gameCategoryId, string md5Hash)
     {
         const string sql = """
+            SELECT EXISTS(
+                SELECT 1 FROM clip
+                WHERE owner_id = @ownerId AND game_category_id = @gameCategoryId AND md5_hash = @md5Hash
+            )
+            """;
 
-                                       SELECT EXISTS(
-                                           SELECT 1 FROM clip
-                                           WHERE owner_id = @ownerId AND category = @category AND md5_hash = @md5Hash
-                                       )
-                           """;
-
-        return await connection.QuerySingleAsync<bool>(sql, new { ownerId, category, md5Hash });
+        return await connection.QuerySingleAsync<bool>(sql, new { ownerId, gameCategoryId, md5Hash });
     }
 
-    public async Task<ClipRow> InsertClip(Guid ownerId, Guid videoId, int category, string? md5Hash,
+    public async Task<ClipRow> InsertClip(Guid ownerId, Guid videoId, Guid gameCategoryId, string? md5Hash,
         DateTimeOffset createdAt, string? title = null, int? length = null, string? thumbnailFileName = null,
         DateTimeOffset? dateUploaded = null, long? storageSize = null, int? videoStatus = null, int? encodeProgress = null)
     {
         const string sql = """
+            INSERT INTO clip (owner_id, video_id, game_category_id, md5_hash, created_at, title, length, thumbnail_file_name, date_uploaded, storage_size, video_status, encode_progress)
+            VALUES (@ownerId, @videoId, @gameCategoryId, @md5Hash, @createdAt, @title, @length, @thumbnailFileName, @dateUploaded, @storageSize, @videoStatus, @encodeProgress)
+            RETURNING id, owner_id, video_id, game_category_id, md5_hash, created_at, title, length, thumbnail_file_name, date_uploaded, storage_size, video_status, encode_progress
+            """;
 
-                                       INSERT INTO clip (owner_id, video_id, category, md5_hash, created_at, title, length, thumbnail_file_name, date_uploaded, storage_size, video_status, encode_progress)
-                                       VALUES (@ownerId, @videoId, @category, @md5Hash, @createdAt, @title, @length, @thumbnailFileName, @dateUploaded, @storageSize, @videoStatus, @encodeProgress)
-                                       RETURNING id, owner_id, video_id, category, md5_hash, created_at, title, length, thumbnail_file_name, date_uploaded, storage_size, video_status, encode_progress
-                           """;
-
-        return await connection.QuerySingleAsync<ClipRow>(sql, new { ownerId, videoId, category, md5Hash, createdAt, title, length, thumbnailFileName, dateUploaded, storageSize, videoStatus, encodeProgress });
+        return await connection.QuerySingleAsync<ClipRow>(sql, new { ownerId, videoId, gameCategoryId, md5Hash, createdAt, title, length, thumbnailFileName, dateUploaded, storageSize, videoStatus, encodeProgress });
     }
 
     public async Task<ClipWithTagsRow?> GetClipWithTagsById(Guid clipId)
     {
         const string sql = """
-
-                                       SELECT
-                                           c.id,
-                                           c.owner_id,
-                                           c.video_id,
-                                           c.category,
-                                           c.md5_hash,
-                                           c.created_at,
-                                           c.title,
-                                           c.length,
-                                           c.thumbnail_file_name,
-                                           c.date_uploaded,
-                                           c.storage_size,
-                                           c.video_status,
-                                           c.encode_progress,
-                                           STRING_AGG(t.name, ',') as tag_names
-                                       FROM clip c
-                                       LEFT JOIN clip_tag ct ON c.id = ct.clip_id
-                                       LEFT JOIN tag t ON ct.tag_id = t.id
-                                       WHERE c.id = @clipId
-                                       GROUP BY c.id, c.owner_id, c.video_id, c.category, c.md5_hash, c.created_at, c.title, c.length, c.thumbnail_file_name, c.date_uploaded, c.storage_size, c.video_status, c.encode_progress
-                           """;
+            SELECT
+                c.id,
+                c.owner_id,
+                c.video_id,
+                c.game_category_id,
+                c.md5_hash,
+                c.created_at,
+                c.title,
+                c.length,
+                c.thumbnail_file_name,
+                c.date_uploaded,
+                c.storage_size,
+                c.video_status,
+                c.encode_progress,
+                STRING_AGG(t.name, ',') as tag_names
+            FROM clip c
+            LEFT JOIN clip_tag ct ON c.id = ct.clip_id
+            LEFT JOIN tag t ON ct.tag_id = t.id
+            WHERE c.id = @clipId
+            GROUP BY c.id, c.owner_id, c.video_id, c.game_category_id, c.md5_hash, c.created_at, c.title, c.length, c.thumbnail_file_name, c.date_uploaded, c.storage_size, c.video_status, c.encode_progress
+            """;
 
         return await connection.QuerySingleOrDefaultAsync<ClipWithTagsRow>(sql, new { clipId });
     }
@@ -260,42 +254,41 @@ public class ClipsStatements(NpgsqlConnection connection)
     public async Task<ClipRow?> GetClipById(Guid clipId)
     {
         const string sql =
-            "SELECT id, owner_id, video_id, category, md5_hash, created_at, title, length, thumbnail_file_name, date_uploaded, storage_size, video_status, encode_progress FROM clip WHERE id = @clipId LIMIT 1";
+            "SELECT id, owner_id, video_id, game_category_id, md5_hash, created_at, title, length, thumbnail_file_name, date_uploaded, storage_size, video_status, encode_progress FROM clip WHERE id = @clipId LIMIT 1";
         return await connection.QuerySingleOrDefaultAsync<ClipRow>(sql, new { clipId });
     }
 
     public async Task<ClipRow?> GetClipByVideoId(Guid videoId)
     {
         const string sql =
-            "SELECT id, owner_id, video_id, category, md5_hash, created_at, title, length, thumbnail_file_name, date_uploaded, storage_size, video_status, encode_progress FROM clip WHERE video_id = @videoId LIMIT 1";
+            "SELECT id, owner_id, video_id, game_category_id, md5_hash, created_at, title, length, thumbnail_file_name, date_uploaded, storage_size, video_status, encode_progress FROM clip WHERE video_id = @videoId LIMIT 1";
         return await connection.QuerySingleOrDefaultAsync<ClipRow>(sql, new { videoId });
     }
 
     public async Task<ClipWithTagsRow?> GetClipWithTagsByIdAndOwner(Guid clipId, Guid ownerId)
     {
         const string sql = """
-
-                                       SELECT
-                                           c.id,
-                                           c.owner_id,
-                                           c.video_id,
-                                           c.category,
-                                           c.md5_hash,
-                                           c.created_at,
-                                           c.title,
-                                           c.length,
-                                           c.thumbnail_file_name,
-                                           c.date_uploaded,
-                                           c.storage_size,
-                                           c.video_status,
-                                           c.encode_progress,
-                                           STRING_AGG(t.name, ',') as tag_names
-                                       FROM clip c
-                                       LEFT JOIN clip_tag ct ON c.id = ct.clip_id
-                                       LEFT JOIN tag t ON ct.tag_id = t.id
-                                       WHERE c.id = @clipId AND c.owner_id = @ownerId
-                                       GROUP BY c.id, c.owner_id, c.video_id, c.category, c.md5_hash, c.created_at, c.title, c.length, c.thumbnail_file_name, c.date_uploaded, c.storage_size, c.video_status, c.encode_progress
-                           """;
+            SELECT
+                c.id,
+                c.owner_id,
+                c.video_id,
+                c.game_category_id,
+                c.md5_hash,
+                c.created_at,
+                c.title,
+                c.length,
+                c.thumbnail_file_name,
+                c.date_uploaded,
+                c.storage_size,
+                c.video_status,
+                c.encode_progress,
+                STRING_AGG(t.name, ',') as tag_names
+            FROM clip c
+            LEFT JOIN clip_tag ct ON c.id = ct.clip_id
+            LEFT JOIN tag t ON ct.tag_id = t.id
+            WHERE c.id = @clipId AND c.owner_id = @ownerId
+            GROUP BY c.id, c.owner_id, c.video_id, c.game_category_id, c.md5_hash, c.created_at, c.title, c.length, c.thumbnail_file_name, c.date_uploaded, c.storage_size, c.video_status, c.encode_progress
+            """;
 
         return await connection.QuerySingleOrDefaultAsync<ClipWithTagsRow>(sql, new { clipId, ownerId });
     }
@@ -344,16 +337,16 @@ public class ClipsStatements(NpgsqlConnection connection)
         return (await connection.QueryAsync<TagRow>(sql, new { clipId })).ToList();
     }
 
-    public async Task<List<ClipRow>> GetAllClipsForCategory(int category)
+    public async Task<List<ClipRow>> GetAllClipsForCategory(Guid gameCategoryId)
     {
-        const string sql = "SELECT id, owner_id, video_id, category, md5_hash, created_at, title, length, thumbnail_file_name, date_uploaded, storage_size, video_status, encode_progress FROM clip WHERE category = @category";
-        return (await connection.QueryAsync<ClipRow>(sql, new { category })).ToList();
+        const string sql = "SELECT id, owner_id, video_id, game_category_id, md5_hash, created_at, title, length, thumbnail_file_name, date_uploaded, storage_size, video_status, encode_progress FROM clip WHERE game_category_id = @gameCategoryId";
+        return (await connection.QueryAsync<ClipRow>(sql, new { gameCategoryId })).ToList();
     }
 
     public async Task<List<ClipRow>> GetClipsNeedingStatusUpdate()
     {
         const string sql = """
-            SELECT id, owner_id, video_id, category, md5_hash, created_at, title, length, thumbnail_file_name, date_uploaded, storage_size, video_status, encode_progress
+            SELECT id, owner_id, video_id, game_category_id, md5_hash, created_at, title, length, thumbnail_file_name, date_uploaded, storage_size, video_status, encode_progress
             FROM clip
             WHERE video_status IS NULL OR video_status NOT IN (@FinishedStatus, @ResolutionFinishedStatus)
             """;
@@ -386,7 +379,7 @@ public class ClipsStatements(NpgsqlConnection connection)
         public Guid Id { get; set; }
         public Guid OwnerId { get; set; }
         public Guid VideoId { get; set; }
-        public int Category { get; set; }
+        public Guid GameCategoryId { get; set; }
         public string? Md5Hash { get; set; }
         public DateTimeOffset CreatedAt { get; set; }
         public string? Title { get; set; }
@@ -415,7 +408,7 @@ public class ClipsStatements(NpgsqlConnection connection)
         public Guid Id { get; set; }
         public Guid OwnerId { get; set; }
         public Guid CollectionId { get; set; }
-        public int Category { get; set; }
+        public Guid GameCategoryId { get; set; }
     }
 
     public class ClipViewRow
@@ -430,7 +423,7 @@ public class ClipsStatements(NpgsqlConnection connection)
         public Guid Id { get; set; }
         public Guid OwnerId { get; set; }
         public Guid VideoId { get; set; }
-        public int Category { get; set; }
+        public Guid GameCategoryId { get; set; }
         public string? Md5Hash { get; set; }
         public DateTimeOffset CreatedAt { get; set; }
         public string? TagNames { get; set; } // comma-separated tags

@@ -6,6 +6,7 @@ using Nucleus.Clips.Bunny;
 using Nucleus.Clips.Bunny.Models;
 using Nucleus.Discord;
 using Nucleus.Exceptions;
+using Nucleus.Games;
 
 namespace Nucleus.Clips;
 
@@ -14,48 +15,47 @@ public class ClipService(
     ClipsStatements clipsStatements,
     DiscordStatements discordStatements,
     ApexStatements apexStatements,
+    GameCategoryStatements gameCategoryStatements,
     IConfiguration configuration)
 {
+    private const string ApexLegendsSlug = "apex-legends";
+
     private static string NormalizeTag(string tag)
     {
         return tag.Trim().ToLowerInvariant();
     }
 
-    public List<ClipCategory> GetCategories()
-    {
-        return
-        [
-            new ClipCategory("Apex Legends", ClipCategoryEnum.ApexLegends, "/images/apex_legends.jpg"),
-            new ClipCategory("Call of Duty: Warzone", ClipCategoryEnum.CallOfDutyWarzone,
-                "/images/callofduty_warzone.jpg"),
-            new ClipCategory("Snowboarding", ClipCategoryEnum.Snowboarding, "/images/snowboarding.png")
-        ];
-    }
-
-    public async Task<CreateClipResponse?> CreateClip(ClipCategoryEnum categoryEnum, string videoTitle,
+    public async Task<CreateClipResponse?> CreateClip(Guid gameCategoryId, string videoTitle,
         string discordUserId, DateTimeOffset createdAt, string? md5Hash = null)
     {
         DiscordStatements.DiscordUserRow discordUser = await discordStatements.GetUserByDiscordId(discordUserId)
                                                        ?? throw new UnauthorizedException("User not found");
         Guid userId = discordUser.Id;
 
+        // Get the category to get the slug for Bunny CDN collection naming
+        GameCategory? gameCategory = await gameCategoryStatements.GetByIdAsync(gameCategoryId);
+        if (gameCategory == null)
+        {
+            throw new BadRequestException("Invalid category");
+        }
+
         // Check if a video with this MD5 hash already exists for this user and category
         if (!string.IsNullOrWhiteSpace(md5Hash))
         {
-            bool exists = await clipsStatements.ClipExistsByMd5Hash(userId, (int)categoryEnum, md5Hash);
+            bool exists = await clipsStatements.ClipExistsByMd5Hash(userId, gameCategoryId, md5Hash);
             if (exists)
             {
                 return null; // Duplicate detected
             }
         }
 
-        // Get or create collection (same pattern as GetClipsForCategory)
+        // Get or create collection
         ClipsStatements.ClipCollectionRow? clipCollection =
-            await clipsStatements.GetCollectionByOwnerAndCategory(userId, (int)categoryEnum);
+            await clipsStatements.GetCollectionByOwnerAndCategory(userId, gameCategoryId);
         if (clipCollection == null)
         {
-            BunnyCollection bunnyCollection = await bunnyService.CreateCollectionAsync(categoryEnum, userId);
-            clipCollection = await clipsStatements.InsertCollection(userId, bunnyCollection.Guid, (int)categoryEnum);
+            BunnyCollection bunnyCollection = await bunnyService.CreateCollectionAsync(gameCategory.Slug, userId);
+            clipCollection = await clipsStatements.InsertCollection(userId, bunnyCollection.Guid, gameCategoryId);
         }
 
         BunnyVideo video = await bunnyService.CreateVideoAsync(clipCollection.CollectionId, videoTitle);
@@ -63,7 +63,7 @@ public class ClipService(
         await clipsStatements.InsertClip(
             userId,
             video.Guid,
-            (int)categoryEnum,
+            gameCategoryId,
             md5Hash,
             createdAt,
             video.Title,
@@ -102,9 +102,16 @@ public class ClipService(
             return null;
         }
 
+        // Get the game category for the slug
+        GameCategory? gameCategory = await gameCategoryStatements.GetByIdAsync(clipWithTags.GameCategoryId);
+        if (gameCategory == null)
+        {
+            return null;
+        }
+
         // Get clip collection to retrieve CollectionId
         ClipsStatements.ClipCollectionRow? clipCollection =
-            await clipsStatements.GetCollectionByOwnerAndCategory(clipWithTags.OwnerId, clipWithTags.Category);
+            await clipsStatements.GetCollectionByOwnerAndCategory(clipWithTags.OwnerId, clipWithTags.GameCategoryId);
         if (clipCollection == null)
         {
             return null;
@@ -129,7 +136,7 @@ public class ClipService(
             clipCollection.CollectionId,
             clipWithTags.ThumbnailFileName ?? string.Empty,
             string.Empty,
-            ((ClipCategoryEnum)clipWithTags.Category).ToString(),
+            gameCategory.Slug,
             [],
             []
         );
@@ -138,13 +145,13 @@ public class ClipService(
 
         List<string> tags = !string.IsNullOrEmpty(clipWithTags.TagNames)
             ? clipWithTags.TagNames.Split(',', StringSplitOptions.RemoveEmptyEntries).ToList()
-            : new List<string>();
+            : [];
 
-        ApexStatements.ApexClipDetectionRow? clipDetection = await apexStatements.GetApexClipDetection(clipWithTags.Id);
+        // Build game-specific metadata
+        object? gameMetadata = await BuildGameMetadata(clipWithTags.Id, gameCategory.Slug);
 
         return new Clip(clipWithTags.Id, clipWithTags.OwnerId, clipWithTags.VideoId,
-            (ClipCategoryEnum)clipWithTags.Category, clipWithTags.CreatedAt, video, tags, isViewed, clipDetection?.GetPrimaryDetection() ?? ApexLegend.None,
-            GetLegendCard(clipDetection?.GetPrimaryDetection() ?? ApexLegend.None));
+            clipWithTags.GameCategoryId, gameCategory.Slug, clipWithTags.CreatedAt, video, tags, isViewed, gameMetadata);
     }
 
     public async Task<Clip?> AddTagToClip(Guid clipId, string discordUserId, string tag)
@@ -157,7 +164,7 @@ public class ClipService(
         tag = NormalizeTag(tag);
         if (tag.Length > 32)
         {
-            tag = tag.Substring(0, 32);
+            tag = tag[..32];
         }
 
         DiscordStatements.DiscordUserRow discordUser = await discordStatements.GetUserByDiscordId(discordUserId)
@@ -172,7 +179,7 @@ public class ClipService(
 
         List<string> existingTags = !string.IsNullOrEmpty(clipWithTags.TagNames)
             ? clipWithTags.TagNames.Split(',', StringSplitOptions.RemoveEmptyEntries).ToList()
-            : new List<string>();
+            : [];
 
         if (existingTags.Contains(tag))
         {
@@ -232,7 +239,7 @@ public class ClipService(
 
         if (newTitle.Length > 200)
         {
-            newTitle = newTitle.Substring(0, 200);
+            newTitle = newTitle[..200];
         }
 
         DiscordStatements.DiscordUserRow discordUser = await discordStatements.GetUserByDiscordId(discordUserId)
@@ -277,7 +284,7 @@ public class ClipService(
         return true;
     }
 
-    public async Task<PagedClipsResponse> GetClipsForCategory(ClipCategoryEnum categoryEnum,
+    public async Task<PagedClipsResponse> GetClipsForCategory(Guid gameCategoryId,
         string discordUserId, int page, int pageSize, List<string>? tags = null, string? titleSearch = null,
         bool unviewedOnly = false, ClipSortOrder sortOrder = ClipSortOrder.DateDescending,
         DateTimeOffset? startDate = null, DateTimeOffset? endDate = null)
@@ -286,8 +293,15 @@ public class ClipService(
                                                        ?? throw new UnauthorizedException("User not found");
         Guid userId = discordUser.Id;
 
+        // Get the game category for the slug
+        GameCategory? gameCategory = await gameCategoryStatements.GetByIdAsync(gameCategoryId);
+        if (gameCategory == null)
+        {
+            return new PagedClipsResponse([], 0, 0);
+        }
+
         ClipsStatements.ClipCollectionRow? clipCollection =
-            await clipsStatements.GetCollectionByOwnerAndCategory(userId, (int)categoryEnum);
+            await clipsStatements.GetCollectionByOwnerAndCategory(userId, gameCategoryId);
         if (clipCollection == null)
         {
             return new PagedClipsResponse([], 0, 0);
@@ -297,7 +311,7 @@ public class ClipService(
         List<string>? normalizedTags = tags?.Select(NormalizeTag).ToList();
 
         List<ClipsStatements.ClipWithTagsRow> clipsWithTags =
-            await clipsStatements.GetClipsWithTagsByOwnerAndCategory(userId, (int)categoryEnum, normalizedTags);
+            await clipsStatements.GetClipsWithTagsByOwnerAndCategory(userId, gameCategoryId, normalizedTags);
 
         // Apply title search filter if provided
         if (!string.IsNullOrWhiteSpace(titleSearch))
@@ -338,7 +352,13 @@ public class ClipService(
         int totalPages = (int)Math.Ceiling((double)clipsWithTags.Count / pageSize);
 
         List<Guid> pagedClipIds = pagedClips.Select(c => c.Id).ToList();
-        List<ApexStatements.ApexClipDetectionRow> detections = await apexStatements.GetApexClipDetectionsByClipIds(pagedClipIds);
+
+        // Get Apex detection data only if this is Apex Legends category
+        List<ApexStatements.ApexClipDetectionRow> detections = [];
+        if (gameCategory.Slug == ApexLegendsSlug)
+        {
+            detections = await apexStatements.GetApexClipDetectionsByClipIds(pagedClipIds);
+        }
 
         string libraryId = configuration["BunnyLibraryId"]
                            ?? throw new InvalidOperationException("Bunny API library ID not configured");
@@ -361,16 +381,26 @@ public class ClipService(
                 clipCollection.CollectionId,
                 c.ThumbnailFileName ?? string.Empty,
                 string.Empty, // Not stored in DB
-                categoryEnum.ToString(),
+                gameCategory.Slug,
                 [],
                 []
             );
 
-            ApexStatements.ApexClipDetectionRow? detection = detections.FirstOrDefault(d => d.ClipId == c.Id);
+            // Build game-specific metadata
+            object? gameMetadata = null;
+            if (gameCategory.Slug == ApexLegendsSlug)
+            {
+                ApexStatements.ApexClipDetectionRow? detection = detections.FirstOrDefault(d => d.ClipId == c.Id);
+                ApexLegend legend = detection?.GetPrimaryDetection() ?? ApexLegend.None;
+                if (legend != ApexLegend.None)
+                {
+                    gameMetadata = new ApexClipMetadata(legend.ToString(), GetLegendCard(legend));
+                }
+            }
 
-            return new Clip(c.Id, c.OwnerId, c.VideoId, categoryEnum, c.CreatedAt, video,
+            return new Clip(c.Id, c.OwnerId, c.VideoId, gameCategoryId, gameCategory.Slug, c.CreatedAt, video,
                 c.TagNames?.Split(',', StringSplitOptions.RemoveEmptyEntries).ToList() ?? [],
-                viewedClipIds.Contains(c.Id), detection?.GetPrimaryDetection() ?? ApexLegend.None, GetLegendCard(detection?.GetPrimaryDetection() ?? ApexLegend.None));
+                viewedClipIds.Contains(c.Id), gameMetadata);
         }).ToList();
 
         PagedClipsResponse pagedClipsResponse = new(finalClips, clipsWithTags.Count, totalPages);
@@ -393,13 +423,28 @@ public class ClipService(
         return true;
     }
 
-    private string GetLegendCard(ApexLegend legend)
+    private async Task<object?> BuildGameMetadata(Guid clipId, string categorySlug)
+    {
+        if (categorySlug == ApexLegendsSlug)
+        {
+            ApexStatements.ApexClipDetectionRow? clipDetection = await apexStatements.GetApexClipDetection(clipId);
+            ApexLegend legend = clipDetection?.GetPrimaryDetection() ?? ApexLegend.None;
+            if (legend != ApexLegend.None)
+            {
+                return new ApexClipMetadata(legend.ToString(), GetLegendCard(legend));
+            }
+        }
+
+        return null;
+    }
+
+    private static string GetLegendCard(ApexLegend legend)
     {
         if (legend == ApexLegend.MadMaggie)
         {
             return "/images/apex-MadMaggie.webp";
         }
 
-        return $"/images/apex-{legend.ToString()}.webp";
+        return $"/images/apex-{legend}.webp";
     }
 }

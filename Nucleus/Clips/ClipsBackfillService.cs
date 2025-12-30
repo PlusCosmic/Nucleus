@@ -9,9 +9,11 @@ public class ClipsBackfillService(
     BunnyService bunnyService,
     ILogger<ClipsBackfillService> logger)
 {
+    private static readonly Guid ApexLegendsGameCategoryId = Guid.Parse("11111111-1111-1111-1111-111111111111");
+
     public async Task<BackfillResult> BackfillClipMetadataAsync()
     {
-        List<ClipsStatements.ClipRow> allClips = await clipsStatements.GetAllClipsForCategory(0);
+        List<ClipsStatements.ClipRow> allClips = await clipsStatements.GetAllClipsForCategory(ApexLegendsGameCategoryId);
 
         if (allClips.Count == 0)
         {

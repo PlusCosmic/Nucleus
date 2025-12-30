@@ -6,6 +6,7 @@ namespace Nucleus.ApexLegends.LegendDetection;
 
 public static class ApexDetectionEndpoints
 {
+    private static readonly Guid ApexLegendsGameCategoryId = Guid.Parse("11111111-1111-1111-1111-111111111111");
     public static void MapApexDetectionEndpoints(this WebApplication app)
     {
         RouteGroupBuilder group = app.MapGroup("api/apexdetection");
@@ -39,7 +40,7 @@ public static class ApexDetectionEndpoints
         IApexDetectionQueueService queueService, ApexStatements apexStatements, ClipsStatements clipsStatements)
     {
         List<ApexStatements.ApexClipDetectionRow> allDetections = await apexStatements.GetAllApexClipDetections();
-        List<ClipsStatements.ClipRow> allClips = await clipsStatements.GetAllClipsForCategory(0);
+        List<ClipsStatements.ClipRow> allClips = await clipsStatements.GetAllClipsForCategory(ApexLegendsGameCategoryId);
         List<Guid> allClipIds = allClips.Select(c => c.Id).ToList();
         List<Guid> allDetectionIds = allDetections.Select(d => d.ClipId).ToList();
         List<Guid> unprocessedClipIds = allClipIds.Except(allDetectionIds).ToList();

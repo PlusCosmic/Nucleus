@@ -10,9 +10,8 @@ public static class ClipsEndpoints
         RouteGroupBuilder group = app.MapGroup("clips")
             .RequireAuthorization();
 
-        group.MapGet("categories", GetCategories).WithName("GetCategories");
-        group.MapGet("categories/{category}/videos", GetVideosByCategory).WithName("GetVideosByCategory");
-        group.MapPost("categories/{category}/videos", CreateVideo).WithName("CreateVideo")
+        group.MapGet("categories/{categoryId:guid}/videos", GetVideosByCategory).WithName("GetVideosByCategory");
+        group.MapPost("categories/{categoryId:guid}/videos", CreateVideo).WithName("CreateVideo")
             .RequirePermission(Permissions.ClipsCreate);
         group.MapGet("videos/{clipId:guid}", GetVideoById).WithName("GetVideoById");
         group.MapPost("videos/{clipId:guid}/view", MarkVideoAsViewed).WithName("MarkVideoAsViewed");
@@ -29,14 +28,9 @@ public static class ClipsEndpoints
             .RequirePermission(Permissions.AdminUsers);
     }
 
-    private static Ok<List<ClipCategory>> GetCategories(ClipService clipService)
-    {
-        return TypedResults.Ok(clipService.GetCategories());
-    }
-
     private static async Task<Ok<PagedClipsResponse>> GetVideosByCategory(
         ClipService clipService,
-        ClipCategoryEnum category,
+        Guid categoryId,
         AuthenticatedUser user,
         int page,
         int pageSize,
@@ -49,18 +43,18 @@ public static class ClipsEndpoints
     {
         List<string>? tagList = tags?.ToList();
         return TypedResults.Ok(
-            await clipService.GetClipsForCategory(category, user.DiscordId, page, pageSize, tagList, titleSearch, unviewedOnly, sortOrder, startDate, endDate));
+            await clipService.GetClipsForCategory(categoryId, user.DiscordId, page, pageSize, tagList, titleSearch, unviewedOnly, sortOrder, startDate, endDate));
     }
 
     private static async Task<Results<Ok<CreateClipResponse>, Conflict<string>>> CreateVideo(
         ClipService clipService,
-        ClipCategoryEnum category,
+        Guid categoryId,
         AuthenticatedUser user,
         string videoTitle,
         DateTimeOffset? createdAt = null,
         string? md5Hash = null)
     {
-        CreateClipResponse? result = await clipService.CreateClip(category, videoTitle, user.DiscordId, createdAt ?? DateTimeOffset.UtcNow, md5Hash);
+        CreateClipResponse? result = await clipService.CreateClip(categoryId, videoTitle, user.DiscordId, createdAt ?? DateTimeOffset.UtcNow, md5Hash);
         if (result is null)
         {
             return TypedResults.Conflict("A video with this MD5 hash already exists");

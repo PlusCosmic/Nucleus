@@ -1,5 +1,4 @@
 using Microsoft.Extensions.Configuration;
-using Nucleus.Clips;
 using Nucleus.Clips.Bunny;
 using Nucleus.Clips.Bunny.Models;
 
@@ -31,14 +30,14 @@ public class MockBunnyService : BunnyService
             .Build();
     }
 
-    public new async Task<BunnyCollection> CreateCollectionAsync(ClipCategoryEnum categoryEnum, Guid userId)
+    public new async Task<BunnyCollection> CreateCollectionAsync(string categorySlug, Guid userId)
     {
         await Task.CompletedTask;
 
         var collection = new BunnyCollection(
             VideoLibraryId: 12345,
             Guid: Guid.NewGuid(),
-            Name: $"Testing-{categoryEnum}-{userId}",
+            Name: $"Testing-{categorySlug}-{userId}",
             VideoCount: 0,
             TotalSize: 0,
             PreviewVideoIds: "",

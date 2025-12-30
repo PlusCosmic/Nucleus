@@ -11,6 +11,7 @@ using Nucleus.Clips;
 using Nucleus.Clips.Bunny;
 using Nucleus.Clips.FFmpeg;
 using Nucleus.Discord;
+using Nucleus.Games;
 using Nucleus.Dropzone;
 using Nucleus.Exceptions;
 using Nucleus.Links;
@@ -33,6 +34,7 @@ public static class BuilderRegistry
         builder.Services.AddScoped<LinksStatements>();
         builder.Services.AddScoped<DiscordStatements>();
         builder.Services.AddScoped<PlaylistStatements>();
+        builder.Services.AddScoped<GameCategoryStatements>();
         builder.Services.AddScoped<MinecraftStatements>();
         builder.Services.AddScoped<MapService>();
         builder.Services.AddScoped<LinksService>();
@@ -41,6 +43,8 @@ public static class BuilderRegistry
         builder.Services.AddScoped<BunnyService>();
         builder.Services.AddScoped<FFmpegService>();
         builder.Services.AddScoped<PlaylistService>();
+        builder.Services.AddScoped<IgdbService>();
+        builder.Services.AddScoped<GameCategoryService>();
         builder.Services.AddScoped<DiscordBotService>();
         builder.Services.AddSingleton<WhitelistService>();
         builder.Services.AddSingleton<DiscordRoleMapping>();

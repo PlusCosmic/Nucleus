@@ -25,11 +25,11 @@ public class BunnyService
         _httpClient.DefaultRequestHeaders.Add("Accept", "application/json");
     }
 
-    public async Task<BunnyCollection> CreateCollectionAsync(ClipCategoryEnum categoryEnum, Guid userId)
+    public async Task<BunnyCollection> CreateCollectionAsync(string categorySlug, Guid userId)
     {
         var env = _configuration["ASPNETCORE_ENVIRONMENT"] ?? "";
         var content = JsonContent.Create(
-            new CreateCollectionRequest(env + "-" + categoryEnum + "-" + userId));
+            new CreateCollectionRequest(env + "-" + categorySlug + "-" + userId));
         content.Headers.Remove("Content-Type");
         content.Headers.Add("Content-Type", "application/json");
         var collectionResponse = await _httpClient.PostAsync(_collectionsUrl, content);

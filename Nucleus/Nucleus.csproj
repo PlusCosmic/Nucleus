@@ -29,6 +29,7 @@
         <PackageReference Include="FFMpegCore" Version="5.4.0" />
         <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="9.0.10" />
         <PackageReference Include="HtmlAgilityPack" Version="1.12.4" />
+        <PackageReference Include="IGDB" Version="3.0.0" />
         <PackageReference Include="Microsoft.Extensions.ApiDescription.Server" Version="9.0.10">
             <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
             <PrivateAssets>all</PrivateAssets>

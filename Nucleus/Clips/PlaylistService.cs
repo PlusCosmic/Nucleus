@@ -403,8 +403,9 @@ public class PlaylistService(
 
     public async Task<PlaylistWithDetails> CreateGamingSessionPlaylist(
         List<Guid> participantIds,
-        ClipCategoryEnum category,
-        string discordUserId)
+        Guid gameCategoryId,
+        string discordUserId,
+        string categoryName)
     {
         DiscordStatements.DiscordUserRow currentUser = await discordStatements.GetUserByDiscordId(discordUserId)
                                                        ?? throw new UnauthorizedException("User not found");
@@ -415,7 +416,7 @@ public class PlaylistService(
             participants.Add(currentUser.Id);
         }
 
-        string playlistName = $"{category} Session - {DateTimeOffset.UtcNow:MMMM dd}";
+        string playlistName = $"{categoryName} Session - {DateTimeOffset.UtcNow:MMMM dd}";
         Playlist playlist = await CreatePlaylist(playlistName, string.Empty, discordUserId);
 
         DateTimeOffset sessionStart = DateTimeOffset.UtcNow.AddDays(-1);
@@ -436,7 +437,7 @@ public class PlaylistService(
             }
 
             PagedClipsResponse clipsForParticipant = await clipService.GetClipsForCategory(
-                category,
+                gameCategoryId,
                 participant.DiscordId,
                 1,
                 int.MaxValue,

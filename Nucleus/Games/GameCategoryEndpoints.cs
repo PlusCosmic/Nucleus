@@ -18,9 +18,9 @@ public static class GameCategoryEndpoints
     }
 
     private static async Task<Ok<List<GameCategoryResponse>>>
-        GetUserCategories(GameCategoryService service, AuthenticatedUser user)
+        GetUserCategories(GameCategoryService service)
     {
-        var categories = await service.GetUserCategoriesAsync(user.DiscordId);
+        var categories = await service.GetAllCategoriesAsync();
         return TypedResults.Ok(categories);
     }
 

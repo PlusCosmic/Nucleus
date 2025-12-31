@@ -16,15 +16,15 @@ jobs:
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: '9.0.x'  # adjust to your .NET version
+          dotnet-version: '10.0.x'
 
       - name: Build Nucleus to generate OpenAPI spec
         run: dotnet build --configuration Release
 
       - name: Verify OpenAPI spec exists
         run: |
-          if [ ! -f Nucleus/bin/Release/net9.0/Nucleus.json ]; then
-            echo "Error: Nucleus/bin/Release/net9.0/Nucleus.json not found after build"
+          if [ ! -f Nucleus/bin/Release/net10.0/Nucleus.json ]; then
+            echo "Error: Nucleus/bin/Release/net10.0/Nucleus.json not found after build"
             exit 1
           fi
 
@@ -32,7 +32,7 @@ jobs:
         uses: openapi-generators/openapitools-generator-action@v1
         with:
           generator: typescript-fetch
-          openapi-file: Nucleus/bin/Release/net9.0/Nucleus.json
+          openapi-file: Nucleus/bin/Release/net10.0/Nucleus.json
           command-args: --additional-properties=supportsES6=true
 
       - name: Checkout Frontend Repo
@@ -45,7 +45,7 @@ jobs:
       - name: Copy Generated Client
         run: |
           # Copy OpenAPI spec
-          cp Nucleus/bin/Release/net9.0/Nucleus.json plus-cosmic-dev/packages/nucleus-api-client/Nucleus.json
+          cp Nucleus/bin/Release/net10.0/Nucleus.json plus-cosmic-dev/packages/nucleus-api-client/Nucleus.json
 
           # Clear existing src and copy generated client
           rm -rf plus-cosmic-dev/packages/nucleus-api-client/src

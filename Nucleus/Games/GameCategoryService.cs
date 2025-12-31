@@ -8,6 +8,12 @@ public partial class GameCategoryService(
     IgdbService igdbService,
     DiscordStatements discordStatements)
 {
+    public async Task<List<GameCategoryResponse>> GetAllCategoriesAsync()
+    {
+        var categories = await statements.GetAllCategoriesAsync();
+        return categories.Select(ToResponse).ToList();
+    }
+
     public async Task<List<GameCategoryResponse>> GetUserCategoriesAsync(string discordUserId)
     {
         var user = await discordStatements.GetUserByDiscordId(discordUserId);

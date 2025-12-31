@@ -10,7 +10,7 @@ designed for a small whitelisted user base using Discord OAuth authentication.
 
 ## Technology Stack
 
-- **.NET 9.0** with C# 13
+- **.NET 10.0** with C# 13
 - **ASP.NET Core** with Minimal APIs (no MVC controllers)
 - **PostgreSQL 16** database
 - **Dapper** for data access (micro-ORM with raw SQL)

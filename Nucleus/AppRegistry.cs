@@ -6,6 +6,7 @@ using Nucleus.Clips;
 using Nucleus.Clips.Bunny;
 using Nucleus.Clips.FFmpeg;
 using Nucleus.Discord;
+using Nucleus.Games;
 using Nucleus.Links;
 using Nucleus.Minecraft;
 
@@ -21,6 +22,7 @@ public static class AppRegistry
         app.MapAuthEndpoints();
         app.MapLinksEndpoints();
         app.MapClipsEndpoints();
+        app.MapGameCategoryEndpoints();
         app.MapFFmpegEndpoints();
         app.MapBunnyWebhookEndpoints();
         app.MapApexDetectionEndpoints();

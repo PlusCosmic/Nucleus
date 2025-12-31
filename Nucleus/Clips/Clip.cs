@@ -1,4 +1,3 @@
-using Nucleus.ApexLegends.Models;
 using Nucleus.Clips.Bunny.Models;
 
 namespace Nucleus.Clips;
@@ -7,14 +6,19 @@ public record Clip(
     Guid ClipId,
     Guid OwnerId,
     Guid VideoId,
-    ClipCategoryEnum CategoryEnum,
+    Guid GameCategoryId,
+    string CategorySlug,
     DateTimeOffset CreatedAt,
     BunnyVideo Video,
     IReadOnlyList<string> Tags,
     bool IsViewed,
-    ApexLegend DetectedLegend,
-    string DetectedLegendCard)
+    object? GameMetadata)
 {
 }
 
 public record PagedClipsResponse(List<Clip> Clips, long TotalClips, long TotalPages);
+
+public record ApexClipMetadata(
+    string? DetectedLegend,
+    string? DetectedLegendCard
+);

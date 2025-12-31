@@ -1,5 +1,5 @@
 namespace Nucleus.Clips;
 
-public record CreateGamingSessionPlaylistRequest(List<Guid> Participants, ClipCategoryEnum Category)
+public record CreateGamingSessionPlaylistRequest(List<Guid> Participants, Guid CategoryId)
 {
 }

@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Http.HttpResults;
 using Nucleus.Auth;
 using Nucleus.Exceptions;
+using Nucleus.Games;
 
 namespace Nucleus.Clips;
 
@@ -56,15 +57,23 @@ public static class PlaylistEndpoints
     
     private static async Task<Results<Created<PlaylistWithDetails>, BadRequest<string>>> CreateGamingSessionPlaylist(
         PlaylistService playlistService,
+        GameCategoryStatements gameCategoryStatements,
         CreateGamingSessionPlaylistRequest request,
         AuthenticatedUser user)
     {
         try
         {
+            GameCategory? category = await gameCategoryStatements.GetByIdAsync(request.CategoryId);
+            if (category is null)
+            {
+                return TypedResults.BadRequest("Category not found");
+            }
+
             PlaylistWithDetails playlist = await playlistService.CreateGamingSessionPlaylist(
                 request.Participants,
-                request.Category,
-                user.DiscordId);
+                request.CategoryId,
+                user.DiscordId,
+                category.Name);
 
             return TypedResults.Created($"/api/playlists/{playlist.Id}", playlist);
         }

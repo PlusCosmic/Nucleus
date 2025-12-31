@@ -9,7 +9,12 @@ namespace Nucleus.Test.Builders;
 /// </summary>
 public class ClipBuilder
 {
-    private ClipCategoryEnum _categoryEnum = ClipCategoryEnum.ApexLegends;
+    // Placeholder GUIDs for in-memory test objects (not database values)
+    private static readonly Guid ApexLegendsPlaceholderId = new("00000001-0000-0000-0000-000000000001");
+    private static readonly Guid WarzonePlaceholderId = new("00000002-0000-0000-0000-000000000002");
+
+    private Guid _gameCategoryId = ApexLegendsPlaceholderId;
+    private string _categorySlug = "apex-legends";
     private Guid _clipId = Guid.NewGuid();
     private DateTimeOffset _createdAt = DateTimeOffset.UtcNow;
     private ApexLegend _detectedLegend = ApexLegend.None;
@@ -38,9 +43,10 @@ public class ClipBuilder
         return this;
     }
 
-    public ClipBuilder WithCategory(ClipCategoryEnum category)
+    public ClipBuilder WithCategory(Guid gameCategoryId, string categorySlug)
     {
-        _categoryEnum = category;
+        _gameCategoryId = gameCategoryId;
+        _categorySlug = categorySlug;
         return this;
     }
 
@@ -100,7 +106,8 @@ public class ClipBuilder
     /// </summary>
     public ClipBuilder AsApexRanked()
     {
-        _categoryEnum = ClipCategoryEnum.ApexLegends;
+        _gameCategoryId = ApexLegendsPlaceholderId;
+        _categorySlug = "apex-legends";
         _tags = new List<string> { "ranked", "apex" };
         return this;
     }
@@ -110,7 +117,8 @@ public class ClipBuilder
     /// </summary>
     public ClipBuilder AsWarzone()
     {
-        _categoryEnum = ClipCategoryEnum.CallOfDutyWarzone;
+        _gameCategoryId = WarzonePlaceholderId;
+        _categorySlug = "warzone";
         _tags = new List<string> { "warzone", "cod" };
         return this;
     }
@@ -145,22 +153,28 @@ public class ClipBuilder
             Guid.NewGuid(),
             "thumbnail.jpg",
             "blurhash",
-            _categoryEnum.ToString(),
+            _categorySlug,
             new List<Moment>(),
             new List<MetaTag>()
         );
+
+        object? gameMetadata = null;
+        if (_categorySlug == "apex-legends" && _detectedLegend != ApexLegend.None)
+        {
+            gameMetadata = new ApexClipMetadata(_detectedLegend.ToString(), _detectedLegendCard);
+        }
 
         return new Clip(
             _clipId,
             _ownerId,
             _videoId,
-            _categoryEnum,
+            _gameCategoryId,
+            _categorySlug,
             _createdAt,
             video,
             _tags,
             _isViewed,
-            _detectedLegend,
-            _detectedLegendCard
+            gameMetadata
         );
     }
 

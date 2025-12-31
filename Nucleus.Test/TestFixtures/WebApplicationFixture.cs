@@ -137,6 +137,8 @@ public class WebApplicationFixture : WebApplicationFactory<Program>, IAsyncLifet
         builder.UseSetting("BunnyAccessKey", "test_bunny_access_key");
         builder.UseSetting("BunnyLibraryId", "12345");
         builder.UseSetting("RedisConnectionString", "localhost:6379");
+        builder.UseSetting("IgdbClientId", "test_igdb_client_id");
+        builder.UseSetting("IgdbClientSecret", "test_igdb_client_secret");
 
         builder.ConfigureTestServices(services =>
         {

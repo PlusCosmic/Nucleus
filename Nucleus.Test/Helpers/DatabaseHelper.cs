@@ -1,10 +1,46 @@
 using Dapper;
 using Npgsql;
-using Nucleus.Clips;
-using Nucleus.Discord;
-using Nucleus.Links;
 
 namespace Nucleus.Test.Helpers;
+
+/// <summary>
+/// Well-known game category slugs from the V15 migration seed data.
+/// Use GetIdAsync to look up the auto-generated UUID by slug.
+/// </summary>
+public static class TestGameCategories
+{
+    public const string ApexLegendsSlug = "apex-legends";
+    public const string WarzoneSlug = "warzone";
+    public const string SnowboardingSlug = "snowboarding";
+
+    /// <summary>
+    /// Looks up a game category's UUID by its slug.
+    /// </summary>
+    public static async Task<Guid> GetIdAsync(NpgsqlConnection connection, string slug)
+    {
+        return await connection.QuerySingleAsync<Guid>(
+            "SELECT id FROM game_category WHERE slug = @Slug",
+            new { Slug = slug });
+    }
+
+    /// <summary>
+    /// Gets the Apex Legends category ID.
+    /// </summary>
+    public static Task<Guid> GetApexLegendsIdAsync(NpgsqlConnection connection) =>
+        GetIdAsync(connection, ApexLegendsSlug);
+
+    /// <summary>
+    /// Gets the Warzone category ID.
+    /// </summary>
+    public static Task<Guid> GetWarzoneIdAsync(NpgsqlConnection connection) =>
+        GetIdAsync(connection, WarzoneSlug);
+
+    /// <summary>
+    /// Gets the Snowboarding category ID.
+    /// </summary>
+    public static Task<Guid> GetSnowboardingIdAsync(NpgsqlConnection connection) =>
+        GetIdAsync(connection, SnowboardingSlug);
+}
 
 /// <summary>
 /// Helper class for managing test database data.
@@ -26,6 +62,7 @@ public static class DatabaseHelper
             "tag",
             "user_frequent_link",
             "apex_clip_detection",
+            "user_game_category",
             "discord_user"
         };
 
@@ -74,27 +111,26 @@ public static class DatabaseHelper
         NpgsqlConnection connection,
         Guid userId,
         string title = "Test Clip",
-        string? description = null,
-        string? bunnyVideoId = null,
-        ClipCategoryEnum category = ClipCategoryEnum.ApexLegends,
-        string? md5 = null,
-        int durationSeconds = 30)
+        Guid? videoId = null,
+        string? gameCategorySlug = null,
+        string? md5Hash = null)
     {
+        var categoryId = await TestGameCategories.GetIdAsync(
+            connection,
+            gameCategorySlug ?? TestGameCategories.ApexLegendsSlug);
+
         const string sql = """
-            INSERT INTO clip (id, user_id, bunny_video_id, title, description, category, md5, duration_seconds, created_at)
-            VALUES (gen_random_uuid(), @UserId, @BunnyVideoId, @Title, @Description, @Category, @Md5, @DurationSeconds, @CreatedAt)
+            INSERT INTO clip (id, owner_id, video_id, game_category_id, md5_hash, created_at)
+            VALUES (gen_random_uuid(), @OwnerId, @VideoId, @GameCategoryId, @Md5Hash, @CreatedAt)
             RETURNING id
             """;
 
         var clipId = await connection.QuerySingleAsync<Guid>(sql, new
         {
-            UserId = userId,
-            BunnyVideoId = bunnyVideoId ?? Guid.NewGuid().ToString(),
-            Title = title,
-            Description = description,
-            Category = category.ToString(),
-            Md5 = md5,
-            DurationSeconds = durationSeconds,
+            OwnerId = userId,
+            VideoId = videoId ?? Guid.NewGuid(),
+            GameCategoryId = categoryId,
+            Md5Hash = md5Hash,
             CreatedAt = DateTimeOffset.UtcNow
         });
 
@@ -136,9 +172,9 @@ public static class DatabaseHelper
         Guid userId,
         string title,
         string[] tags,
-        ClipCategoryEnum category = ClipCategoryEnum.ApexLegends)
+        string? gameCategorySlug = null)
     {
-        var clipId = await SeedClipAsync(connection, userId, title, category: category);
+        var clipId = await SeedClipAsync(connection, userId, title, gameCategorySlug: gameCategorySlug ?? TestGameCategories.ApexLegendsSlug);
 
         foreach (var tag in tags)
         {
@@ -211,14 +247,14 @@ public static class DatabaseHelper
             userId,
             "Test Clip 1",
             new[] { "ranked", "controller" },
-            ClipCategoryEnum.ApexLegends);
+            TestGameCategories.ApexLegendsSlug);
 
         var clip2Id = await SeedClipWithTagsAsync(
             connection,
             userId,
             "Test Clip 2",
             new[] { "pubs", "mnk" },
-            ClipCategoryEnum.ApexLegends);
+            TestGameCategories.ApexLegendsSlug);
 
         var link1Id = await SeedUserLinkAsync(
             connection,

@@ -1,19 +1,28 @@
 using Nucleus.Clips.Bunny;
 using Nucleus.Clips.Bunny.Models;
+using Nucleus.Games;
 
 namespace Nucleus.Clips;
 
 public class ClipsBackfillService(
     ClipsBackfillStatements backfillStatements,
     ClipsStatements clipsStatements,
+    GameCategoryStatements gameCategoryStatements,
     BunnyService bunnyService,
     ILogger<ClipsBackfillService> logger)
 {
-    private static readonly Guid ApexLegendsGameCategoryId = Guid.Parse("11111111-1111-1111-1111-111111111111");
+    private const string ApexLegendsSlug = "apex-legends";
 
     public async Task<BackfillResult> BackfillClipMetadataAsync()
     {
-        List<ClipsStatements.ClipRow> allClips = await clipsStatements.GetAllClipsForCategory(ApexLegendsGameCategoryId);
+        GameCategory? apexCategory = await gameCategoryStatements.GetBySlugAsync(ApexLegendsSlug);
+        if (apexCategory is null)
+        {
+            logger.LogWarning("Apex Legends category not found in database");
+            return new BackfillResult(0, 0, 0);
+        }
+
+        List<ClipsStatements.ClipRow> allClips = await clipsStatements.GetAllClipsForCategory(apexCategory.Id);
 
         if (allClips.Count == 0)
         {

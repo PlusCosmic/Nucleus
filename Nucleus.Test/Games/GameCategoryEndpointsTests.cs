@@ -117,7 +117,8 @@ public class GameCategoryEndpointsTests : IClassFixture<WebApplicationFixture>, 
     {
         // Arrange
         HttpClient client = _fixture.CreateUnauthenticatedClient();
-        Guid categoryId = TestGameCategories.ApexLegends;
+        NpgsqlConnection connection = _fixture.GetService<NpgsqlConnection>();
+        Guid categoryId = await TestGameCategories.GetApexLegendsIdAsync(connection);
 
         // Act
         HttpResponseMessage response = await client.GetAsync($"/games/categories/{categoryId}");
@@ -132,7 +133,8 @@ public class GameCategoryEndpointsTests : IClassFixture<WebApplicationFixture>, 
     {
         // Arrange
         HttpClient client = _fixture.CreateAuthenticatedClient(_testDiscordId);
-        Guid categoryId = TestGameCategories.ApexLegends;
+        NpgsqlConnection connection = _fixture.GetService<NpgsqlConnection>();
+        Guid categoryId = await TestGameCategories.GetApexLegendsIdAsync(connection);
 
         // Act
         HttpResponseMessage response = await client.GetAsync($"/games/categories/{categoryId}");
@@ -346,7 +348,8 @@ public class GameCategoryEndpointsTests : IClassFixture<WebApplicationFixture>, 
     {
         // Arrange
         HttpClient client = _fixture.CreateUnauthenticatedClient();
-        Guid categoryId = TestGameCategories.ApexLegends;
+        NpgsqlConnection connection = _fixture.GetService<NpgsqlConnection>();
+        Guid categoryId = await TestGameCategories.GetApexLegendsIdAsync(connection);
 
         // Act
         HttpResponseMessage response = await client.DeleteAsync($"/games/categories/{categoryId}");
@@ -422,7 +425,7 @@ public class GameCategoryEndpointsTests : IClassFixture<WebApplicationFixture>, 
 
     [Fact]
     [Trait("Category", "Endpoint")]
-    public async Task SeededCategories_HaveExpectedIds()
+    public async Task SeededCategories_HaveExpectedSlugs()
     {
         // Arrange
         HttpClient client = _fixture.CreateAuthenticatedClient(_testDiscordId);
@@ -431,10 +434,10 @@ public class GameCategoryEndpointsTests : IClassFixture<WebApplicationFixture>, 
         HttpResponseMessage response = await client.GetAsync("/games/categories");
         List<GameCategoryResponse>? categories = await response.Content.ReadFromJsonAsync<List<GameCategoryResponse>>(JsonOptions);
 
-        // Assert - Verify the well-known IDs from the migration
-        categories.Should().Contain(c => c.Id == TestGameCategories.ApexLegends);
-        categories.Should().Contain(c => c.Id == TestGameCategories.Warzone);
-        categories.Should().Contain(c => c.Id == TestGameCategories.Snowboarding);
+        // Assert - Verify the well-known slugs from the migration
+        categories.Should().Contain(c => c.Slug == TestGameCategories.ApexLegendsSlug);
+        categories.Should().Contain(c => c.Slug == TestGameCategories.WarzoneSlug);
+        categories.Should().Contain(c => c.Slug == TestGameCategories.SnowboardingSlug);
     }
 
     #endregion

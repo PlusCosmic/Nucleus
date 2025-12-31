@@ -13,24 +13,24 @@ CREATE TABLE game_category (
 CREATE INDEX idx_game_category_slug ON game_category(slug);
 CREATE INDEX idx_game_category_igdb_id ON game_category(igdb_id);
 
--- Seed existing categories with fixed UUIDs for migration
-INSERT INTO game_category (id, igdb_id, name, slug, cover_url, is_custom) VALUES
-    ('11111111-1111-1111-1111-111111111111', 114795, 'Apex Legends', 'apex-legends',
+-- Seed existing categories (let database auto-generate UUIDs)
+INSERT INTO game_category (igdb_id, name, slug, cover_url, is_custom) VALUES
+    (114795, 'Apex Legends', 'apex-legends',
      'https://images.igdb.com/igdb/image/upload/t_cover_big/co1wj6.jpg', FALSE),
-    ('22222222-2222-2222-2222-222222222222', 5006, 'Call of Duty: Warzone', 'warzone',
+    (5006, 'Call of Duty: Warzone', 'warzone',
      'https://images.igdb.com/igdb/image/upload/t_cover_big/co2k2r.jpg', FALSE),
-    ('33333333-3333-3333-3333-333333333333', NULL, 'Snowboarding', 'snowboarding',
+    (NULL, 'Snowboarding', 'snowboarding',
      '/images/snowboarding.png', TRUE);
 
 -- Add foreign key column to clip table
 ALTER TABLE clip ADD COLUMN game_category_id UUID;
 
--- Migrate existing data from integer category to UUID
+-- Migrate existing data from integer category to UUID (lookup by slug)
 UPDATE clip SET game_category_id =
     CASE category
-        WHEN 0 THEN '11111111-1111-1111-1111-111111111111'::UUID
-        WHEN 1 THEN '22222222-2222-2222-2222-222222222222'::UUID
-        WHEN 2 THEN '33333333-3333-3333-3333-333333333333'::UUID
+        WHEN 0 THEN (SELECT id FROM game_category WHERE slug = 'apex-legends')
+        WHEN 1 THEN (SELECT id FROM game_category WHERE slug = 'warzone')
+        WHEN 2 THEN (SELECT id FROM game_category WHERE slug = 'snowboarding')
     END;
 
 -- Make NOT NULL and add constraint
@@ -46,9 +46,9 @@ ALTER TABLE clip_collection ADD COLUMN game_category_id UUID;
 
 UPDATE clip_collection SET game_category_id =
     CASE category
-        WHEN 0 THEN '11111111-1111-1111-1111-111111111111'::UUID
-        WHEN 1 THEN '22222222-2222-2222-2222-222222222222'::UUID
-        WHEN 2 THEN '33333333-3333-3333-3333-333333333333'::UUID
+        WHEN 0 THEN (SELECT id FROM game_category WHERE slug = 'apex-legends')
+        WHEN 1 THEN (SELECT id FROM game_category WHERE slug = 'warzone')
+        WHEN 2 THEN (SELECT id FROM game_category WHERE slug = 'snowboarding')
     END;
 
 ALTER TABLE clip_collection ALTER COLUMN game_category_id SET NOT NULL;

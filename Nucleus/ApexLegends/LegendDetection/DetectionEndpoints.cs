@@ -1,12 +1,14 @@
 using Microsoft.AspNetCore.Http.HttpResults;
 using Nucleus.ApexLegends.Models;
 using Nucleus.Clips;
+using Nucleus.Games;
 
 namespace Nucleus.ApexLegends.LegendDetection;
 
 public static class ApexDetectionEndpoints
 {
-    private static readonly Guid ApexLegendsGameCategoryId = Guid.Parse("11111111-1111-1111-1111-111111111111");
+    private const string ApexLegendsSlug = "apex-legends";
+
     public static void MapApexDetectionEndpoints(this WebApplication app)
     {
         RouteGroupBuilder group = app.MapGroup("api/apexdetection");
@@ -37,10 +39,19 @@ public static class ApexDetectionEndpoints
     }
 
     public static async Task<Results<Ok, BadRequest<string>>> QueueAllUnprocessedItems(
-        IApexDetectionQueueService queueService, ApexStatements apexStatements, ClipsStatements clipsStatements)
+        IApexDetectionQueueService queueService,
+        ApexStatements apexStatements,
+        ClipsStatements clipsStatements,
+        GameCategoryStatements gameCategoryStatements)
     {
+        GameCategory? apexCategory = await gameCategoryStatements.GetBySlugAsync(ApexLegendsSlug);
+        if (apexCategory is null)
+        {
+            return TypedResults.BadRequest("Apex Legends category not found");
+        }
+
         List<ApexStatements.ApexClipDetectionRow> allDetections = await apexStatements.GetAllApexClipDetections();
-        List<ClipsStatements.ClipRow> allClips = await clipsStatements.GetAllClipsForCategory(ApexLegendsGameCategoryId);
+        List<ClipsStatements.ClipRow> allClips = await clipsStatements.GetAllClipsForCategory(apexCategory.Id);
         List<Guid> allClipIds = allClips.Select(c => c.Id).ToList();
         List<Guid> allDetectionIds = allDetections.Select(d => d.ClipId).ToList();
         List<Guid> unprocessedClipIds = allClipIds.Except(allDetectionIds).ToList();

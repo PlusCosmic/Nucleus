@@ -4,13 +4,42 @@ using Npgsql;
 namespace Nucleus.Test.Helpers;
 
 /// <summary>
-/// Well-known game category IDs matching the V15 migration seed data.
+/// Well-known game category slugs from the V15 migration seed data.
+/// Use GetIdAsync to look up the auto-generated UUID by slug.
 /// </summary>
 public static class TestGameCategories
 {
-    public static readonly Guid ApexLegends = Guid.Parse("11111111-1111-1111-1111-111111111111");
-    public static readonly Guid Warzone = Guid.Parse("22222222-2222-2222-2222-222222222222");
-    public static readonly Guid Snowboarding = Guid.Parse("33333333-3333-3333-3333-333333333333");
+    public const string ApexLegendsSlug = "apex-legends";
+    public const string WarzoneSlug = "warzone";
+    public const string SnowboardingSlug = "snowboarding";
+
+    /// <summary>
+    /// Looks up a game category's UUID by its slug.
+    /// </summary>
+    public static async Task<Guid> GetIdAsync(NpgsqlConnection connection, string slug)
+    {
+        return await connection.QuerySingleAsync<Guid>(
+            "SELECT id FROM game_category WHERE slug = @Slug",
+            new { Slug = slug });
+    }
+
+    /// <summary>
+    /// Gets the Apex Legends category ID.
+    /// </summary>
+    public static Task<Guid> GetApexLegendsIdAsync(NpgsqlConnection connection) =>
+        GetIdAsync(connection, ApexLegendsSlug);
+
+    /// <summary>
+    /// Gets the Warzone category ID.
+    /// </summary>
+    public static Task<Guid> GetWarzoneIdAsync(NpgsqlConnection connection) =>
+        GetIdAsync(connection, WarzoneSlug);
+
+    /// <summary>
+    /// Gets the Snowboarding category ID.
+    /// </summary>
+    public static Task<Guid> GetSnowboardingIdAsync(NpgsqlConnection connection) =>
+        GetIdAsync(connection, SnowboardingSlug);
 }
 
 /// <summary>
@@ -83,9 +112,13 @@ public static class DatabaseHelper
         Guid userId,
         string title = "Test Clip",
         Guid? videoId = null,
-        Guid? gameCategoryId = null,
+        string? gameCategorySlug = null,
         string? md5Hash = null)
     {
+        var categoryId = await TestGameCategories.GetIdAsync(
+            connection,
+            gameCategorySlug ?? TestGameCategories.ApexLegendsSlug);
+
         const string sql = """
             INSERT INTO clip (id, owner_id, video_id, game_category_id, md5_hash, created_at)
             VALUES (gen_random_uuid(), @OwnerId, @VideoId, @GameCategoryId, @Md5Hash, @CreatedAt)
@@ -96,7 +129,7 @@ public static class DatabaseHelper
         {
             OwnerId = userId,
             VideoId = videoId ?? Guid.NewGuid(),
-            GameCategoryId = gameCategoryId ?? TestGameCategories.ApexLegends,
+            GameCategoryId = categoryId,
             Md5Hash = md5Hash,
             CreatedAt = DateTimeOffset.UtcNow
         });
@@ -139,9 +172,9 @@ public static class DatabaseHelper
         Guid userId,
         string title,
         string[] tags,
-        Guid? gameCategoryId = null)
+        string? gameCategorySlug = null)
     {
-        var clipId = await SeedClipAsync(connection, userId, title, gameCategoryId: gameCategoryId ?? TestGameCategories.ApexLegends);
+        var clipId = await SeedClipAsync(connection, userId, title, gameCategorySlug: gameCategorySlug ?? TestGameCategories.ApexLegendsSlug);
 
         foreach (var tag in tags)
         {
@@ -214,14 +247,14 @@ public static class DatabaseHelper
             userId,
             "Test Clip 1",
             new[] { "ranked", "controller" },
-            TestGameCategories.ApexLegends);
+            TestGameCategories.ApexLegendsSlug);
 
         var clip2Id = await SeedClipWithTagsAsync(
             connection,
             userId,
             "Test Clip 2",
             new[] { "pubs", "mnk" },
-            TestGameCategories.ApexLegends);
+            TestGameCategories.ApexLegendsSlug);
 
         var link1Id = await SeedUserLinkAsync(
             connection,

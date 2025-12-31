@@ -49,7 +49,8 @@ public class ClipsEndpointsTests : IClassFixture<WebApplicationFixture>, IAsyncL
     {
         // Arrange
         HttpClient client = _fixture.CreateAuthenticatedClient(_testDiscordId);
-        var apexCategoryId = TestGameCategories.ApexLegends;
+        NpgsqlConnection connection = _fixture.GetService<NpgsqlConnection>();
+        Guid apexCategoryId = await TestGameCategories.GetApexLegendsIdAsync(connection);
 
         // Act
         HttpResponseMessage response = await client.GetAsync($"/clips/categories/{apexCategoryId}/videos?page=1&pageSize=1");
@@ -106,7 +107,8 @@ public class ClipsEndpointsTests : IClassFixture<WebApplicationFixture>, IAsyncL
     {
         // Arrange
         HttpClient client = _fixture.CreateUnauthenticatedClient();
-        var apexCategoryId = TestGameCategories.ApexLegends;
+        NpgsqlConnection connection = _fixture.GetService<NpgsqlConnection>();
+        Guid apexCategoryId = await TestGameCategories.GetApexLegendsIdAsync(connection);
 
         // Act
         HttpResponseMessage response = await client.GetAsync($"/clips/categories/{apexCategoryId}/videos?page=1&pageSize=10");
@@ -121,7 +123,8 @@ public class ClipsEndpointsTests : IClassFixture<WebApplicationFixture>, IAsyncL
     {
         // Arrange
         HttpClient client = _fixture.CreateAuthenticatedClient(_testDiscordId);
-        var apexCategoryId = TestGameCategories.ApexLegends;
+        NpgsqlConnection connection = _fixture.GetService<NpgsqlConnection>();
+        Guid apexCategoryId = await TestGameCategories.GetApexLegendsIdAsync(connection);
 
         // Act
         HttpResponseMessage response = await client.GetAsync($"/clips/categories/{apexCategoryId}/videos?page=1&pageSize=1");
@@ -136,7 +139,8 @@ public class ClipsEndpointsTests : IClassFixture<WebApplicationFixture>, IAsyncL
     {
         // Arrange
         HttpClient client = _fixture.CreateAuthenticatedClient(_testDiscordId);
-        var apexCategoryId = TestGameCategories.ApexLegends;
+        NpgsqlConnection connection = _fixture.GetService<NpgsqlConnection>();
+        Guid apexCategoryId = await TestGameCategories.GetApexLegendsIdAsync(connection);
 
         // Act
         HttpResponseMessage response = await client.GetAsync($"/clips/categories/{apexCategoryId}/videos?page=1&pageSize=1");
@@ -158,7 +162,8 @@ public class ClipsEndpointsTests : IClassFixture<WebApplicationFixture>, IAsyncL
     {
         // Arrange
         HttpClient client = _fixture.CreateUnauthenticatedClient();
-        var apexCategoryId = TestGameCategories.ApexLegends;
+        NpgsqlConnection connection = _fixture.GetService<NpgsqlConnection>();
+        Guid apexCategoryId = await TestGameCategories.GetApexLegendsIdAsync(connection);
         var request = new { videoTitle = "Test Video" };
 
         // Act
@@ -174,7 +179,8 @@ public class ClipsEndpointsTests : IClassFixture<WebApplicationFixture>, IAsyncL
     {
         // Arrange
         HttpClient client = _fixture.CreateAuthenticatedClient(_testDiscordId);
-        var apexCategoryId = TestGameCategories.ApexLegends;
+        NpgsqlConnection connection = _fixture.GetService<NpgsqlConnection>();
+        Guid apexCategoryId = await TestGameCategories.GetApexLegendsIdAsync(connection);
 
         // Act
         HttpResponseMessage response =
@@ -192,7 +198,8 @@ public class ClipsEndpointsTests : IClassFixture<WebApplicationFixture>, IAsyncL
     {
         // Arrange
         HttpClient client = _fixture.CreateAuthenticatedClient(_testDiscordId);
-        var apexCategoryId = TestGameCategories.ApexLegends;
+        NpgsqlConnection connection = _fixture.GetService<NpgsqlConnection>();
+        Guid apexCategoryId = await TestGameCategories.GetApexLegendsIdAsync(connection);
         string md5 = "duplicate_" + Guid.NewGuid().ToString("N");
 
         // Act - Create first video

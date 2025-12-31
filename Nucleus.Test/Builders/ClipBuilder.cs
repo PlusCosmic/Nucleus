@@ -1,7 +1,6 @@
 using Nucleus.ApexLegends.Models;
 using Nucleus.Clips;
 using Nucleus.Clips.Bunny.Models;
-using Nucleus.Test.Helpers;
 
 namespace Nucleus.Test.Builders;
 
@@ -10,7 +9,11 @@ namespace Nucleus.Test.Builders;
 /// </summary>
 public class ClipBuilder
 {
-    private Guid _gameCategoryId = TestGameCategories.ApexLegends;
+    // Placeholder GUIDs for in-memory test objects (not database values)
+    private static readonly Guid ApexLegendsPlaceholderId = new("00000001-0000-0000-0000-000000000001");
+    private static readonly Guid WarzonePlaceholderId = new("00000002-0000-0000-0000-000000000002");
+
+    private Guid _gameCategoryId = ApexLegendsPlaceholderId;
     private string _categorySlug = "apex-legends";
     private Guid _clipId = Guid.NewGuid();
     private DateTimeOffset _createdAt = DateTimeOffset.UtcNow;
@@ -103,7 +106,7 @@ public class ClipBuilder
     /// </summary>
     public ClipBuilder AsApexRanked()
     {
-        _gameCategoryId = TestGameCategories.ApexLegends;
+        _gameCategoryId = ApexLegendsPlaceholderId;
         _categorySlug = "apex-legends";
         _tags = new List<string> { "ranked", "apex" };
         return this;
@@ -114,7 +117,7 @@ public class ClipBuilder
     /// </summary>
     public ClipBuilder AsWarzone()
     {
-        _gameCategoryId = TestGameCategories.Warzone;
+        _gameCategoryId = WarzonePlaceholderId;
         _categorySlug = "warzone";
         _tags = new List<string> { "warzone", "cod" };
         return this;

@@ -17,7 +17,7 @@ CREATE INDEX idx_game_category_igdb_id ON game_category(igdb_id);
 INSERT INTO game_category (igdb_id, name, slug, cover_url, is_custom) VALUES
     (114795, 'Apex Legends', 'apex-legends',
      'https://images.igdb.com/igdb/image/upload/t_cover_big/co1wj6.jpg', FALSE),
-    (5006, 'Call of Duty: Warzone', 'warzone',
+    (131800, 'Call of Duty: Warzone', 'warzone',
      'https://images.igdb.com/igdb/image/upload/t_cover_big/co2k2r.jpg', FALSE),
     (NULL, 'Snowboarding', 'snowboarding',
      '/images/snowboarding.png', TRUE);

@@ -335,20 +335,15 @@ public class DockerContainerService
                 return null;
             }
 
-            using var statsStream = await _client.Containers.GetContainerStatsAsync(
+            ContainerStatsResponse? stats = null;
+            var progress = new Progress<ContainerStatsResponse>(s => stats = s);
+
+            await _client.Containers.GetContainerStatsAsync(
                 containerName,
                 new ContainerStatsParameters { Stream = false, OneShot = true },
+                progress,
                 ct);
 
-            using var reader = new StreamReader(statsStream);
-            string json = await reader.ReadToEndAsync(ct);
-
-            if (string.IsNullOrWhiteSpace(json))
-            {
-                return null;
-            }
-
-            var stats = System.Text.Json.JsonSerializer.Deserialize<DockerStatsResponse>(json);
             if (stats is null)
             {
                 return null;
@@ -363,37 +358,41 @@ public class DockerContainerService
         }
     }
 
-    private static ContainerResourceStats CalculateStats(DockerStatsResponse stats)
+    private static ContainerResourceStats CalculateStats(ContainerStatsResponse stats)
     {
         // CPU calculation
         double cpuPercent = 0;
-        if (stats.CpuStats?.CpuUsage?.TotalUsage > 0 &&
-            stats.PrecpuStats?.CpuUsage?.TotalUsage > 0 &&
-            stats.CpuStats?.SystemCpuUsage > 0 &&
-            stats.PrecpuStats?.SystemCpuUsage > 0)
+        if (stats.CPUStats?.CPUUsage?.TotalUsage > 0 &&
+            stats.PreCPUStats?.CPUUsage?.TotalUsage > 0 &&
+            stats.CPUStats?.SystemUsage > 0 &&
+            stats.PreCPUStats?.SystemUsage > 0)
         {
-            var cpuDelta = stats.CpuStats.CpuUsage.TotalUsage - stats.PrecpuStats.CpuUsage.TotalUsage;
-            var systemDelta = stats.CpuStats.SystemCpuUsage.Value - stats.PrecpuStats.SystemCpuUsage.Value;
+            var cpuDelta = stats.CPUStats.CPUUsage.TotalUsage - stats.PreCPUStats.CPUUsage.TotalUsage;
+            var systemDelta = stats.CPUStats.SystemUsage - stats.PreCPUStats.SystemUsage;
 
             if (systemDelta > 0 && cpuDelta > 0)
             {
-                int onlineCpus = stats.CpuStats.OnlineCpus ?? 1;
+                ulong onlineCpus = stats.CPUStats.OnlineCPUs > 0 ? stats.CPUStats.OnlineCPUs : 1;
                 cpuPercent = (cpuDelta / (double)systemDelta) * onlineCpus * 100.0;
             }
         }
 
         // Memory calculation (exclude cache for accurate usage)
-        long memoryUsed = stats.MemoryStats?.Usage ?? 0;
-        long cache = stats.MemoryStats?.Stats?.Cache ?? 0;
-        long memoryActual = memoryUsed - cache;
-        long memoryLimit = stats.MemoryStats?.Limit ?? 1;
+        ulong memoryUsed = stats.MemoryStats?.Usage ?? 0;
+        ulong cache = 0;
+        if (stats.MemoryStats?.Stats != null && stats.MemoryStats.Stats.TryGetValue("cache", out var cacheValue))
+        {
+            cache = cacheValue;
+        }
+        ulong memoryActual = memoryUsed - cache;
+        ulong memoryLimit = stats.MemoryStats?.Limit ?? 1;
 
         double memoryPercent = memoryLimit > 0 ? (memoryActual / (double)memoryLimit) * 100.0 : 0;
 
         return new ContainerResourceStats(
             CpuPercent: Math.Round(cpuPercent, 2),
-            MemoryUsedMb: memoryActual / 1024 / 1024,
-            MemoryLimitMb: memoryLimit / 1024 / 1024,
+            MemoryUsedMb: (long)(memoryActual / 1024 / 1024),
+            MemoryLimitMb: (long)(memoryLimit / 1024 / 1024),
             MemoryPercent: Math.Round(memoryPercent, 2)
         );
     }
@@ -413,35 +412,3 @@ public record ContainerResourceStats(
     long MemoryLimitMb,
     double MemoryPercent
 );
-
-// DTOs for deserializing Docker stats response
-internal class DockerStatsResponse
-{
-    public CpuStatsDto? CpuStats { get; set; }
-    public CpuStatsDto? PrecpuStats { get; set; }
-    public MemoryStatsDto? MemoryStats { get; set; }
-}
-
-internal class CpuStatsDto
-{
-    public CpuUsageDto? CpuUsage { get; set; }
-    public ulong? SystemCpuUsage { get; set; }
-    public int? OnlineCpus { get; set; }
-}
-
-internal class CpuUsageDto
-{
-    public ulong TotalUsage { get; set; }
-}
-
-internal class MemoryStatsDto
-{
-    public long Usage { get; set; }
-    public long Limit { get; set; }
-    public MemoryStatsCacheDto? Stats { get; set; }
-}
-
-internal class MemoryStatsCacheDto
-{
-    public long Cache { get; set; }
-}

@@ -48,7 +48,7 @@ public class MockBunnyService : BunnyService
         return collection;
     }
 
-    public new async Task<PagedVideoResponse> GetVideosForCollectionAsync(Guid collectionId, int page, int pageSize)
+    public async Task<PagedVideoResponse> GetVideosForCollectionAsync(Guid collectionId, int page, int pageSize)
     {
         await Task.CompletedTask;
 

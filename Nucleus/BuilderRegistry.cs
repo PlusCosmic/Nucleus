@@ -3,6 +3,7 @@ using System.Text.Json.Serialization;
 using Discord;
 using Discord.WebSocket;
 using Microsoft.AspNetCore.Http.Json;
+using Microsoft.OpenApi;
 using MongoDB.Driver;
 using Npgsql;
 using Nucleus.ApexLegends;
@@ -26,7 +27,24 @@ public static class BuilderRegistry
 {
     public static void RegisterServices(this WebApplicationBuilder builder)
     {
-        builder.Services.AddOpenApi();
+        builder.Services.AddOpenApi(options =>
+        {
+            // Fix for OpenAPI 3.1 nullable type arrays that break typescript-fetch generator.
+            // When a schema has type: ["null", "object"], the generator incorrectly creates
+            // references to a non-existent "Null" type. This transformer removes the Null flag
+            // from schema definitions so they generate as pure object types.
+            options.AddSchemaTransformer((schema, context, cancellationToken) =>
+            {
+                if (schema.Type.HasValue &&
+                    schema.Type.Value.HasFlag(JsonSchemaType.Null) &&
+                    schema.Type.Value.HasFlag(JsonSchemaType.Object))
+                {
+                    schema.Type = JsonSchemaType.Object;
+                }
+
+                return Task.CompletedTask;
+            });
+        });
         builder.Services.AddHttpClient();
         builder.Services.AddScoped<ClipsStatements>();
         builder.Services.AddScoped<ClipsBackfillStatements>();

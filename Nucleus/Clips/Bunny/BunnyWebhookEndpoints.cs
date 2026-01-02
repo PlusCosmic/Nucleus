@@ -110,7 +110,7 @@ public static class BunnyWebhookEndpoints
         {
             await backfillStatements.UpdateClipMetadataAsync(
                 clip.Id,
-                clip?.Title ?? video.Title,
+                clip.Title ?? video.Title,
                 video.Length,
                 video.ThumbnailFileName,
                 video.DateUploaded,

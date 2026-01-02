@@ -18,7 +18,7 @@ public class ApexDetectionQueueService(IConnectionMultiplexer redis, ILogger<Ape
     public async Task<DetectionResult?> GetTaskResultAsync(Guid taskId)
     {
         RedisValue resultJson = await _db.StringGetAsync($"result:{taskId.ToString()}");
-        return resultJson.IsNullOrEmpty ? null : JsonConvert.DeserializeObject<DetectionResult>(resultJson);
+        return resultJson.IsNullOrEmpty ? null : JsonConvert.DeserializeObject<DetectionResult>(resultJson.ToString());
     }
 
     public async Task<Guid> QueueDetectionAsync(Guid clipId, List<string> screenshotUrls)

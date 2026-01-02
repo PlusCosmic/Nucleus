@@ -4,9 +4,9 @@ namespace Nucleus.Apex.CharacterDetection;
 
 public class DetectionResult
 {
-    public string TaskId { get; set; }
-    public string VideoId { get; set; }
-    public string Status { get; set; } // pending, processing, completed, failed
+    public required string TaskId { get; set; }
+    public required string VideoId { get; set; }
+    public required string Status { get; set; } // pending, processing, completed, failed
     public List<CharacterDetection> Detections { get; set; } = new();
     public CharacterDetection? BestOverall { get; set; }
     public List<string> UniqueCharacters { get; set; } = new();
@@ -35,8 +35,8 @@ public class DetectionResult
 
 public class CharacterDetection
 {
-    public string CharacterName { get; set; }
+    public required string CharacterName { get; set; }
     public float Confidence { get; set; }
     public int ScreenshotIndex { get; set; }
-    public string ScreenshotUrl { get; set; }
+    public required string ScreenshotUrl { get; set; }
 }

@@ -38,6 +38,9 @@ services:
       Backblaze__Endpoint: ${Backblaze__Endpoint:-}
       Backblaze__BucketPrefix: ${Backblaze__BucketPrefix:-minecraft-backups/}
       Backblaze__SyncIntervalHours: ${Backblaze__SyncIntervalHours:-1}
+      #IGDB
+      IgdbClientId: ${IgdbClientId}
+      IgdbClientSecret: ${IgdbClientSecret}
     volumes:
       # Minecraft server data - maps to PersistenceLocation paths
       - /srv/minecraft-servers:/minecraft-servers:rw

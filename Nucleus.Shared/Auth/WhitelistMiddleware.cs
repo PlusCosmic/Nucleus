@@ -21,7 +21,7 @@ public class WhitelistMiddleware
         _whitelistService = whitelistService;
         _logger = logger;
         _bypassPaths = new HashSet<string>(
-            bypassPaths ?? ["/health", "/auth", "/webhooks"],
+            bypassPaths ?? ["/health", "/auth", "/webhooks", "/apex-legends"],
             StringComparer.OrdinalIgnoreCase);
     }
 

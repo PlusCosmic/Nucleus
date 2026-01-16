@@ -20,6 +20,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Nucleus.Minecraft", "Nucleu
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Nucleus.Clips", "Nucleus.Clips\Nucleus.Clips.csproj", "{A0DA108E-1B81-441E-937F-EC0022BCEE66}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Nucleus.Clips.Test", "Nucleus.Clips.Test\Nucleus.Clips.Test.csproj", "{4EFA10B9-B047-46A5-8C82-F1C8F15E27F0}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -90,6 +92,18 @@ Global
 		{A0DA108E-1B81-441E-937F-EC0022BCEE66}.Release|x64.Build.0 = Release|Any CPU
 		{A0DA108E-1B81-441E-937F-EC0022BCEE66}.Release|x86.ActiveCfg = Release|Any CPU
 		{A0DA108E-1B81-441E-937F-EC0022BCEE66}.Release|x86.Build.0 = Release|Any CPU
+		{4EFA10B9-B047-46A5-8C82-F1C8F15E27F0}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{4EFA10B9-B047-46A5-8C82-F1C8F15E27F0}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{4EFA10B9-B047-46A5-8C82-F1C8F15E27F0}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{4EFA10B9-B047-46A5-8C82-F1C8F15E27F0}.Debug|x64.Build.0 = Debug|Any CPU
+		{4EFA10B9-B047-46A5-8C82-F1C8F15E27F0}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{4EFA10B9-B047-46A5-8C82-F1C8F15E27F0}.Debug|x86.Build.0 = Debug|Any CPU
+		{4EFA10B9-B047-46A5-8C82-F1C8F15E27F0}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{4EFA10B9-B047-46A5-8C82-F1C8F15E27F0}.Release|Any CPU.Build.0 = Release|Any CPU
+		{4EFA10B9-B047-46A5-8C82-F1C8F15E27F0}.Release|x64.ActiveCfg = Release|Any CPU
+		{4EFA10B9-B047-46A5-8C82-F1C8F15E27F0}.Release|x64.Build.0 = Release|Any CPU
+		{4EFA10B9-B047-46A5-8C82-F1C8F15E27F0}.Release|x86.ActiveCfg = Release|Any CPU
+		{4EFA10B9-B047-46A5-8C82-F1C8F15E27F0}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

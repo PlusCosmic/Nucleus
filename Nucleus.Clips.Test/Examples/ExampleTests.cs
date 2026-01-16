@@ -1,12 +1,11 @@
 using FluentAssertions;
-using Nucleus.Test.Builders;
-using Nucleus.Test.Helpers;
+using Nucleus.Clips.Test.Builders;
+using Nucleus.Clips.Test.Helpers;
 
-namespace Nucleus.Test.Examples;
+namespace Nucleus.Clips.Test.Examples;
 
 /// <summary>
 /// Example tests demonstrating the test infrastructure setup.
-/// These tests showcase how to use builders, helpers, and assertions.
 /// </summary>
 public class ExampleTests
 {
@@ -23,35 +22,6 @@ public class ExampleTests
         clip.Should().NotBeNull();
         clip.Tags.Should().Contain("ranked");
         clip.Tags.Should().Contain("apex");
-    }
-
-    [Fact]
-    public void LinkBuilder_ShouldCreateValidLink()
-    {
-        // Arrange & Act
-        var link = new LinkBuilder()
-            .AsGitHub()
-            .Build();
-
-        // Assert
-        link.Should().NotBeNull();
-        link.Title.Should().Be("GitHub");
-        link.Url.Should().Be("https://github.com");
-    }
-
-    [Fact]
-    public void DiscordUserBuilder_ShouldCreateValidUser()
-    {
-        // Arrange & Act
-        var user = new DiscordUserBuilder()
-            .WithUsername("testuser")
-            .WithGlobalName("Test User")
-            .Build();
-
-        // Assert
-        user.Should().NotBeNull();
-        user.Username.Should().Be("testuser");
-        user.GlobalName.Should().Be("Test User");
     }
 
     [Fact]

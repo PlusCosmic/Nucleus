@@ -1,14 +1,7 @@
 using Nucleus.Admin;
-using Nucleus.ApexLegends;
-using Nucleus.ApexLegends.LegendDetection;
 using Nucleus.Auth;
-using Nucleus.Clips;
-using Nucleus.Clips.Bunny;
-using Nucleus.Clips.FFmpeg;
 using Nucleus.Discord;
-using Nucleus.Games;
 using Nucleus.Links;
-using Nucleus.Minecraft;
 
 namespace Nucleus;
 
@@ -18,17 +11,8 @@ public static class AppRegistry
     {
         app.MapOpenApi();
         app.MapUserEndpoints();
-        app.MapApexEndpoints();
         app.MapAuthEndpoints();
         app.MapLinksEndpoints();
-        app.MapClipsEndpoints();
-        app.MapGameCategoryEndpoints();
-        app.MapFFmpegEndpoints();
-        app.MapBunnyWebhookEndpoints();
-        app.MapApexDetectionEndpoints();
-        app.MapPlaylistEndpoints();
-        app.MapMinecraftEndpoints();
         app.MapAdminEndpoints();
-        //app.MapDropzoneEndpoints();
     }
 }

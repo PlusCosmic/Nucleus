@@ -34,6 +34,7 @@
 
     <ItemGroup>
         <ProjectReference Include="..\Nucleus\Nucleus.csproj"/>
+        <ProjectReference Include="..\Nucleus.Clips\Nucleus.Clips.csproj"/>
     </ItemGroup>
 
     <ItemGroup>

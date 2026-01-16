@@ -3,7 +3,8 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using FluentAssertions;
 using Npgsql;
-using Nucleus.Games;
+using Nucleus.Clips.Games;
+using Nucleus.Shared.Games;
 using Nucleus.Test.Helpers;
 using Nucleus.Test.TestFixtures;
 

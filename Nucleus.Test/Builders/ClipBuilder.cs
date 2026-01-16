@@ -1,6 +1,6 @@
-using Nucleus.ApexLegends.Models;
-using Nucleus.Clips;
+using Nucleus.Clips.ApexLegends.Models;
 using Nucleus.Clips.Bunny.Models;
+using Nucleus.Clips.Core.Models;
 
 namespace Nucleus.Test.Builders;
 

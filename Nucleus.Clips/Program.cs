@@ -233,5 +233,5 @@ internal static class BuilderExtensions
     }
 }
 
-// Keep Program class internal to avoid conflicts with other projects
-internal partial class Program { }
+// Make Program class public for test access (in global namespace for WebApplicationFactory)
+public partial class Program { }

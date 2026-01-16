@@ -2,7 +2,7 @@ using Microsoft.Extensions.Configuration;
 using Nucleus.Clips.Bunny;
 using Nucleus.Clips.Bunny.Models;
 
-namespace Nucleus.Test.TestFixtures;
+namespace Nucleus.Clips.Test.TestFixtures;
 
 /// <summary>
 /// Mock implementation of BunnyService for testing.

@@ -5,10 +5,10 @@ using FluentAssertions;
 using Npgsql;
 using Nucleus.Clips.Games;
 using Nucleus.Shared.Games;
-using Nucleus.Test.Helpers;
-using Nucleus.Test.TestFixtures;
+using Nucleus.Clips.Test.Helpers;
+using Nucleus.Clips.Test.TestFixtures;
 
-namespace Nucleus.Test.Games;
+namespace Nucleus.Clips.Test.Games;
 
 /// <summary>
 ///     Tests for Game Category API endpoints.

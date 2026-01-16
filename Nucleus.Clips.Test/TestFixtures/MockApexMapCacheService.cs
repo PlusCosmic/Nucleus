@@ -1,7 +1,7 @@
 using Nucleus.Clips.ApexLegends;
 using Nucleus.Clips.ApexLegends.Models;
 
-namespace Nucleus.Test.TestFixtures;
+namespace Nucleus.Clips.Test.TestFixtures;
 
 /// <summary>
 ///     Mock implementation of IApexMapCacheService for testing.

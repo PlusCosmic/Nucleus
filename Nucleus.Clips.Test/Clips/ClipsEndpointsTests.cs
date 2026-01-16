@@ -5,10 +5,10 @@ using Npgsql;
 using Nucleus.Clips.Core.Models;
 using Nucleus.Clips.Games;
 using Nucleus.Shared.Games;
-using Nucleus.Test.Helpers;
-using Nucleus.Test.TestFixtures;
+using Nucleus.Clips.Test.Helpers;
+using Nucleus.Clips.Test.TestFixtures;
 
-namespace Nucleus.Test.Clips;
+namespace Nucleus.Clips.Test.Clips;
 
 /// <summary>
 ///     Tests for Clips API endpoints.

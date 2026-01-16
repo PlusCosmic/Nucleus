@@ -6,19 +6,10 @@ using Microsoft.AspNetCore.Http.Json;
 using Microsoft.OpenApi;
 using MongoDB.Driver;
 using Npgsql;
-using Nucleus.ApexLegends;
-using Nucleus.ApexLegends.LegendDetection;
-using Nucleus.Clips;
-using Nucleus.Clips.Bunny;
-using Nucleus.Clips.FFmpeg;
 using Nucleus.Discord;
-using Nucleus.Games;
-using Nucleus.Dropzone;
 using Nucleus.Exceptions;
 using Nucleus.Links;
 using Nucleus.Auth;
-using Nucleus.Minecraft;
-using Nucleus.Minecraft.Models;
 using StackExchange.Redis;
 
 namespace Nucleus;
@@ -46,39 +37,12 @@ public static class BuilderRegistry
             });
         });
         builder.Services.AddHttpClient();
-        builder.Services.AddScoped<ClipsStatements>();
-        builder.Services.AddScoped<ClipsBackfillStatements>();
-        builder.Services.AddScoped<ApexStatements>();
         builder.Services.AddScoped<LinksStatements>();
         builder.Services.AddScoped<DiscordStatements>();
-        builder.Services.AddScoped<PlaylistStatements>();
-        builder.Services.AddScoped<GameCategoryStatements>();
-        builder.Services.AddScoped<MinecraftStatements>();
-        builder.Services.AddScoped<MapService>();
         builder.Services.AddScoped<LinksService>();
-        builder.Services.AddScoped<ClipService>();
-        builder.Services.AddScoped<ClipsBackfillService>();
-        builder.Services.AddScoped<BunnyService>();
-        builder.Services.AddScoped<FFmpegService>();
-        builder.Services.AddScoped<PlaylistService>();
-        builder.Services.AddScoped<IgdbService>();
-        builder.Services.AddScoped<GameCategoryService>();
         builder.Services.AddScoped<DiscordBotService>();
         builder.Services.AddSingleton<WhitelistService>();
-        builder.Services.AddSingleton<DiscordRoleMapping>();
-        builder.Services.AddSingleton<RconService>();
-        builder.Services.AddSingleton<DockerContainerService>();
-        builder.Services.AddScoped<MinecraftStatusService>();
-        builder.Services.AddScoped<FileService>();
-        builder.Services.AddSingleton<LogTailerService>();
-        builder.Services.AddScoped<ConsoleWebSocketHandler>();
-        builder.Services.AddScoped<BackupService>();
-        builder.Services.AddHostedService<BackupSyncBackgroundService>();
-        builder.Services.AddScoped<IApexMapCacheService, ApexMapCacheService>();
-        builder.Services.AddScoped<IApexDetectionQueueService, ApexDetectionQueueService>();
-        builder.Services.AddHostedService<MapRefreshService>();
-        builder.Services.AddHostedService<ApexDetectionBackgroundService>();
-        builder.Services.AddHostedService<ClipStatusRefreshService>();
+        builder.Services.AddSingleton<Nucleus.Shared.Discord.DiscordRoleMapping>();
         builder.Services.AddHostedService<DiscordBotHostedService>();
         builder.Services.AddHostedService<GuildMemberSyncService>();
         builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
@@ -139,11 +103,9 @@ public static class BuilderRegistry
 
         builder.Services.AddSingleton<MongoClient>(_ => new MongoClient(mongoConnectionString));
         builder.Services.AddSingleton<IMongoDatabase>(provider => provider.GetRequiredService<MongoClient>().GetDatabase("dropzone"));
-        builder.Services.AddSingleton<IMongoCollection<ShareGroup>>(provider => provider.GetRequiredService<IMongoDatabase>().GetCollection<ShareGroup>("share-groups"));
 
         NpgsqlDataSourceBuilder dataSourceBuilder = new(connectionString ??
             "Host=localhost;Database=nucleus_db;Username=nucleus_user;Password=dummy");
-        dataSourceBuilder.MapEnum<MinecraftServerType>("minecraft_server_type");
         NpgsqlDataSource dataSource = dataSourceBuilder.Build();
 
         builder.Services.AddSingleton(dataSource);

@@ -1,10 +1,12 @@
 using Nucleus.Auth;
+using SharedDiscordRoleMapping = Nucleus.Shared.Discord.DiscordRoleMapping;
+using SharedUserRole = Nucleus.Shared.Auth.UserRole;
 
 namespace Nucleus.Discord;
 
 public class GuildMemberSyncService(
     DiscordBotService discordBotService,
-    DiscordRoleMapping roleMapping,
+    SharedDiscordRoleMapping roleMapping,
     WhitelistService whitelistService,
     IServiceScopeFactory serviceScopeFactory,
     ILogger<GuildMemberSyncService> logger) : BackgroundService
@@ -82,8 +84,10 @@ public class GuildMemberSyncService(
                 continue;
 
             // Map Discord roles to Nucleus role
-            var discordRole = roleMapping.GetRoleForDiscordRoles(member.DiscordRoleIds);
-            var targetRole = discordRole ?? UserRole.Viewer;
+            SharedUserRole? discordRole = roleMapping.GetRoleForDiscordRoles(member.DiscordRoleIds);
+            UserRole targetRole = discordRole.HasValue
+                ? (UserRole)(int)discordRole.Value
+                : UserRole.Viewer;
 
             // Only update if the role has changed
             if (!Enum.TryParse<UserRole>(user.Role, ignoreCase: true, out var currentRole) ||
@@ -125,8 +129,10 @@ public class GuildMemberSyncService(
             return;
         }
 
-        var discordRole = roleMapping.GetRoleForDiscordRoles(discordRoleIds);
-        var targetRole = discordRole ?? UserRole.Viewer;
+        SharedUserRole? discordRole = roleMapping.GetRoleForDiscordRoles(discordRoleIds);
+        UserRole targetRole = discordRole.HasValue
+            ? (UserRole)(int)discordRole.Value
+            : UserRole.Viewer;
 
         if (!Enum.TryParse<UserRole>(user.Role, ignoreCase: true, out var currentRole) ||
             currentRole != targetRole)

@@ -12,7 +12,7 @@ using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Primitives;
 using Microsoft.VisualStudio.TestPlatform.TestHost;
 using Npgsql;
-using Nucleus.ApexLegends;
+using Nucleus.Clips.ApexLegends;
 using Nucleus.Clips.Bunny;
 using Testcontainers.PostgreSql;
 

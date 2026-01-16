@@ -1,5 +1,5 @@
-using Nucleus.ApexLegends;
-using Nucleus.ApexLegends.Models;
+using Nucleus.Clips.ApexLegends;
+using Nucleus.Clips.ApexLegends.Models;
 
 namespace Nucleus.Test.TestFixtures;
 

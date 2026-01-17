@@ -26,6 +26,7 @@
         <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" Version="10.0.0-preview.7.25380.108"/>
         <PackageReference Include="Bogus" Version="35.6.1"/>
         <PackageReference Include="WireMock.Net" Version="1.21.0"/>
+        <PackageReference Include="Evolve" Version="3.2.0"/>
     </ItemGroup>
 
     <ItemGroup>

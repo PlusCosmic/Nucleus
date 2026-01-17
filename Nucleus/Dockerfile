@@ -9,9 +9,11 @@ ARG BUILD_CONFIGURATION=Release
 WORKDIR /src
 # Copy project files for restore (leverages Docker layer caching)
 COPY ["Nucleus/Nucleus.csproj", "Nucleus/"]
+COPY ["Nucleus.Shared/Nucleus.Shared.csproj", "Nucleus.Shared/"]
 RUN dotnet restore "Nucleus/Nucleus.csproj"
 # Copy all source code
 COPY ["Nucleus/", "Nucleus/"]
+COPY ["Nucleus.Shared/", "Nucleus.Shared/"]
 # Build
 WORKDIR "/src/Nucleus"
 RUN dotnet build "Nucleus.csproj" -c $BUILD_CONFIGURATION -o /app/build

@@ -1,5 +1,5 @@
 using Microsoft.AspNetCore.Http.HttpResults;
-using Nucleus.Auth;
+using Nucleus.Shared.Auth;
 
 namespace Nucleus.Discord;
 

@@ -5,8 +5,8 @@ services:
       dockerfile: Nucleus.Clips/Dockerfile
     container_name: nucleus-clips
     restart: unless-stopped
-    ports:
-      - "8080:8080"
+    expose:
+      - "8080"
     environment:
       # Core ASP.NET
       ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT}

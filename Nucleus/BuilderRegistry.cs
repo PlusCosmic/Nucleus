@@ -39,6 +39,7 @@ public static class BuilderRegistry
         builder.Services.AddHttpClient();
         builder.Services.AddScoped<LinksStatements>();
         builder.Services.AddScoped<DiscordStatements>();
+        builder.Services.AddScoped<Nucleus.Shared.Discord.DiscordStatements>();
         builder.Services.AddScoped<LinksService>();
         builder.Services.AddScoped<DiscordBotService>();
         builder.Services.AddSingleton<WhitelistService>();

@@ -20,8 +20,10 @@ public class WhitelistMiddleware
         _next = next;
         _whitelistService = whitelistService;
         _logger = logger;
+
+        string[] defaultBypassPaths = ["/health", "/auth", "/webhooks", "/apex-legends"];
         _bypassPaths = new HashSet<string>(
-            bypassPaths ?? ["/health", "/auth", "/webhooks", "/apex-legends"],
+            bypassPaths?.Any() == true ? bypassPaths : defaultBypassPaths,
             StringComparer.OrdinalIgnoreCase);
     }
 

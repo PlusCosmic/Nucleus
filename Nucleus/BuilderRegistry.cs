@@ -9,7 +9,7 @@ using Npgsql;
 using Nucleus.Discord;
 using Nucleus.Exceptions;
 using Nucleus.Links;
-using Nucleus.Auth;
+using Nucleus.Shared.Auth;
 using StackExchange.Redis;
 
 namespace Nucleus;

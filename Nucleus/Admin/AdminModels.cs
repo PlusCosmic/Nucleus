@@ -1,4 +1,4 @@
-using Nucleus.Auth;
+using Nucleus.Shared.Auth;
 
 namespace Nucleus.Admin;
 

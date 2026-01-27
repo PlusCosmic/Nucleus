@@ -21,6 +21,15 @@ public static class Permissions
     public const string PlaylistsRead = "playlists.read";
     public const string PlaylistsManage = "playlists.manage";
 
+    // Links permissions
+    public const string LinksRead = "links.read";
+    public const string LinksManage = "links.manage";
+
+    // Minecraft permissions
+    public const string MinecraftStatus = "minecraft.status";
+    public const string MinecraftConsole = "minecraft.console";
+    public const string MinecraftFiles = "minecraft.files";
+
     // Admin permissions
     public const string AdminUsers = "admin.users";
 
@@ -30,8 +39,24 @@ public static class Permissions
     /// </summary>
     private static readonly Dictionary<UserRole, HashSet<string>> _roleDefaults = new()
     {
-        [UserRole.Viewer] = [],
-        [UserRole.Editor] = [],
+        [UserRole.Viewer] =
+        [
+            ClipsRead,
+            PlaylistsRead,
+            LinksRead,
+            MinecraftStatus
+        ],
+        [UserRole.Editor] =
+        [
+            ClipsRead,
+            PlaylistsRead,
+            LinksRead,
+            MinecraftStatus,
+            ClipsCreate,
+            ClipsEdit,
+            PlaylistsManage,
+            LinksManage
+        ],
         [UserRole.Admin] = [All]
     };
 

@@ -1,4 +1,4 @@
-using Nucleus.Auth;
+using Nucleus.Shared.Auth;
 using SharedDiscordRoleMapping = Nucleus.Shared.Discord.DiscordRoleMapping;
 using SharedUserRole = Nucleus.Shared.Auth.UserRole;
 

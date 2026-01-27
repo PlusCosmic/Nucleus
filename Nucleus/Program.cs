@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.StaticFiles;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Nucleus;
 using Nucleus.Auth;
+using Nucleus.Shared.Auth;
 using Nucleus.db;
 
 DefaultTypeMap.MatchNamesWithUnderscores = true;

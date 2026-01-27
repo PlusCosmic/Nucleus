@@ -9,7 +9,7 @@ using Npgsql;
 using Nucleus.Discord;
 using Nucleus.Exceptions;
 using Nucleus.Links;
-using Nucleus.Auth;
+using Nucleus.Shared.Auth;
 using StackExchange.Redis;
 
 namespace Nucleus;
@@ -39,6 +39,7 @@ public static class BuilderRegistry
         builder.Services.AddHttpClient();
         builder.Services.AddScoped<LinksStatements>();
         builder.Services.AddScoped<DiscordStatements>();
+        builder.Services.AddScoped<Nucleus.Shared.Discord.DiscordStatements>();
         builder.Services.AddScoped<LinksService>();
         builder.Services.AddScoped<DiscordBotService>();
         builder.Services.AddSingleton<WhitelistService>();

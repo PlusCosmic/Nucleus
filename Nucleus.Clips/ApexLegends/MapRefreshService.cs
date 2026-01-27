@@ -9,11 +9,16 @@ public class MapRefreshService(
     HttpClient httpClient)
     : BackgroundService
 {
-    private readonly string _mapUrl =
-        $"https://api.mozambiquehe.re/maprotation?version=2&auth={configuration["ApexLegendsApiKey"] ?? throw new InvalidOperationException("API key not configured")}";
+    private readonly string? _apiKey = configuration["ApexLegendsApiKey"];
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
+        if (string.IsNullOrEmpty(_apiKey))
+        {
+            logger.LogWarning("ApexLegendsApiKey not configured - map refresh service disabled");
+            return;
+        }
+
         using PeriodicTimer timer = new(TimeSpan.FromMinutes(5));
         await RefreshMapsAsync();
         while (await timer.WaitForNextTickAsync(stoppingToken))
@@ -28,7 +33,8 @@ public class MapRefreshService(
 
         try
         {
-            HttpResponseMessage mapRotation = await httpClient.GetAsync(_mapUrl);
+            string mapUrl = $"https://api.mozambiquehe.re/maprotation?version=2&auth={_apiKey}";
+            HttpResponseMessage mapRotation = await httpClient.GetAsync(mapUrl);
             if (!mapRotation.IsSuccessStatusCode)
             {
                 logger.LogError("Failed to refresh map rotation: HTTP {StatusCode}", mapRotation.StatusCode);

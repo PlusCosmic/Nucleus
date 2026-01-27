@@ -9,6 +9,7 @@ using Microsoft.AspNetCore.Authentication.OAuth;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.Http.Json;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
+using Microsoft.OpenApi;
 using Npgsql;
 using Nucleus.Clips.ApexLegends;
 using Nucleus.Clips.ApexLegends.LegendDetection;
@@ -47,6 +48,7 @@ app.MapBunnyWebhookEndpoints();
 app.MapGameCategoryEndpoints();
 app.MapApexEndpoints();
 app.MapApexDetectionEndpoints();
+app.MapOpenApi();
 
 app.MapHealthChecks("/health", new HealthCheckOptions
 {
@@ -66,6 +68,24 @@ internal static class BuilderExtensions
 {
     public static void RegisterServices(this WebApplicationBuilder builder)
     {
+        builder.Services.AddOpenApi(options =>
+        {
+            // Fix for OpenAPI 3.1 nullable type arrays that break typescript-fetch generator.
+            // When a schema has type: ["null", "object"], the generator incorrectly creates
+            // references to a non-existent "Null" type. This transformer removes the Null flag
+            // from schema definitions so they generate as pure object types.
+            options.AddSchemaTransformer((schema, context, cancellationToken) =>
+            {
+                if (schema.Type.HasValue &&
+                    schema.Type.Value.HasFlag(JsonSchemaType.Null) &&
+                    schema.Type.Value.HasFlag(JsonSchemaType.Object))
+                {
+                    schema.Type = JsonSchemaType.Object;
+                }
+
+                return Task.CompletedTask;
+            });
+        });
         builder.Services.AddHttpClient();
         builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
         builder.Services.AddProblemDetails();

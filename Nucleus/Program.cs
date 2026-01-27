@@ -46,7 +46,7 @@ app.MapHealthChecks("/health", new HealthCheckOptions
         [HealthStatus.Degraded] = StatusCodes.Status200OK,
         [HealthStatus.Unhealthy] = StatusCodes.Status503ServiceUnavailable
     }
-});
+}).AllowAnonymous();
 
 app.Run();
 

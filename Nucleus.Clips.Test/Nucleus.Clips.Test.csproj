@@ -37,6 +37,66 @@
     </ItemGroup>
 
     <ItemGroup>
+        <Content Include="..\Nucleus.Core\db\migrations\V10__add_minecraft_tables.sql">
+          <Link>db\migrations\V10__add_minecraft_tables.sql</Link>
+          <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+        </Content>
+        <Content Include="..\Nucleus.Core\db\migrations\V11__add_roles_and_permissions.sql">
+          <Link>db\migrations\V11__add_roles_and_permissions.sql</Link>
+          <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+        </Content>
+        <Content Include="..\Nucleus.Core\db\migrations\V12__add_minecraft_server_table.sql">
+          <Link>db\migrations\V12__add_minecraft_server_table.sql</Link>
+          <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+        </Content>
+        <Content Include="..\Nucleus.Core\db\migrations\V13__add_minecraft_provisioning_columns.sql">
+          <Link>db\migrations\V13__add_minecraft_provisioning_columns.sql</Link>
+          <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+        </Content>
+        <Content Include="..\Nucleus.Core\db\migrations\V14__seed_existing_minecraft_server.sql">
+          <Link>db\migrations\V14__seed_existing_minecraft_server.sql</Link>
+          <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+        </Content>
+        <Content Include="..\Nucleus.Core\db\migrations\V15__add_game_categories.sql">
+          <Link>db\migrations\V15__add_game_categories.sql</Link>
+          <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+        </Content>
+        <Content Include="..\Nucleus.Core\db\migrations\V1__baseline_schema.sql">
+          <Link>db\migrations\V1__baseline_schema.sql</Link>
+          <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+        </Content>
+        <Content Include="..\Nucleus.Core\db\migrations\V2__drop_ef_migrations_history.sql">
+          <Link>db\migrations\V2__drop_ef_migrations_history.sql</Link>
+          <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+        </Content>
+        <Content Include="..\Nucleus.Core\db\migrations\V3__add_global_name.sql">
+          <Link>db\migrations\V3__add_global_name.sql</Link>
+          <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+        </Content>
+        <Content Include="..\Nucleus.Core\db\migrations\V4__add_clip_created_at.sql">
+          <Link>db\migrations\V4__add_clip_created_at.sql</Link>
+          <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+        </Content>
+        <Content Include="..\Nucleus.Core\db\migrations\V5__add_detection_tables.sql">
+          <Link>db\migrations\V5__add_detection_tables.sql</Link>
+          <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+        </Content>
+        <Content Include="..\Nucleus.Core\db\migrations\V6__add_video_metadata.sql">
+          <Link>db\migrations\V6__add_video_metadata.sql</Link>
+          <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+        </Content>
+        <Content Include="..\Nucleus.Core\db\migrations\V7__drop_apex_map_rotation_table.sql">
+          <Link>db\migrations\V7__drop_apex_map_rotation_table.sql</Link>
+          <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+        </Content>
+        <Content Include="..\Nucleus.Core\db\migrations\V8__add_playlists.sql">
+          <Link>db\migrations\V8__add_playlists.sql</Link>
+          <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+        </Content>
+        <Content Include="..\Nucleus.Core\db\migrations\V9__add_preference_to_discord_user.sql">
+          <Link>db\migrations\V9__add_preference_to_discord_user.sql</Link>
+          <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+        </Content>
         <Content Include="..\Nucleus\db\migrations\**\*">
             <Link>db/migrations/%(RecursiveDir)%(Filename)%(Extension)</Link>
             <CopyToOutputDirectory>Always</CopyToOutputDirectory>

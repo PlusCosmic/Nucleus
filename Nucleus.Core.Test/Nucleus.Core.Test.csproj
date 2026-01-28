@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
         <TargetFramework>net10.0</TargetFramework>
@@ -6,6 +6,7 @@
         <Nullable>enable</Nullable>
         <IsPackable>false</IsPackable>
         <LangVersion>13</LangVersion>
+        <RootNamespace>Nucleus.Test</RootNamespace>
     </PropertyGroup>
 
     <ItemGroup>
@@ -13,6 +14,7 @@
             <PrivateAssets>all</PrivateAssets>
             <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
         </PackageReference>
+        <PackageReference Include="Microsoft.Build" Version="17.14.28"/>
         <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.0.0"/>
         <PackageReference Include="xunit" Version="2.9.3"/>
         <PackageReference Include="xunit.runner.visualstudio" Version="3.1.5">
@@ -24,6 +26,7 @@
         <PackageReference Include="Testcontainers.PostgreSql" Version="4.1.0"/>
         <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" Version="10.0.0-preview.7.25380.108"/>
         <PackageReference Include="Bogus" Version="35.6.1"/>
+        <PackageReference Include="WireMock.Net" Version="1.21.0"/>
         <PackageReference Include="Evolve" Version="3.2.0"/>
     </ItemGroup>
 
@@ -32,8 +35,7 @@
     </ItemGroup>
 
     <ItemGroup>
-        <ProjectReference Include="..\Nucleus.Clips\Nucleus.Clips.csproj"/>
-        <ProjectReference Include="..\Nucleus.Shared\Nucleus.Shared.csproj"/>
+        <ProjectReference Include="..\Nucleus.Core\Nucleus.Core.csproj" />
     </ItemGroup>
 
     <ItemGroup>

@@ -1,8 +1,8 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Nucleus", "Nucleus\Nucleus.csproj", "{C978C6D6-E26F-436A-AF27-A37303631B36}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Nucleus.Core", "Nucleus.Core\Nucleus.Core.csproj", "{C978C6D6-E26F-436A-AF27-A37303631B36}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Nucleus.Test", "Nucleus.Test\Nucleus.Test.csproj", "{C3570ABE-01BD-4E63-A4EC-A5FC0F5CC21D}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Nucleus.Core.Test", "Nucleus.Core.Test\Nucleus.Core.Test.csproj", "{C3570ABE-01BD-4E63-A4EC-A5FC0F5CC21D}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{485C63E9-3AF2-4172-9FC4-750F5CA64C95}"
 	ProjectSection(SolutionItems) = preProject

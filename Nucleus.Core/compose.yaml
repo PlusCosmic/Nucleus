@@ -2,7 +2,7 @@ services:
   nucleus:
     build:
       context: ..
-      dockerfile: Dockerfile
+      dockerfile: Nucleus.Core\Dockerfile
     container_name: nucleus
     restart: unless-stopped
     expose:

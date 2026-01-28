@@ -15,6 +15,7 @@
         <OpenApiGenerateDocuments>true</OpenApiGenerateDocuments>
         <OpenApiDocumentsDirectory>$(MSBuildProjectDirectory)\bin\$(Configuration)\$(TargetFramework)</OpenApiDocumentsDirectory>
         <OpenApiGenerateDocumentsOnBuild>true</OpenApiGenerateDocumentsOnBuild>
+        <RootNamespace>Nucleus</RootNamespace>
     </PropertyGroup>
 
     <ItemGroup>

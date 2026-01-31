@@ -1,3 +1,5 @@
+## Archived - Merged into plus-cosmic-dev
+
 # Nucleus
 
 A backend API and service layer built with ASP.NET Core, powering various web applications with shared functionality and background services.
